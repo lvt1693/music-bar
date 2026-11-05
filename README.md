@@ -2,48 +2,16 @@
 
 Thanh taskbar nằm im ba mươi năm rồi. Cho nó hát đi.
 
-**Tải về:** [bản cài đặt](https://github.com/lvt1693/music-bar/releases/latest/download/MusicBar-1.6.1-Setup.exe)
-hoặc [bản portable](https://github.com/lvt1693/music-bar/releases/latest/download/MusicBar-1.6.1-portable.zip)
+**Tải về:** [bản cài đặt](https://github.com/lvt1693/music-bar/releases/latest/download/MusicBar-1.7.0-Setup.exe)
+hoặc [bản portable](https://github.com/lvt1693/music-bar/releases/latest/download/MusicBar-1.7.0-portable.zip)
 (Windows 10 2004 trở lên hoặc Windows 11, 64-bit, không cần cài .NET).
 
 **Hướng dẫn dùng:** [wiki tiếng Việt](https://github.com/lvt1693/music-bar/wiki), có ảnh từng tab cài
 đặt và phần hỏi đáp.
 
-- [x] **04/11** Bản 1.0 lên GitHub: 14 bộ áo cho thanh tiến trình, karaoke đủ dấu, taskbar
-  Windows 11 trong suốt, trung tâm điều khiển riêng, installer, bản portable và một video
-  giới thiệu có taskbar biết ngáp.
-- [x] **04/11** Bản 1.1: bảy kiểu nút ⏮ ⏯ ⏭ (có cả đĩa than xoay và phím cassette), giao
-  diện tiếng Anh mặc định với tiếng Việt chỉ cách một cú bấm, bản cài nhẹ RAM hơn hẳn
-  (143 MB xuống còn khoảng 58 MB), và vài chỗ chỉnh cho Windows 10.
-- [x] **04/11** Bản 1.1.1: hết cảnh widget nhảy vào góc đè lên khay mỗi khi mở Quick Settings
-  của Windows (lúc Control Center của MusicBar đang tắt).
-- [x] **04/11** Bản 1.2: taskbar dọc (lời bài hát xếp mỗi chữ một dòng), nhiều màn hình (hết
-  mờ nhòe ở màn phụ, chọn màn riêng cho thanh tiến trình và cho trình phát), 4 hướng chạy của
-  thanh tiến trình, chế độ tối giản, danh sách Wi-Fi và Bluetooth ngay trong Control Center, và
-  trang cài đặt sắp xếp lại cho dễ tìm.
-- [x] **04/11** Bản 1.3: cái mặt trong video giới thiệu dọn lên ở hẳn trên taskbar (8 kiểu mặt,
-  nhún theo nhạc, ngủ gật về đêm, bấm, xoa, cuộn chuột là nó phản ứng), nền taskbar sáng cho
-  Windows chế độ sáng, Control Center không còn tràn khỏi màn hình khi nhiều thông báo.
-- [x] **04/11** Bản 1.4: app tự báo khi có bản mới (từ giờ khỏi lên GitHub tải tay), bảng lời
-  cả bài (bấm dòng nào phát từ dòng đó, tìm lyrics khác khi sai bài), phiên âm bài Hàn / Nhật /
-  Trung, tìm lyrics cho title YouTube dài ngoằng tốt hơn hẳn, tổng kết năm âm nhạc kiểu Wrapped,
-  và cái mặt được trả lại cái mic, thêm mũ kính, đổi mũ theo mùa lễ, hẹn giờ Pomodoro, biết đi
-  dạo và để ý cái máy. Xóa tất cả thông báo giờ xóa thật.
-- [x] **05/11** Bản 1.5: karaoke chạy đúng từng chữ với bài có dữ liệu từng chữ trên LRCLIB, gửi lời
-  (hoặc bản đã chỉnh giờ) lên LRCLIB ngay trong app, NetEase làm nguồn lời dự phòng (tự bật),
-  tìm lyrics phải đúng nghệ sĩ nên hết nhầm bài trùng tên, lăn chuột trên nút loa hoặc trong
-  Control Center để chỉnh âm lượng, thanh tiến trình vẫn trôi nhẹ khi tạm dừng.
-- [x] **05/11** Bản 1.6: 6 visualizer chỉ nhảy theo nhạc (cột sóng, dao động, chân trời, hào quang,
-  đom đóm, đèn LED), bảng màu riêng cho từng kiểu, **skin tự làm** bằng shader (nhờ AI viết cũng
-  được, có [hướng dẫn](docs/skins.md)), **mặt của bạn** bằng ảnh / GIF / WebP cho từng tâm trạng,
-  thanh độ sáng màn hình trong Control Center, Win + A mở Control Center của MusicBar. Sửa: trình
-  phát lệch lên trên ở taskbar 48 px, rê chuột lên video YouTube bị tưởng là đổi bài, thẻ bài hát
-  biến mất trước khi kịp tua, karaoke trôi chậm hơn lời hát, số lệch lời hiểu ngược, tự ẩn hoài vì
-  tưởng đang toàn màn hình (bỏ hẳn tùy chọn này, giờ chỉ nhường chỗ khi taskbar bị che thật), màn
-  phụ không hiện tên bài, tắt app mà taskbar không về như cũ.
-- [x] **05/11** Bản 1.6.1: tùy chọn **Chỉ chạy ở chỗ trống**, thanh tiến trình và visualizer né các
-  icon của Windows, chạy nối qua các khoảng trống. Sửa: lời đứng ở dòng cuối khi lặp lại bài với
-  vài trình phát, nút Control Center nổi đè lên game toàn màn hình.
+**Có gì mới:** bản 1.7 thêm **dải LED RGB** với 10 hiệu ứng kiểu dải LED gaming nhảy theo nhạc,
+thư viện kiểu gọn lại trong 4 tab, và gỡ cài đặt là trả Windows về như trước khi có MusicBar.
+Từng bản có gì xem ở [CHANGELOG](CHANGELOG.md).
 
 Thấy MusicBar hữu ích, muốn mời mình ly cà phê thì quét mã này nhé (VPBank · 178971468 · LE VAN TRUC).
 
@@ -67,8 +35,10 @@ Media Player, Apple Music… Không có nhạc thì nó lặn mất, taskbar v�
   giữa. Không thích nó chạy qua các icon thì bật **Chỉ chạy ở chỗ trống**: thanh né Start, icon
   ứng dụng và khay hệ thống, chạy nối từ khoảng trống này sang khoảng trống kia, mép mờ dần
   cạnh icon.
-- **Hoặc một visualizer thay cho thanh tiến trình:** 6 kiểu chỉ nhảy theo nhạc, 60 khung / giây.
-  Mỗi kiểu nhớ bảng màu riêng, và tự làm skin được (chi tiết ở dưới).
+- **Hoặc một visualizer thay cho thanh tiến trình:** 6 kiểu chỉ nhảy theo nhạc, 60 khung / giây,
+  và 10 hiệu ứng **dải LED RGB** như dải LED gaming dán dưới màn hình. Mỗi kiểu nhớ bảng màu
+  riêng, và tự làm skin được (chi tiết ở dưới). Trong cài đặt chúng nằm gọn trong 4 tab: Thanh
+  tiến trình, Visualizer, Dải LED RGB, Skin; rê chuột lên ô nào thì dòng bên dưới tả ô đó.
 - **Taskbar nằm đâu cũng chạy:** dưới, trên, hay dựng dọc bên trái / bên phải. Taskbar dọc thì
   thanh tiến trình chạy từ dưới lên, ảnh bìa và nút ⏮ ⏯ ⏭ xếp chồng, lời bài hát hiện mỗi chữ
   một dòng, còn thẻ bài hát và Control Center mở sang bên cạnh.
@@ -156,6 +126,27 @@ Không cần biết bài tới đâu, chỉ muốn taskbar nhảy theo nhạc? C
 | Đom đóm | Đốm sáng bay lên từ mép màn hình, nhạc càng to càng nhiều, bùng lên theo từng nhịp |
 | Đèn LED | Phổ âm bằng ma trận đèn, từ mát đến nóng, có vạch đỉnh |
 
+### Dải LED RGB
+
+Một dải đèn chạy dọc mép màn hình, ánh sáng tỏa mềm lên taskbar như dải LED có tấm khuếch tán,
+hiệu ứng như bộ điều khiển LED gaming nhưng nhảy theo nhạc:
+
+| Hiệu ứng | Trông ra sao |
+| --- | --- |
+| Cầu vồng | Cầu vồng chạy dọc dải đèn, nhạc càng dồn càng nhanh, càng sáng |
+| Phổ cầu vồng | Mỗi đoạn đèn là một dải tần: bass đỏ ở giữa, treble tím ra hai đầu |
+| Nhịp thở | Cả dải thở theo nhạc, đổi dần qua ba màu của bảng màu |
+| Gợn sóng | Mỗi nhịp trống thả một gợn sóng lan ra dọc dải |
+| Đèn quét | Một con mắt sáng quét qua lại để vệt mờ dần, nhạc to thì quét nhanh |
+| Sao lấp lánh | Đèn lấp lánh ngẫu nhiên, đoạn nhạc to thì dày hơn, tới nhịp thì rộ lên |
+| Lửa | Lửa bập bùng dọc dải, tiếng bass làm tóe lửa |
+| Sao băng | Mỗi nhịp một vệt sao băng lao ngang, đuôi lấp lánh tắt dần |
+| Đèn chạy | Những dải sáng ba màu đuổi nhau, tới nhịp thì vọt lên |
+| Đồng hồ VU | Xanh, vàng rồi đỏ từ giữa ra hai bên theo độ to, có vạch đỉnh |
+
+Cầu vồng, phổ cầu vồng, lửa và đồng hồ VU có màu riêng của chúng; các hiệu ứng còn lại theo bảng
+màu bạn chọn.
+
 ### Bảng màu
 
 Mỗi kiểu (cả visualizer và skin) nhớ màu riêng: **Theo bài hát** (mặc định), một trong 11 bảng
@@ -173,11 +164,18 @@ sẵn câu lệnh để dán.
 
 ## Cài
 
-- **Bản cài đặt** (`MusicBar-1.6.1-Setup.exe`): cài cho riêng tài khoản của bạn vào
+- **Bản cài đặt** (`MusicBar-1.7.0-Setup.exe`): cài cho riêng tài khoản của bạn vào
   `%LOCALAPPDATA%\Programs\MusicBar`, không hỏi quyền admin, có mục trong Start và gỡ được
   trong Cài đặt → Ứng dụng. Cài đè hay gỡ đi thì MusicBar được báo thoát trước, để trả taskbar
   và khay về đúng như Windows sắp xếp.
-- **Bản portable** (`MusicBar-1.6.1-portable.zip`): giải nén ra đâu cũng được, chạy
+- **Gỡ là trả lại như cũ:** lần đầu chạy, trước khi đụng vào gì, MusicBar ghi lại Windows đang
+  thế nào (chế độ sáng / tối của taskbar, cỡ taskbar, căn giữa hay căn trái, kiểu taskbar của
+  ExplorerPatcher) vào `%LOCALAPPDATA%\MusicBar\windows-before.json`. Gỡ cài đặt thì cái nào
+  MusicBar đã đổi được trả về như ban đầu, trừ khi sau đó bạn tự đổi lại (khi ấy lựa chọn của bạn
+  được giữ). Thoát app bình thường thì chỉ trả những gì MusicBar giữ lúc đang chạy (taskbar trong
+  suốt, khay gộp, chế độ sáng / tối nó tự đổi); cỡ và kiểu căn taskbar bạn chọn trong MusicBar vẫn
+  để nguyên vì đó là lựa chọn của bạn.
+- **Bản portable** (`MusicBar-1.7.0-portable.zip`): giải nén ra đâu cũng được, chạy
   `MusicBar.exe`.
 
 **Cập nhật:** từ bản 1.4, MusicBar tự xem GitHub mỗi lần chạy (và mỗi ngày một lần khi đang
@@ -357,7 +355,7 @@ C++") cho module taskbar Windows 11.
 ```powershell
 dotnet build src/MusicBar/MusicBar.csproj
 dotnet run --project src/MusicBar -- --demo
-.\installer\build.ps1 -Version 1.6.1     # ra artifacts\: Setup.exe (Inno Setup 6) và portable.zip
+.\installer\build.ps1 -Version 1.7.0     # ra artifacts\: Setup.exe (Inno Setup 6) và portable.zip
 ```
 
 ## Bên trong
@@ -504,6 +502,12 @@ fully usable) and adds:
   you can hand it to an AI and get a skin back;
 - an option to keep the bar clear of Windows' icons, running on through the empty stretches
   between them;
+- an RGB LED strip with ten gaming-style effects driven by the music (rainbow, rainbow
+  spectrum, breathing, ripple, scanner, starlight, fire, meteors, marquee, VU meter), its light
+  diffused softly over the taskbar;
+- a clean uninstall: at its very first start MusicBar records the Windows settings it can change
+  (taskbar mode, size, alignment, ExplorerPatcher style), and uninstalling puts back each one it
+  changed, unless you changed it again yourself;
 - a face of your own pictures (PNG, GIF or WebP, animated too), one per mood;
 - a brightness slider in the control center (laptop panels through WMI, monitors over DDC/CI), and
   Win + A opening MusicBar's control center.

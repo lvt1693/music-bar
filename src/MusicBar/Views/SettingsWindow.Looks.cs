@@ -15,45 +15,66 @@ using MusicBar.Services;
 namespace MusicBar.Views;
 
 /// <summary>
-/// The progress page's looks: the progress styles, the visualizers and the skins as live tiles,
-/// and the colors of the look that's on (the song's, a preset, or three picked by hand).
+/// The progress page's looks: the progress styles, the visualizers, the RGB LED strip and the skins
+/// as small live tiles, one group at a time behind tabs, and the colors of the look that's on (the
+/// song's, a preset, or three picked by hand).
 /// </summary>
 public partial class SettingsWindow
 {
+    enum LookGroup { Progress, Visualizer, Led, Skin }
+
     /// <summary>A tile in one of the galleries: a style (Skin null) or a skin, its live preview and its frame.</summary>
-    sealed record Look(SeekStyle Style, SkinInfo? Skin, Border Tile, SeekRenderer Engine, SkinView? Shader)
+    sealed record Look(LookGroup Group, SeekStyle Style, SkinInfo? Skin, Border Tile, SeekRenderer Engine, SkinView? Shader, string Name, string Description)
     {
         public string Key => Skin != null ? StylePalettes.KeyForSkin(Skin.File) : StylePalettes.KeyFor(Style);
     }
 
     readonly List<Look> _looks = [];
+    readonly List<(LookGroup Group, Border Tab, TextBlock Dot)> _lookTabs = [];
     readonly List<(string Value, Border Chip)> _paletteChips = [];
+    LookGroup _lookGroup;
+    Look? _hovered;
     Color _songA = ColorUtil.Brand, _songB = ColorUtil.Brand;
 
     void BuildLooks()
     {
         var (primary, secondary, art) = Overlay?.PreviewPalette() ?? DemoPalette();
         (_songA, _songB) = (primary, secondary);
-        foreach (var option in SettingsOptions.SeekStyles) SeekGallery.Children.Add(StyleTile(option, art));
-        foreach (var option in SettingsOptions.Visualizers) VisualizerGallery.Children.Add(StyleTile(option, art));
+        foreach (var option in SettingsOptions.SeekStyles) SeekGallery.Children.Add(StyleTile(LookGroup.Progress, option, art));
+        foreach (var option in SettingsOptions.Visualizers) VisualizerGallery.Children.Add(StyleTile(LookGroup.Visualizer, option, art));
+        foreach (var option in SettingsOptions.LedStrips) LedGallery.Children.Add(StyleTile(LookGroup.Led, option, art));
         BuildSkinTiles();
+        BuildLookTabs();
+        // As many columns as fit, so the tiles stay small however wide the window is.
+        SeekGallery.SizeChanged += (_, e) =>
+        {
+            int columns = Math.Clamp((int)((e.NewSize.Width + 8) / 176), 2, 6);
+            foreach (var grid in new[] { SeekGallery, VisualizerGallery, LedGallery, SkinGallery }) grid.Columns = columns;
+        };
         BuildPaletteChips();
+        ShowLookGroup(CurrentLookGroup());
         RefreshLooks();
     }
 
-    Border StyleTile(SeekStyleOption option, BitmapSource? art)
+    LookGroup CurrentLookGroup() =>
+        _s.Skin.Length > 0 ? LookGroup.Skin
+        : SeekRenderer.IsLedStrip(_s.SeekStyle) ? LookGroup.Led
+        : SeekRenderer.IsVisualizer(_s.SeekStyle) ? LookGroup.Visualizer
+        : LookGroup.Progress;
+
+    Border StyleTile(LookGroup group, SeekStyleOption option, BitmapSource? art)
     {
         var engine = new SeekRenderer { Look = option.Value, ClipToBounds = true, Intensity = _s.FillOpacity, Direction = _s.SeekDirection };
         engine.SetEdge(true);
         engine.SetArt(art);
         engine.SetTrack(option.Label);
         var value = option.Value;
-        var tile = Tile(engine, option.Label, option.Description, () =>
+        var tile = Tile(engine, option.Label, () =>
         {
             _s.SeekStyle = value;
             _s.Skin = "";
         });
-        _looks.Add(new Look(value, null, tile, engine, null));
+        _looks.Add(new Look(group, value, null, tile, engine, null, option.Label, option.Description));
         return tile;
     }
 
@@ -77,52 +98,138 @@ public partial class SettingsWindow
                 ? (skin.Description.Length > 0 ? skin.Description : Loc.T(skin.Visualizer ? "Set_Skin_KindVisualizer" : "Set_Skin_KindProgress"))
                   + (skin.Author.Length > 0 ? " · " + skin.Author : "")
                 : Loc.T("Set_Skin_Broken", skin.Error ?? "");
-            var tile = Tile(stage, skin.Name, description, () =>
+            var tile = Tile(stage, skin.Name, () =>
             {
                 if (skin.Works) _s.Skin = file;
             });
             AddDeleteButton(tile, skin);
             if (!skin.Works) tile.Opacity = 0.75;
-            _looks.Add(new Look(SeekStyle.Classic, skin, tile, engine, shader));
+            _looks.Add(new Look(LookGroup.Skin, SeekStyle.Classic, skin, tile, engine, shader, skin.Name, description));
             SkinGallery.Children.Add(tile);
         }
-        if (SkinGallery.Children.Count == 0)
-            SkinGallery.Children.Add(new TextBlock { Text = Loc.T("Set_Skin_None"), FontSize = 12, Opacity = 0.55, Margin = new Thickness(2, 0, 0, 8) });
+        SkinEmpty.Visibility = SkinGallery.Children.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        if (_lookTabs.Count > 0) BuildLookTabs();
     }
 
-    /// <summary>A gallery tile: a dark strip with the live preview, a name and a line about it.</summary>
-    Border Tile(UIElement preview, string name, string description, Action choose)
+    /// <summary>A gallery tile: a small dark screen with the live preview, and its name.</summary>
+    Border Tile(UIElement preview, string name, Action choose)
     {
         var screen = new Border
         {
-            Height = 34,
-            Margin = new Thickness(8, 8, 8, 0),
+            Height = 30,
+            Margin = new Thickness(6, 6, 6, 0),
             Background = new SolidColorBrush(Color.FromRgb(0x0B, 0x0B, 0x0F)),
             Child = preview,
             ClipToBounds = true,
         };
-        screen.SizeChanged += (_, _) => screen.Clip = new RectangleGeometry(new Rect(screen.RenderSize), 6, 6);
-        var text = new StackPanel { Margin = new Thickness(12, 8, 12, 10) };
-        text.Children.Add(new TextBlock { Text = name, FontSize = 13, FontWeight = FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis });
-        text.Children.Add(new TextBlock { Text = description, FontSize = 11, Opacity = 0.6, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 2, 0, 0) });
+        screen.SizeChanged += (_, _) => screen.Clip = new RectangleGeometry(new Rect(screen.RenderSize), 5, 5);
         var body = new StackPanel();
         body.Children.Add(screen);
-        body.Children.Add(text);
+        body.Children.Add(new TextBlock
+        {
+            Text = name, FontSize = 12.5, FontWeight = FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis,
+            Margin = new Thickness(9, 6, 9, 7),
+        });
         var tile = new Border
         {
-            Width = 284,
-            Margin = new Thickness(0, 0, 10, 10),
-            CornerRadius = new CornerRadius(9),
+            Margin = new Thickness(0, 0, 8, 8),
+            CornerRadius = new CornerRadius(8),
             BorderThickness = new Thickness(1.5),
             Background = new SolidColorBrush(Color.FromArgb(0x0D, 255, 255, 255)),
             Cursor = Cursors.Hand,
             Child = body,
         };
         tile.MouseLeftButtonUp += (_, _) => choose();
-        tile.MouseEnter += (_, _) => tile.Background = new SolidColorBrush(Color.FromArgb(0x18, 255, 255, 255));
-        tile.MouseLeave += (_, _) => tile.Background = new SolidColorBrush(Color.FromArgb(0x0D, 255, 255, 255));
+        tile.MouseEnter += (_, _) =>
+        {
+            tile.Background = new SolidColorBrush(Color.FromArgb(0x18, 255, 255, 255));
+            _hovered = _looks.FirstOrDefault(l => l.Tile == tile);
+            ShowLookDetail();
+        };
+        tile.MouseLeave += (_, _) =>
+        {
+            tile.Background = new SolidColorBrush(Color.FromArgb(0x0D, 255, 255, 255));
+            if (_hovered?.Tile == tile) _hovered = null;
+            ShowLookDetail();
+        };
         return tile;
     }
+
+    // ------------------------------------------------------------------ the groups
+
+    void BuildLookTabs()
+    {
+        LookTabs.Children.Clear();
+        _lookTabs.Clear();
+        AddLookTab(LookGroup.Progress, Loc.T("Set_Progress_TabProgress"));
+        AddLookTab(LookGroup.Visualizer, Loc.T("Set_Progress_GroupVisualizer"));
+        AddLookTab(LookGroup.Led, Loc.T("Set_Progress_GroupLed"));
+        AddLookTab(LookGroup.Skin, Loc.T("Set_Progress_TabSkins"));
+        PaintLookTabs();
+    }
+
+    void AddLookTab(LookGroup group, string name)
+    {
+        int count = _looks.Count(l => l.Group == group);
+        // A dot marks the group holding the look that's on, whichever tab is open.
+        var dot = new TextBlock { Text = "●", FontSize = 7, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 6, 0) };
+        var row = new StackPanel { Orientation = Orientation.Horizontal };
+        row.Children.Add(dot);
+        row.Children.Add(new TextBlock { Text = name, FontSize = 12.5, VerticalAlignment = VerticalAlignment.Center });
+        row.Children.Add(new TextBlock { Text = count.ToString(), FontSize = 11, Opacity = 0.5, Margin = new Thickness(6, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center });
+        var tab = new Border { Padding = new Thickness(12, 6, 13, 6), CornerRadius = new CornerRadius(7), Cursor = Cursors.Hand, Child = row };
+        tab.MouseLeftButtonUp += (_, _) => ShowLookGroup(group);
+        tab.MouseEnter += (_, _) => PaintLookTabs(hover: group);
+        tab.MouseLeave += (_, _) => PaintLookTabs();
+        _lookTabs.Add((group, tab, dot));
+        LookTabs.Children.Add(tab);
+    }
+
+    void PaintLookTabs(LookGroup? hover = null)
+    {
+        var accent = (Brush)FindResource("Accent");
+        var on = CurrentLookGroup();
+        foreach (var (group, tab, dot) in _lookTabs)
+        {
+            tab.Background = group == _lookGroup ? new SolidColorBrush(Color.FromArgb(0x26, 255, 255, 255))
+                : group == hover ? new SolidColorBrush(Color.FromArgb(0x10, 255, 255, 255))
+                : Brushes.Transparent;
+            ((TextBlock)((StackPanel)tab.Child).Children[1]).FontWeight = group == _lookGroup ? FontWeights.SemiBold : FontWeights.Normal;
+            dot.Foreground = accent;
+            dot.Visibility = group == on ? Visibility.Visible : Visibility.Collapsed;
+        }
+    }
+
+    void ShowLookGroup(LookGroup group)
+    {
+        _lookGroup = group;
+        SeekGallery.Visibility = group == LookGroup.Progress ? Visibility.Visible : Visibility.Collapsed;
+        VisualizerGallery.Visibility = group == LookGroup.Visualizer ? Visibility.Visible : Visibility.Collapsed;
+        LedGallery.Visibility = group == LookGroup.Led ? Visibility.Visible : Visibility.Collapsed;
+        SkinPane.Visibility = group == LookGroup.Skin ? Visibility.Visible : Visibility.Collapsed;
+        LookHint.Text = Loc.T(group switch
+        {
+            LookGroup.Visualizer => "Set_Progress_VisualizerHint",
+            LookGroup.Led => "Set_Progress_LedHint",
+            LookGroup.Skin => "Set_Progress_SkinsHint",
+            _ => "Set_Progress_StyleHint",
+        });
+        _hovered = null;
+        PaintLookTabs();
+        ShowLookDetail();
+    }
+
+    /// <summary>The line under the tiles: the one under the pointer, or else the one that's on.</summary>
+    void ShowLookDetail()
+    {
+        var look = _hovered ?? _looks.FirstOrDefault(IsOn);
+        LookDetail.Inlines.Clear();
+        if (look == null) return;
+        LookDetail.Inlines.Add(new System.Windows.Documents.Run(look.Name) { FontWeight = FontWeights.SemiBold });
+        LookDetail.Inlines.Add(new System.Windows.Documents.Run("   " + look.Description) { Foreground = new SolidColorBrush(Color.FromArgb(0xA8, 255, 255, 255)) });
+    }
+
+    bool IsOn(Look look) => look.Skin != null ? _s.Skin == look.Skin.File : _s.Skin.Length == 0 && _s.SeekStyle == look.Style;
 
     void AddDeleteButton(Border tile, SkinInfo skin)
     {
@@ -134,7 +241,7 @@ public partial class SettingsWindow
             Padding = new Thickness(6, 3, 6, 3),
             HorizontalAlignment = HorizontalAlignment.Right,
             VerticalAlignment = VerticalAlignment.Top,
-            Margin = new Thickness(0, 12, 12, 0),
+            Margin = new Thickness(0, 9, 9, 0),
             ToolTip = Loc.T("Set_Skin_Delete"),
             Opacity = 0.85,
         };
@@ -164,19 +271,21 @@ public partial class SettingsWindow
         var idle = new SolidColorBrush(Color.FromArgb(0x14, 255, 255, 255));
         foreach (var look in _looks)
         {
-            bool on = look.Skin != null ? _s.Skin == look.Skin.File : _s.Skin.Length == 0 && _s.SeekStyle == look.Style;
-            look.Tile.BorderBrush = on ? accent : idle;
+            look.Tile.BorderBrush = IsOn(look) ? accent : idle;
             if (StylePalettes.For(_s, look.Key) is { } own) look.Engine.SetColors(own.A, own.B, animate: false, own.C);
             else look.Engine.SetColors(_songA, _songB, animate: false);
         }
+        PaintLookTabs();
+        ShowLookDetail();
         RefreshPalettePicker();
     }
 
-    /// <summary>Keeps the previews moving while the page is on screen, with made-up music.</summary>
+    /// <summary>Keeps the previews in the open tab moving while the page is on screen, with made-up music.</summary>
     void TickLooks(double progress)
     {
         foreach (var look in _looks)
         {
+            if (look.Group != _lookGroup) continue;
             look.Engine.SetState(progress, timeline: true, playing: true);
             look.Engine.Tick();
             look.Shader?.Update(look.Engine);
@@ -240,8 +349,16 @@ public partial class SettingsWindow
     {
         string lookName = _s.Skin.Length > 0
             ? SkinLibrary.Load(_s.Skin)?.Name ?? _s.Skin
-            : (SettingsOptions.SeekStyles.Concat(SettingsOptions.Visualizers).FirstOrDefault(o => o.Value == _s.SeekStyle)?.Label ?? _s.SeekStyle.ToString());
-        PaletteFor.Text = Loc.T("Set_Palette_For", lookName);
+            : (SettingsOptions.AllStyles.FirstOrDefault(o => o.Value == _s.SeekStyle)?.Label ?? _s.SeekStyle.ToString());
+        // A rainbow, fire or a VU meter keeps its own colors: no palette to pick.
+        bool ownColors = _s.Skin.Length == 0 && SeekRenderer.HasOwnColors(_s.SeekStyle);
+        PaletteFor.Text = ownColors ? Loc.T("Set_Palette_Own") : Loc.T("Set_Palette_For", lookName);
+        PaletteChips.Visibility = ownColors ? Visibility.Collapsed : Visibility.Visible;
+        if (ownColors)
+        {
+            CustomPalette.Visibility = Visibility.Collapsed;
+            return;
+        }
 
         var saved = StylePalettes.Saved(_s, StylePalettes.KeyFor(_s));
         bool custom = saved.Length > 0 && !saved.StartsWith("preset:", StringComparison.Ordinal);

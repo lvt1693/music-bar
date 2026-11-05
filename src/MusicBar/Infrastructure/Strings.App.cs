@@ -89,6 +89,28 @@ public static partial class Strings
         d.Add("Seek_Led", ("LED matrix", "Đèn LED"));
         d.Add("Seek_Led_Desc", ("A dot-matrix spectrum, cool to hot, with held peaks", "Phổ âm bằng ma trận đèn, từ mát đến nóng, có vạch đỉnh"));
 
+        // ---- the RGB LED strip
+        d.Add("Seek_LedRainbow", ("Rainbow wave", "Cầu vồng"));
+        d.Add("Seek_LedRainbow_Desc", ("A rainbow running along the strip, faster and brighter as the music swells", "Cầu vồng chạy dọc dải đèn, nhạc càng dồn càng nhanh, càng sáng"));
+        d.Add("Seek_LedSpectrum", ("Rainbow spectrum", "Phổ cầu vồng"));
+        d.Add("Seek_LedSpectrum_Desc", ("Every LED a frequency: red bass in the middle out to violet treble", "Mỗi bóng đèn là một dải tần: bass đỏ ở giữa, treble tím ra hai đầu"));
+        d.Add("Seek_LedBreathe", ("Breathing", "Nhịp thở"));
+        d.Add("Seek_LedBreathe_Desc", ("The whole strip breathes with the music, drifting through your three colors", "Cả dải đèn thở theo nhạc, đổi dần qua ba màu của bảng màu"));
+        d.Add("Seek_LedRipple", ("Ripple", "Gợn sóng"));
+        d.Add("Seek_LedRipple_Desc", ("Every beat drops a ripple that spreads along the strip", "Mỗi nhịp trống thả một gợn sóng lan ra dọc dải đèn"));
+        d.Add("Seek_LedScanner", ("Scanner", "Đèn quét"));
+        d.Add("Seek_LedScanner_Desc", ("A bright eye sweeping end to end with a fading trail, quicker when it's loud", "Một con mắt sáng quét qua lại, để vệt mờ dần, nhạc to thì quét nhanh"));
+        d.Add("Seek_LedStarlight", ("Starlight", "Sao lấp lánh"));
+        d.Add("Seek_LedStarlight_Desc", ("LEDs twinkling at random, thicker in loud passages, a shower on the beat", "Đèn lấp lánh ngẫu nhiên, đoạn nhạc to thì dày hơn, tới nhịp thì rộ lên"));
+        d.Add("Seek_LedFire", ("Fire", "Lửa"));
+        d.Add("Seek_LedFire_Desc", ("Flames flickering along the strip, the bass throwing sparks", "Lửa bập bùng dọc dải đèn, tiếng bass làm tóe lửa"));
+        d.Add("Seek_LedMeteor", ("Meteors", "Sao băng"));
+        d.Add("Seek_LedMeteor_Desc", ("A meteor shoots across on every beat, its tail sparkling out", "Mỗi nhịp một vệt sao băng lao ngang, đuôi lấp lánh tắt dần"));
+        d.Add("Seek_LedChase", ("Marquee", "Đèn chạy"));
+        d.Add("Seek_LedChase_Desc", ("Marquee lights chasing along in your three colors, stepping with the music", "Đèn chạy kiểu bảng hiệu, ba màu đuổi nhau theo nhịp nhạc"));
+        d.Add("Seek_LedVu", ("VU meter", "Đồng hồ VU"));
+        d.Add("Seek_LedVu_Desc", ("Green, then yellow, then red out from the middle as it gets louder, peak held", "Xanh, vàng rồi đỏ từ giữa ra hai bên theo độ to, có vạch đỉnh"));
+
         // ---- lyric effects
         d.Add("Fx_SlideUp", ("Slide up", "Cuộn lên (Slide up)"));
         d.Add("Fx_Fade", ("Fade", "Mờ dần (Fade)"));

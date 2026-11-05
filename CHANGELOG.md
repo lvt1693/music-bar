@@ -1,0 +1,164 @@
+# Các bản MusicBar
+
+Mới nhất ở trên. Bản cài và bản portable của từng bản có ở trang
+[Releases](https://github.com/lvt1693/music-bar/releases).
+
+## 1.7.0 · 06/11/2026
+
+**Mới**
+
+- **Dải LED RGB:** 10 hiệu ứng kiểu dải LED gaming, nhảy theo nhạc: Cầu vồng, Phổ cầu vồng, Nhịp
+  thở, Gợn sóng, Đèn quét, Sao lấp lánh, Lửa, Sao băng, Đèn chạy, Đồng hồ VU. Ánh sáng tỏa mềm lên
+  taskbar như dải LED có tấm khuếch tán, không lốm đốm từng bóng.
+- Thư viện kiểu gọn lại thành 4 tab (Thanh tiến trình, Visualizer, Dải LED RGB, Skin) với ô nhỏ;
+  rê chuột lên ô nào thì dòng bên dưới tả ô đó. Menu chuột phải tách thành menu con theo nhóm.
+- **Gỡ là trả lại như cũ:** lần đầu chạy, MusicBar ghi lại chế độ sáng / tối, cỡ, kiểu căn
+  taskbar và kiểu taskbar của ExplorerPatcher. Gỡ cài đặt thì cái nào MusicBar đã đổi được trả về
+  như ban đầu, trừ khi sau đó bạn tự đổi lại.
+
+**Sửa lỗi**
+
+- Mở trang Thanh tiến trình không còn chạy xem trước của mọi kiểu cùng lúc: chỉ tab đang mở chạy,
+  đỡ tốn CPU.
+
+## 1.6.1 · 05/11/2026
+
+**Mới**
+
+- **Chỉ chạy ở chỗ trống** (Cài đặt → Thanh tiến trình): thanh tiến trình, visualizer và skin né
+  các icon của Windows (Start, ứng dụng, khay hệ thống), chạy nối từ khoảng trống này sang khoảng
+  trống kia, mép mờ dần cạnh icon. Mở thêm app thì thanh trượt sang cho vừa.
+
+**Sửa lỗi**
+
+- Lời đứng ở dòng cuối khi lặp lại bài với vài trình phát cứ báo "đang ở cuối bài" (#10).
+- Nút Control Center trên khay nổi thành ô tối đè lên game toàn màn hình và bắt nhầm click (#11).
+
+## 1.6.0 · 05/11/2026
+
+**Mới**
+
+- 6 visualizer thay cho thanh tiến trình, chỉ nhảy theo nhạc: Cột sóng, Chân trời, Dao động, Hào
+  quang, Đom đóm, Đèn LED. Phổ âm, visualizer và skin vẽ 60 khung / giây khi cắm sạc.
+- Bảng màu riêng cho từng kiểu: theo bài hát, 11 bảng phối sẵn, hoặc tự chọn ba màu.
+- **Skin tự làm:** một file .hlsl nhỏ vẽ thanh bằng card đồ họa. Có 4 skin mẫu và
+  [hướng dẫn](docs/skins.md) viết sẵn để đưa cho ChatGPT / Claude / Gemini làm hộ.
+- **Mặt của bạn:** ảnh, GIF hoặc WebP cho từng tâm trạng, tối đa 256 px.
+- Thanh độ sáng màn hình trong Control Center, cho laptop và màn rời có DDC/CI.
+- Win + A mở Control Center của MusicBar, bấm lại để đóng (#9).
+- Icon khay, đồng hồ, Wi-Fi của Windows đổi màu theo nền MusicBar, thoát app là trả lại như cũ.
+- Nút chỉnh sớm / trễ trong bảng lời: nhấn giữ là chỉnh liên tục.
+- Thẻ bài hát có thanh tua, rê chuột vào là thẻ đứng yên chờ bạn tua (#8).
+
+**Sửa lỗi**
+
+- Trình phát lệch lên trên ở taskbar Windows 11 cao 48 px, giờ nằm đúng giữa (#5).
+- Rê chuột lên video YouTube không còn bị tưởng là đổi bài.
+- Karaoke tô theo nhịp hát (ước theo số âm tiết), không còn trôi chậm dần so với lời.
+- Số lệch lời đọc như phụ đề: dương là lời muộn hơn. Gửi lời đã chỉnh lệch lên LRCLIB không còn báo
+  lỗi.
+- Bỏ hẳn tùy chọn tự ẩn khi toàn màn hình; MusicBar chỉ nhường chỗ khi taskbar bị che thật.
+- Màn hình phụ hiện đủ tên bài; nền trong suốt đúng trên nhiều màn hình (#6, #7).
+- Thoát app, kể cả tắt bằng Task Manager, taskbar và icon Windows về lại như cũ, không phải khởi
+  động lại Explorer.
+
+## 1.5.0 · 05/11/2026
+
+**Mới**
+
+- Karaoke đúng từng chữ: bài nào trên LRCLIB có thời gian từng chữ thì chữ được tô đúng lúc ca sĩ
+  hát nó.
+- Gửi lời lên LRCLIB ngay trong bảng lời: file .lrc của bạn mà LRCLIB chưa có, hoặc lời bạn đã chỉnh
+  lệch.
+- NetEase làm nguồn lời dự phòng (mặc định tắt): hỏi khi LRCLIB không có, mạnh nhạc Hàn, Hoa,
+  Nhật. Chỉ nhận đúng ca sĩ, đúng độ dài, không lấy bản live, remix, cover.
+- Lăn chuột trên nút mạng / loa ở taskbar, hoặc trên hàng âm lượng trong Control Center, để chỉnh
+  âm lượng.
+- Thanh tiến trình vẫn trôi nhẹ tại chỗ khi tạm dừng nhạc.
+
+**Sửa lỗi**
+
+- Tìm lyrics không còn nhầm sang bài trùng tên của ca sĩ khác.
+- Lăn chuột trên nút loa ở khay không còn mất tác dụng khi bật Control Center.
+- LRCLIB báo gọi nhiều quá thì app chờ đúng thời gian rồi thử lại.
+- Thanh trượt Pomodoro ghi "phút" thay vì "min" khi dùng tiếng Việt.
+
+## 1.4.0 · 04/11/2026
+
+**Mới**
+
+- Tự báo bản mới: có bản mới thì hỏi ở góc màn hình, bấm Cập nhật là tải, kiểm tra SHA-256, cài
+  êm rồi tự mở lại.
+- Bảng lời cả bài: dòng đang hát nằm giữa, bấm dòng nào phát từ dòng đó, có nút chỉnh sớm / trễ và
+  nút Tìm lyrics khác khi bị ra sai bài.
+- Nền Theo Windows, pha màu bài hát; taskbar trong suốt thì chữ đổi màu theo hình nền phía sau
+  (chạy cả với Wallpaper Engine).
+- Phiên âm bài Hàn, Nhật, Trung, dưới mỗi dòng hoặc thay lời gốc.
+- Tìm lyrics cho title YouTube dài tốt hơn hẳn.
+- Tổng kết năm âm nhạc kiểu Wrapped, lưu ảnh hoặc copy dán thẳng lên Facebook. Chỉ đếm trên máy.
+- Cái mặt được trả lại cái mic, thêm mũ, kính, đồ theo mùa lễ, hẹn giờ Pomodoro, để ý CPU / mạng /
+  sạc, và đi dạo dọc taskbar lúc rảnh.
+
+**Sửa lỗi**
+
+- Xóa tất cả thông báo trong Control Center giờ xóa thật.
+- Bài có title không kèm tên ca sĩ không còn báo lỗi khi tìm lyrics.
+- LRCLIB thỉnh thoảng báo bận: app chờ một chút rồi thử lại.
+- Bài lặp lại mà trình phát không báo vị trí mới: lời và thanh tiến trình không còn đứng ở cuối bài.
+
+## 1.3.0 · 04/11/2026
+
+**Mới**
+
+- Cái mặt trong video giới thiệu ở hẳn trên taskbar, 8 kiểu: nhún theo nhạc, ngủ gật về đêm,
+  nhìn theo con trỏ, bấm, xoa, cuộn chuột là nó phản ứng.
+- Nền taskbar sáng (và sáng pha màu bài hát) cho Windows chế độ sáng (#2).
+
+**Sửa lỗi**
+
+- Control Center không còn tràn khỏi mép trên màn hình khi có nhiều thông báo (#1).
+- Nút pin trên khay cũng mở Control Center của MusicBar như nút mạng và âm lượng (#1).
+
+## 1.2.0 · 04/11/2026
+
+**Mới**
+
+- Taskbar dọc: thanh tiến trình chạy từ dưới lên, ảnh bìa và nút xếp chồng, lời bài hát mỗi chữ
+  một dòng.
+- Thanh tiến trình chạy theo 4 hướng.
+- Nhiều màn hình: chọn màn cho thanh tiến trình, chọn riêng màn cho trình phát và lời bài hát.
+- Chế độ tối giản: ẩn trình phát mà giữ lời, hoặc chỉ để thanh tiến trình.
+- Danh sách Wi-Fi và Bluetooth ngay trong Control Center.
+- Cài đặt sắp xếp lại thành 6 trang.
+
+**Sửa lỗi**
+
+- Taskbar ở màn phụ không còn mờ nhòe khi bật taskbar trong suốt.
+- Widget không còn chạy về góc sau khi Explorer khởi động lại.
+
+## 1.1.1 · 04/11/2026
+
+**Sửa lỗi**
+
+- Tắt Control Center của MusicBar rồi mở Quick Settings của Windows không còn làm widget nhảy vào
+  góc đè lên khay.
+- Lúc mới mở app, widget không còn chớp sang góc phải trong vài giây đầu.
+
+## 1.1.0 · 04/11/2026
+
+**Mới**
+
+- Bảy kiểu nút ⏮ ⏯ ⏭, có cả đĩa than xoay và phím cassette.
+- Giao diện tiếng Anh (mặc định) và tiếng Việt, đổi là áp dụng ngay.
+- Nhẹ RAM hơn: từ khoảng 143 MB xuống còn khoảng 58 MB.
+- Vài chỗ chỉnh cho Windows 10.
+
+## 1.0.0 · 04/11/2026
+
+Bản đầu tiên lên GitHub.
+
+- Thanh tiến trình trải hết taskbar, 14 kiểu, nhún nhảy theo nhạc thật.
+- Lời bài hát karaoke từ LRCLIB, 10 phông đủ dấu tiếng Việt.
+- Taskbar Windows 11 trong suốt, MusicBar tự làm.
+- Trung tâm điều khiển gom thông báo, cài đặt nhanh, âm lượng và loa.
+- Bản cài, bản portable, và một video giới thiệu có thanh taskbar biết ngáp.

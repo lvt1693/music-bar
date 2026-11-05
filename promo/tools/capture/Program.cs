@@ -71,6 +71,7 @@ static class Program
                     case "seek": Seek(args); break;
             case "looks": await Looks(args); break;
             case "gaps": await Looks(args, gaps: true); break;
+            case "leds": await Looks(args, styles: SettingsOptions.LedStrips.Select(o => o.Value).ToArray()); break;
             case "settingsscroll": await SettingsScroll(args); break;
                     case "lyrics": await Lyrics(args); break;
                     case "panel": await Panel(args); break;
@@ -153,8 +154,9 @@ static class Program
     /// screen and grabbed from it with PrintWindow.
     /// gaps &lt;out.png&gt; &lt;scale&gt; [skin.hlsl ...]: the same kept clear of made-up icons (grey), the
     /// way "Only in the empty space" lays the bar between a taskbar's icons.
+    /// leds &lt;out.png&gt; &lt;scale&gt;: the RGB LED strip's effects.
     /// </summary>
-    static async Task Looks(string[] a, bool gaps = false)
+    static async Task Looks(string[] a, bool gaps = false, SeekStyle[]? styles = null)
     {
         string outPath = Path.GetFullPath(a[1]);
         double scale = D(a[2]);
@@ -164,7 +166,7 @@ static class Program
         // Centred app icons and the tray at the right end, as on Windows 11.
         (double Left, double Right)[] icons = gaps ? [(400, 560), (850, 960)] : [];
         (double Left, double Right)[] pieces = gaps ? [(0, 394), (566, 844)] : [];
-        var styles = gaps
+        styles ??= gaps
             ? new[] { SeekStyle.Classic, SeekStyle.Spectrum, SeekStyle.Aurora, SeekStyle.Liquid, SeekStyle.Equalizer, SeekStyle.Oscilloscope, SeekStyle.Led }
             : new[] { SeekStyle.Equalizer, SeekStyle.Horizon, SeekStyle.Oscilloscope, SeekStyle.Aura, SeekStyle.Fireflies, SeekStyle.Led, SeekStyle.Spectrum };
 
@@ -259,6 +261,8 @@ static class Program
         double scale = D(a[3]);
         int page = int.Parse(a[4], Inv);
         var settings = new AppSettings { Language = language };
+        // MUSICBAR_CAPTURE_STYLE picks the look that's on, and so the gallery tab that opens.
+        if (Enum.TryParse<SeekStyle>(Environment.GetEnvironmentVariable("MUSICBAR_CAPTURE_STYLE"), true, out var style)) settings.SeekStyle = style;
         MusicBar.Infrastructure.Loc.Instance.Language = language;
         var window = new SettingsWindow(settings, new MediaService(settings), new LyricsService(settings))
         {

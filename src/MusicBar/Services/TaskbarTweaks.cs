@@ -170,6 +170,7 @@ public static class TaskbarTweaks
             using var key = Registry.CurrentUser.CreateSubKey(path);
             key.SetValue(name, value, RegistryValueKind.DWord);
             Log.Info($"Taskbar tweak: {path}\\{name} = {value}");
+            SystemSnapshot.Wrote(path, name, value);
         }
         catch (Exception ex)
         {

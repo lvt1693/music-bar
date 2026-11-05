@@ -108,6 +108,7 @@ internal sealed class WindowsModeSync(AppSettings settings)
             Log.Error("Setting Windows' taskbar mode failed", ex);
             return;
         }
+        SystemSnapshot.Wrote(PersonalizeKey, "SystemUsesLightTheme", light ? 1 : 0);
         Log.Info($"Windows taskbar mode set to {Name(light)}");
         // The same broadcast Settings sends: Explorer redraws the taskbar and its icons.
         SendMessageTimeout(new IntPtr(0xFFFF), 0x001A /* WM_SETTINGCHANGE */, IntPtr.Zero, "ImmersiveColorSet",

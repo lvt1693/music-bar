@@ -45,6 +45,13 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
+        if (e.Args.Any(a => a.Equals("--uninstall", StringComparison.OrdinalIgnoreCase)))
+        {
+            PutWindowsBack();
+            Shutdown();
+            return;
+        }
+
         bool exitRequest = e.Args.Any(a => a.Equals("--exit", StringComparison.OrdinalIgnoreCase));
         _mutex = new Mutex(true, MutexName, out _ownsMutex);
         if (!_ownsMutex || exitRequest)
@@ -105,6 +112,8 @@ public partial class App : Application
         Log.Info($"MusicBar starting ({string.Join(" ", e.Args)})");
         _settings = new SettingsService();
         var settings = _settings.Current;
+        // The very first time, before anything is touched: how Windows looked, to give back on uninstall.
+        SystemSnapshot.TakeOnce(settings.WindowsModeBefore);
         Loc.Instance.Language = settings.Language;
         // The default lyric font is Windows 11's; on Windows 10 use the Segoe UI it does have.
         if (settings.FontFamily == "Segoe UI Variable Text"
@@ -290,6 +299,51 @@ public partial class App : Application
         _tray = null;
         _showSignal?.Set();
         Shutdown();
+    }
+
+    /// <summary>
+    /// Run by the uninstaller (--uninstall): a copy still running hands back what it holds and quits,
+    /// a mode or a folded tray left by a run that ended badly is put back, then every Windows setting
+    /// MusicBar changed goes back to how it was before MusicBar first ran (Explorer restarts if that
+    /// needs it), and the snapshot is forgotten.
+    /// </summary>
+    static void PutWindowsBack()
+    {
+        Log.Info("Uninstalling: putting Windows back");
+        try
+        {
+            using var signal = EventWaitHandle.OpenExisting(ExitEventName);
+            signal.Set();
+        }
+        catch (Exception)
+        {
+        }
+        for (int i = 0; i < 60 && OthersRunning(); i++) Thread.Sleep(100);
+
+        var service = new SettingsService();
+        if (service.Current.WindowsModeBefore >= 0)
+        {
+            new WindowsModeSync(service.Current).Release();
+            service.SaveNow();
+        }
+        TrayMerge.RecoverLeftovers(Native.FindWindow("Shell_TrayWnd", null));
+        var (putBack, restart) = SystemSnapshot.PutBack();
+        if (restart) TaskbarTweaks.RestartExplorer();
+        SystemSnapshot.Forget();
+        Log.Info($"Uninstalling: {putBack.Count} Windows setting(s) put back{(restart ? ", Explorer restarted" : "")}");
+    }
+
+    static bool OthersRunning()
+    {
+        var all = System.Diagnostics.Process.GetProcessesByName("MusicBar");
+        try
+        {
+            return all.Any(p => p.Id != Environment.ProcessId);
+        }
+        finally
+        {
+            foreach (var p in all) p.Dispose();
+        }
     }
 
     protected override void OnExit(ExitEventArgs e)

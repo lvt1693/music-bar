@@ -559,15 +559,29 @@
                     <TextBlock Text="{l:Tr Set_Page_Progress}" Style="{StaticResource PageTitle}" />
                     <TextBlock Text="{l:Tr Set_Progress_Subtitle}" Style="{StaticResource PageSubtitle}" />
 
+                    <!-- The looks: one group at a time in small live tiles, the one under the pointer described below them. -->
                     <TextBlock Text="{l:Tr Set_Progress_GroupStyle}" Style="{StaticResource Group}" />
-                    <TextBlock Text="{l:Tr Set_Progress_StyleHint}"
-                               FontSize="12" Opacity="0.6" Margin="2,-4,0,10" />
-                    <WrapPanel x:Name="SeekGallery" Margin="0,0,-10,6" />
-
-                    <!-- Visualizers: the music only, no progress. -->
-                    <TextBlock Text="{l:Tr Set_Progress_GroupVisualizer}" Style="{StaticResource Group}" />
-                    <TextBlock Text="{l:Tr Set_Progress_VisualizerHint}" FontSize="12" Opacity="0.6" Margin="2,-4,0,10" TextWrapping="Wrap" />
-                    <WrapPanel x:Name="VisualizerGallery" Margin="0,0,-10,6" />
+                    <Border HorizontalAlignment="Left" CornerRadius="10" Padding="3" Margin="0,-2,0,8" Background="#0DFFFFFF">
+                        <StackPanel x:Name="LookTabs" Orientation="Horizontal" />
+                    </Border>
+                    <TextBlock x:Name="LookHint" FontSize="12" Opacity="0.6" Margin="2,0,0,10" TextWrapping="Wrap" />
+                    <UniformGrid x:Name="SeekGallery" Columns="4" Margin="0,0,-8,0" />
+                    <UniformGrid x:Name="VisualizerGallery" Columns="4" Margin="0,0,-8,0" Visibility="Collapsed" />
+                    <UniformGrid x:Name="LedGallery" Columns="4" Margin="0,0,-8,0" Visibility="Collapsed" />
+                    <StackPanel x:Name="SkinPane" Visibility="Collapsed">
+                        <UniformGrid x:Name="SkinGallery" Columns="4" Margin="0,0,-8,0" />
+                        <TextBlock x:Name="SkinEmpty" Text="{l:Tr Set_Skin_None}" FontSize="12" Opacity="0.55" Margin="2,0,0,8" Visibility="Collapsed" />
+                        <WrapPanel Margin="0,2,0,2">
+                            <Button Content="{l:Tr Set_Skin_Import}" Padding="14,5" Margin="0,0,8,6" Click="SkinImport_Click" />
+                            <Button Content="{l:Tr Set_Skin_Samples}" Padding="14,5" Margin="0,0,8,6" Click="SkinSamples_Click" />
+                            <Button Content="{l:Tr Set_Skin_Folder}" Padding="14,5" Margin="0,0,8,6" Click="SkinFolder_Click" />
+                            <Button Content="{l:Tr Set_Skin_Guide}" Padding="14,5" Margin="0,0,8,6" Click="SkinGuide_Click" />
+                        </WrapPanel>
+                        <TextBlock x:Name="SkinStatus" FontSize="12" Opacity="0.8" TextWrapping="Wrap" Margin="2,0,0,8" Visibility="Collapsed" />
+                    </StackPanel>
+                    <Border CornerRadius="8" Padding="12,8" Margin="0,0,0,12" Background="#0AFFFFFF">
+                        <TextBlock x:Name="LookDetail" FontSize="12" TextWrapping="Wrap" />
+                    </Border>
 
                     <!-- Colors for the look that's on: the song's, a preset, or three picked by hand. -->
                     <v:SettingCard Glyph="&#xE790;" Header="{l:Tr Set_Palette}" Description="{l:Tr Set_Palette_Desc}">
@@ -580,18 +594,6 @@
                         <TextBox x:Name="PaletteB" Width="86" Margin="0,0,6,0" KeyDown="PaletteBox_KeyDown" LostFocus="PaletteBox_LostFocus" />
                         <TextBox x:Name="PaletteC" Width="86" KeyDown="PaletteBox_KeyDown" LostFocus="PaletteBox_LostFocus" />
                     </StackPanel>
-
-                    <!-- Skins: shaders people make, or have an AI write from docs/skins.md. -->
-                    <TextBlock Text="{l:Tr Set_Progress_GroupSkins}" Style="{StaticResource Group}" />
-                    <TextBlock Text="{l:Tr Set_Progress_SkinsHint}" FontSize="12" Opacity="0.6" Margin="2,-4,0,10" TextWrapping="Wrap" />
-                    <WrapPanel x:Name="SkinGallery" Margin="0,0,-10,6" />
-                    <WrapPanel Margin="0,0,0,4">
-                        <Button Content="{l:Tr Set_Skin_Import}" Padding="14,5" Margin="0,0,8,6" Click="SkinImport_Click" />
-                        <Button Content="{l:Tr Set_Skin_Samples}" Padding="14,5" Margin="0,0,8,6" Click="SkinSamples_Click" />
-                        <Button Content="{l:Tr Set_Skin_Folder}" Padding="14,5" Margin="0,0,8,6" Click="SkinFolder_Click" />
-                        <Button Content="{l:Tr Set_Skin_Guide}" Padding="14,5" Margin="0,0,8,6" Click="SkinGuide_Click" />
-                    </WrapPanel>
-                    <TextBlock x:Name="SkinStatus" FontSize="12" Opacity="0.8" TextWrapping="Wrap" Margin="2,0,0,10" Visibility="Collapsed" />
 
                     <TextBlock Text="{l:Tr Set_Progress_GroupMotion}" Style="{StaticResource Group}" />
                     <v:SettingCard Glyph="&#xE8AB;" Header="{l:Tr Set_SeekDirection}" Description="{l:Tr Set_SeekDirection_Desc}">

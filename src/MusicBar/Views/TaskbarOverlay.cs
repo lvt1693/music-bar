@@ -1500,28 +1500,27 @@ public sealed class TaskbarOverlay : IDisposable, ILyricsHost
         menu.Items.Add(effects);
 
         var seek = new MenuItem { Header = Loc.T("Menu_SeekStyle"), Icon = Glyph("") };
-        foreach (var option in SettingsOptions.SeekStyles)
+        // One submenu per group, the group holding the look that's on ticked.
+        foreach (var (name, options) in new[]
+                 {
+                     ("Set_Progress_TabProgress", SettingsOptions.SeekStyles),
+                     ("Set_Progress_GroupVisualizer", SettingsOptions.Visualizers),
+                     ("Set_Progress_GroupLed", SettingsOptions.LedStrips),
+                 })
         {
-            var item = new MenuItem { Header = option.Label, IsChecked = _s.Skin.Length == 0 && _s.SeekStyle == option.Value };
-            var value = option.Value;
-            item.Click += (_, _) =>
+            var group = new MenuItem { Header = Loc.T(name), IsChecked = _s.Skin.Length == 0 && options.Any(o => o.Value == _s.SeekStyle) };
+            foreach (var option in options)
             {
-                _s.SeekStyle = value;
-                _s.Skin = "";
-            };
-            seek.Items.Add(item);
-        }
-        seek.Items.Add(new Separator());
-        foreach (var option in SettingsOptions.Visualizers)
-        {
-            var item = new MenuItem { Header = option.Label, IsChecked = _s.Skin.Length == 0 && _s.SeekStyle == option.Value };
-            var value = option.Value;
-            item.Click += (_, _) =>
-            {
-                _s.SeekStyle = value;
-                _s.Skin = "";
-            };
-            seek.Items.Add(item);
+                var item = new MenuItem { Header = option.Label, IsChecked = _s.Skin.Length == 0 && _s.SeekStyle == option.Value };
+                var value = option.Value;
+                item.Click += (_, _) =>
+                {
+                    _s.SeekStyle = value;
+                    _s.Skin = "";
+                };
+                group.Items.Add(item);
+            }
+            seek.Items.Add(group);
         }
         seek.Items.Add(new Separator());
         foreach (var option in SettingsOptions.SeekDirections)

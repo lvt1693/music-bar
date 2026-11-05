@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using MusicBar.Infrastructure;
 using MusicBar.Models;
 
@@ -178,6 +179,24 @@ public static class SettingsOptions
         new(SeekStyle.Fireflies, "Seek_Fireflies", "Seek_Fireflies_Desc"),
         new(SeekStyle.Led, "Seek_Led", "Seek_Led_Desc"),
     ];
+
+    /// <summary>The RGB LED strip's effects: visualizers too, in a gallery tab of their own.</summary>
+    public static IReadOnlyList<SeekStyleOption> LedStrips { get; } =
+    [
+        new(SeekStyle.LedRainbow, "Seek_LedRainbow", "Seek_LedRainbow_Desc"),
+        new(SeekStyle.LedSpectrum, "Seek_LedSpectrum", "Seek_LedSpectrum_Desc"),
+        new(SeekStyle.LedBreathe, "Seek_LedBreathe", "Seek_LedBreathe_Desc"),
+        new(SeekStyle.LedRipple, "Seek_LedRipple", "Seek_LedRipple_Desc"),
+        new(SeekStyle.LedScanner, "Seek_LedScanner", "Seek_LedScanner_Desc"),
+        new(SeekStyle.LedStarlight, "Seek_LedStarlight", "Seek_LedStarlight_Desc"),
+        new(SeekStyle.LedFire, "Seek_LedFire", "Seek_LedFire_Desc"),
+        new(SeekStyle.LedMeteor, "Seek_LedMeteor", "Seek_LedMeteor_Desc"),
+        new(SeekStyle.LedChase, "Seek_LedChase", "Seek_LedChase_Desc"),
+        new(SeekStyle.LedVu, "Seek_LedVu", "Seek_LedVu_Desc"),
+    ];
+
+    /// <summary>Every style in gallery order: progress styles, visualizers, the LED strip.</summary>
+    public static IEnumerable<SeekStyleOption> AllStyles => SeekStyles.Concat(Visualizers).Concat(LedStrips);
 
     public static IReadOnlyList<Option> LyricEffects { get; } =
     [

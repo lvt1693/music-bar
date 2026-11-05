@@ -28,6 +28,7 @@ public enum SeekStyle
 {
     Classic, Aurora, Liquid, Neon, Spectrum, Waveform, Ribbon, Cinema, Mosaic, Mesh, Silk, Holo, Bokeh, Ink,
     Equalizer, Oscilloscope, Horizon, Aura, Fireflies, Led,
+    LedRainbow, LedSpectrum, LedBreathe, LedRipple, LedScanner, LedStarlight, LedFire, LedMeteor, LedChase, LedVu,
 }
 
 /// <summary>

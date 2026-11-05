@@ -4,6 +4,8 @@
 ;
 ; Per-user install, no admin prompt. Before files are replaced or removed, the running MusicBar is
 ; asked to quit with --exit, so it hands the taskbar and the tray back exactly as Windows had them.
+; Uninstalling then runs MusicBar --uninstall, which puts back the Windows settings MusicBar changed
+; (taskbar mode, size, alignment) to how they were before it first ran, unless changed again since.
 
 #ifndef AppVersion
   #define AppVersion "1.0.0"
@@ -70,6 +72,9 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueName: 
 Filename: "{app}\MusicBar.exe"; Description: "{cm:LaunchNow}"; Flags: nowait postinstall skipifsilent
 ; An update started from inside MusicBar runs silently: open the new version when it is done.
 Filename: "{app}\MusicBar.exe"; Flags: nowait; Check: WizardSilent
+
+[UninstallRun]
+Filename: "{app}\MusicBar.exe"; Parameters: "--uninstall"; Flags: runhidden waituntilterminated; RunOnceId: "PutWindowsBack"
 
 [Code]
 function MusicBarRunning(): Boolean;

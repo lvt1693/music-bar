@@ -16,7 +16,7 @@ namespace MusicBar.Views;
 /// second (spectrum bars 60) only while an animated style is playing, otherwise
 /// only when the playhead moves a fraction of a pixel.
 /// </summary>
-public sealed class SeekRenderer : FrameworkElement
+public sealed partial class SeekRenderer : FrameworkElement
 {
     const double FrameInterval = 1 / 30.0;
     const double ColorFade = 0.9;
@@ -562,6 +562,7 @@ public sealed class SeekRenderer : FrameworkElement
             case SeekStyle.Aura: DrawAura(f); break;
             case SeekStyle.Fireflies: DrawFireflies(f); break;
             case SeekStyle.Led: DrawLed(f); break;
+            case var s when IsLedStrip(s): DrawLedStrip(f); break;
         }
     }
 
@@ -1341,6 +1342,7 @@ public sealed class SeekRenderer : FrameworkElement
     /// <summary>Advances what lives from frame to frame: the fireflies' flight.</summary>
     void StepVisualizer(double t, double dt)
     {
+        if (IsLedStrip(_style)) StepLeds(t, dt);
         if (_style != SeekStyle.Fireflies)
         {
             _flies.Clear();

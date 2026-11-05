@@ -185,6 +185,12 @@ public static partial class Strings
         d.Add("Set_Progress_GroupVisualizer", ("Visualizers", "Visualizer"));
         d.Add("Set_Progress_VisualizerHint", ("Instead of the progress, the taskbar dances to the music itself: what your speakers play, read on this PC.",
             "Thay cho thanh tiến trình, cả taskbar nhảy theo chính bản nhạc: đọc âm thanh loa đang phát, ngay trên máy bạn."));
+        d.Add("Set_Progress_GroupLed", ("RGB LED strip", "Dải LED RGB"));
+        d.Add("Set_Progress_LedHint", ("Like an RGB gaming LED strip along the screen edge, its light washing softly up over the taskbar, every effect driven by the music.",
+            "Như dải LED RGB gaming dán dọc mép màn hình, ánh sáng tỏa mềm lên taskbar, hiệu ứng nào cũng nhảy theo nhạc."));
+        d.Add("Set_Progress_TabProgress", ("Progress", "Thanh tiến trình"));
+        d.Add("Set_Progress_TabSkins", ("Skins", "Skin"));
+        d.Add("Set_Palette_Own", ("This effect has colors of its own.", "Hiệu ứng này dùng màu riêng của nó."));
         d.Add("Set_Palette", ("Colors", "Bảng màu"));
         d.Add("Set_Palette_Desc", ("Each style keeps its own: the song's colors, a palette, or three of your own.", "Mỗi kiểu nhớ màu riêng: theo bài hát, một bảng phối sẵn, hoặc ba màu của bạn."));
         d.Add("Set_Palette_For", ("for {0}", "cho {0}"));
