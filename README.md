@@ -1,5 +1,7 @@
 # MusicBar
 
+[English](README.en.md) · **Tiếng Việt**
+
 Thanh taskbar nằm im ba mươi năm rồi. Cho nó hát đi.
 
 **Tải về:** [bản cài đặt](https://github.com/lvt1693/music-bar/releases/latest/download/MusicBar-1.7.0-Setup.exe)
@@ -362,7 +364,7 @@ dotnet run --project src/MusicBar -- --demo
 
 ```
 src/MusicBar/
-  App.xaml(.cs)                 khởi động, một phiên bản duy nhất, khay hệ thống
+  App.xaml(.cs)                 khởi động, một phiên bản duy nhất, khay hệ thống, --uninstall
   Models/AppSettings.cs         mọi tùy chọn (%LOCALAPPDATA%\MusicBar\settings.json)
   Services/MediaService.cs      theo dõi session, nội suy vị trí phát, điều khiển
   Services/LyricsService.cs     cache .lrc + LRCLIB;  LrcParser.cs đọc LRC
@@ -373,6 +375,8 @@ src/MusicBar/
   Services/Romanizer.cs         phiên âm Hàn / Nhật / Trung (pinyin từ dữ liệu Unihan)
   Services/ListeningStats.cs    đếm giờ nghe cho tổng kết năm;  YearRecap.cs tính tổng kết
   Services/UpdateService.cs     xem bản mới trên GitHub, tải, kiểm tra SHA-256, cài êm
+  Services/SkinLibrary.cs       dịch skin (HLSL) bằng trình dịch shader có sẵn trong Windows
+  Services/SystemSnapshot.cs    Windows trước khi có MusicBar, trả lại khi gỡ cài đặt
   Services/FocusTimer.cs        hẹn giờ Pomodoro;  SystemSense.cs CPU, mạng, pin cho cái mặt
   Services/AudioOutputs.cs      thiết bị phát, âm lượng, đổi loa mặc định
   Services/NotificationFeed.cs  đọc / bỏ thông báo của Windows
@@ -381,7 +385,8 @@ src/MusicBar/
   Interop/TaskbarTracker.cs     vị trí taskbar (cả taskbar dọc), dò khoảng trống bằng UI Automation
   Interop/XamlTaskbar.cs        nạp module làm trong suốt taskbar Windows 11
   Interop/TrayMerge.cs          ẩn icon âm lượng / chuông, dồn khay, khôi phục
-  Views/SeekRenderer.cs         14 kiểu thanh tiến trình, 4 hướng chạy
+  Views/SeekRenderer.cs         14 kiểu thanh tiến trình, các visualizer, 4 hướng chạy;
+                                SeekRenderer.Leds.cs dải LED RGB
   Views/LyricsPresenter.cs      lời bài hát và các hiệu ứng;  WordStackPresenter.cs cho taskbar dọc
   Views/TaskbarOverlay.cs       điều phối: xếp lớp, màu, lời, menu
   Views/TaskbarOverlays.cs      một overlay cho mỗi taskbar được chọn
@@ -458,62 +463,3 @@ Phông chữ từ [Google Fonts](https://fonts.google.com). Installer dựng b�
 [MIT](LICENSE). Các phông chữ đi kèm dùng giấy phép SIL Open Font License; bản giấy phép nằm
 trong `Assets/Fonts/licenses` cạnh app. Bảng pinyin lấy từ cơ sở dữ liệu Unihan của Unicode,
 giấy phép Unicode nằm trong `Assets/Data/licenses`.
-
-## English, briefly
-
-MusicBar turns the Windows taskbar into a music bar. It sits under the taskbar (which stays
-fully usable) and adds:
-
-- a full-width progress bar in 14 styles that take their colors from the cover art and dance
-  to the audio actually playing;
-- cover art and transport buttons next to the tray;
-- synced karaoke lyrics from LRCLIB, laid out in the taskbar's free space, with 10 bundled
-  fonts that cover Vietnamese;
-- its own taskbar transparency for Windows 11 (an in-process XAML diagnostics module, done the
-  way TranslucentTB does it, written independently);
-- a control center that gathers notifications, quick settings, volume and output devices, with
-  Wi-Fi and Bluetooth lists (join, pair, connect, forget);
-- taskbars on any edge (a vertical taskbar gets one word of the lyrics per line), several
-  screens with separate choices for the bar and the player, four progress directions, and a
-  minimal mode with just the bar (and the lyrics, if you like);
-- a little face from the promo film living on the taskbar, in eight looks: it sings into its
-  mic, gets sleepy at night, and giggles, sulks, laughs or gets dizzy when you click, rub or
-  scroll over it; it wears hats and glasses (seasonal ones for Tết, Mid-Autumn, Halloween and
-  Christmas), keeps a pomodoro focus timer, sweats when the CPU is busy, panics when the network
-  drops, and goes for a stroll along the empty taskbar;
-- a lyrics panel with the whole song (click a line to play from it, fix the timing, search
-  LRCLIB by hand), romanization of Korean, Japanese and Chinese lyrics, and much better matching
-  of long YouTube titles;
-- a year-in-music recap card (top songs and artists, golden hour, streaks, what kind of
-  listener you are) to save or copy as a 1080 × 1350 picture, offered from Christmas Eve to
-  January 7, counted on your computer only;
-- lyrics that must be by the right artist, word-by-word karaoke from LRCLIB's word timing,
-  sharing lyrics (or corrected timing) back to LRCLIB from the app, and NetEase Cloud Music as an
-  opt-in fallback source;
-- the scroll wheel changes the volume over the tray's volume button and in the control center,
-  and the animated progress styles keep drifting gently while paused;
-- update notices: from 1.4 on, MusicBar checks GitHub at start and daily, and installs a new
-  release quietly after checking its SHA-256;
-- light and dark backgrounds, following Windows' mode by default, with Windows' own taskbar icons
-  switched to match;
-- six visualizers that only dance to the music (equalizer, horizon, oscilloscope, aura, fireflies,
-  LED), a palette per style (the song's colors, 11 presets or three of your own), and skins: a
-  small HLSL pixel shader that paints the bar on the GPU, with a [guide](docs/skins.md) written so
-  you can hand it to an AI and get a skin back;
-- an option to keep the bar clear of Windows' icons, running on through the empty stretches
-  between them;
-- an RGB LED strip with ten gaming-style effects driven by the music (rainbow, rainbow
-  spectrum, breathing, ripple, scanner, starlight, fire, meteors, marquee, VU meter), its light
-  diffused softly over the taskbar;
-- a clean uninstall: at its very first start MusicBar records the Windows settings it can change
-  (taskbar mode, size, alignment, ExplorerPatcher style), and uninstalling puts back each one it
-  changed, unless you changed it again yourself;
-- a face of your own pictures (PNG, GIF or WebP, animated too), one per mood;
-- a brightness slider in the control center (laptop panels through WMI, monitors over DDC/CI), and
-  Win + A opening MusicBar's control center.
-
-It follows any app that talks to Windows Media Session (Spotify, browsers, Media Player…).
-Grab the installer or the portable zip from the
-[latest release](https://github.com/lvt1693/music-bar/releases/latest). Both are
-self-contained, so there is no .NET to install. The UI is in English by default, with
-Vietnamese one click away in the settings window; the code and its comments are in English.
