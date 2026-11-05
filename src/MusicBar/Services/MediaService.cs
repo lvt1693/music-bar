@@ -173,6 +173,7 @@ public sealed class MediaService : ObservableObject
                 var over = TimeSpan.FromTicks((pos - Duration).Ticks % Duration.Ticks);
                 _anchorPos = over;
                 _anchorTime = DateTimeOffset.Now;
+                _wrapped = true;
                 _ui.BeginInvoke(() => Restarted?.Invoke(this, EventArgs.Empty));
                 return over;
             }
@@ -183,6 +184,12 @@ public sealed class MediaService : ObservableObject
 
     /// <summary>How long past the end a playing song waits for the next song before it counts as repeating.</summary>
     static readonly TimeSpan LoopGrace = TimeSpan.FromSeconds(2.5);
+
+    /// <summary>How close to the end a reported position counts as "at the end".</summary>
+    static readonly TimeSpan EndSlack = TimeSpan.FromSeconds(1);
+
+    // The song was started over here, the player having said nothing; its stale "at the end" is ignored.
+    bool _wrapped;
 
     /// <summary>The same song began again from the top (repeat one, or a jump back from its end).</summary>
     public event EventHandler? Restarted;
@@ -445,6 +452,13 @@ public sealed class MediaService : ObservableObject
         bool sane = updated.Year > 2000 && updated <= now.AddSeconds(2) && now - updated < TimeSpan.FromHours(6);
         // From the last stretch of the song back to its first seconds: it is playing again.
         var before = force ? TimeSpan.Zero : GetPosition();
+        // Some players never wind their timeline back when a song repeats: they keep saying "at the
+        // end", with a fresh time on every report, and taken at their word the lyrics sit on the last
+        // line for good. Playing, a report of the very end leaves the clock running on from where the
+        // end was reached (GetPosition then starts the song over), and once it has, it is old news.
+        bool atEnd = !force && IsPlaying && Duration > TimeSpan.FromSeconds(20) && pos >= Duration - EndSlack;
+        if (atEnd && (_wrapped || before >= Duration - EndSlack)) return;
+        _wrapped = false;
         _anchorPos = pos;
         _anchorTime = sane ? updated : now;
         if (!force && Duration > TimeSpan.FromSeconds(20) && before > Duration - TimeSpan.FromSeconds(8) && GetPosition() < TimeSpan.FromSeconds(6))

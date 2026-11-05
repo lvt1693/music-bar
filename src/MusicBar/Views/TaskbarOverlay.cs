@@ -50,6 +50,9 @@ public sealed class TaskbarOverlay : IDisposable, ILyricsHost
     readonly System.Collections.Generic.List<(double Left, double Right)> _quietZones = [];
     (double Left, double Right)? _quietShown;
     DateTime _quietLostAt = DateTime.MinValue;
+    // Kept clear of Windows' icons: the empty stretches the bar runs through, where they belong and where they are drawn.
+    System.Collections.Generic.List<(double Left, double Right)> _piecesTarget = [];
+    readonly System.Collections.Generic.List<(double Left, double Right)> _piecesShown = [];
     // Only on the main taskbar, where the tray is.
     readonly ControlCenter? _controlCenter;
     readonly WindowsModeSync? _windowsMode;
@@ -425,6 +428,7 @@ public sealed class TaskbarOverlay : IDisposable, ILyricsHost
 
         if (_showsBar)
         {
+            _piecesTarget = BarPieces();
             if (!_layerShown)
             {
                 _layer.Show();
@@ -625,6 +629,57 @@ public sealed class TaskbarOverlay : IDisposable, ILyricsHost
         return AcrossBar(rc, at, at + length);
     }
 
+    /// <summary>
+    /// Where the bar runs when it keeps clear of Windows' icons: the taskbar's empty stretches, a
+    /// little way off the icons and none too short, in the seekbar's own units (from the taskbar's
+    /// left, or up from its bottom when vertical). Empty for the whole taskbar; one empty stretch
+    /// when there is no room at all, so nothing is drawn.
+    /// </summary>
+    System.Collections.Generic.List<(double Left, double Right)> BarPieces()
+    {
+        var pieces = new System.Collections.Generic.List<(double Left, double Right)>();
+        if (!_s.SeekAvoidIcons || !_tracker.HasScanned || _tracker.Occupied.Count == 0) return pieces;
+        var rc = _tracker.Rect;
+        double scale = _tracker.Scale;
+        int clearance = (int)Math.Round(6 * scale);
+        foreach (var f in _tracker.FreeSpans())
+        {
+            int start = f.Start > _tracker.Begin ? f.Start + clearance : f.Start;
+            int end = f.End < _tracker.End ? f.End - clearance : f.End;
+            if ((end - start) / scale < 40) continue;
+            pieces.Add(_tracker.IsHorizontal
+                ? ((start - rc.Left) / scale, (end - rc.Left) / scale)
+                : ((rc.Bottom - end) / scale, (rc.Bottom - start) / scale));
+        }
+        if (pieces.Count == 0) pieces.Add((0, 0));
+        pieces.Sort((p, q) => p.Left.CompareTo(q.Left));
+        return pieces;
+    }
+
+    /// <summary>Eases the bar's stretches toward where they belong, so it slides aside as icons come and go.</summary>
+    void UpdatePieces()
+    {
+        bool changed = false;
+        if (_piecesShown.Count != _piecesTarget.Count)
+        {
+            _piecesShown.Clear();
+            _piecesShown.AddRange(_piecesTarget);
+            changed = true;
+        }
+        else
+        {
+            for (int i = 0; i < _piecesTarget.Count; i++)
+            {
+                var (from, to) = (_piecesShown[i], _piecesTarget[i]);
+                var next = (Glide(from.Left, to.Left), Glide(from.Right, to.Right));
+                if (next == from) continue;
+                _piecesShown[i] = next;
+                changed = true;
+            }
+        }
+        if (changed) _layer.SetPieces(_piecesShown);
+    }
+
     /// <summary>A screen rectangle's stretch along the taskbar.</summary>
     Span AlongBar(Native.RECT r) => _tracker.IsHorizontal ? new Span(r.Left, r.Right) : new Span(r.Top, r.Bottom);
 
@@ -771,6 +826,11 @@ public sealed class TaskbarOverlay : IDisposable, ILyricsHost
         bool idle = _s.HideWhenIdle && _noSessionSince != DateTime.MinValue
                     && (DateTime.Now - _noSessionSince).TotalSeconds > 2;
         bool fullscreen = TaskbarCovered();
+        if (_controlCenter != null && _controlCenter.Covered != fullscreen)
+        {
+            _controlCenter.Covered = fullscreen;
+            _controlCenter.Tick();
+        }
         // Listen to the speakers only while a music-driven style is actually on screen and playing.
         _audio.Want(this, _s.AudioReactive && _layerShown && _media.IsPlaying && (SeekRenderer.UsesAudio(_s.SeekStyle) || _layer.Skinned));
         UpdateFramePace();
@@ -867,6 +927,7 @@ public sealed class TaskbarOverlay : IDisposable, ILyricsHost
         _widget.SetProgress(progress);
         if (_popup.IsOpen) _popup.SetProgress(pos, dur);
 
+        UpdatePieces();
         UpdateQuietZones();
         // Hidden lyrics need no karaoke updates; they catch up from the position when shown.
         if (!_s.LyricsExpanded) return;
@@ -929,7 +990,7 @@ public sealed class TaskbarOverlay : IDisposable, ILyricsHost
             case nameof(AppSettings.LayerMode) or nameof(AppSettings.WidgetPlacement) or nameof(AppSettings.WidgetMaxWidth)
                 or nameof(AppSettings.PlayerMode)
                 or nameof(AppSettings.FaceEnabled) or nameof(AppSettings.FacePlacement) or nameof(AppSettings.FaceScale)
-                or nameof(AppSettings.FaceStaysWhenIdle):
+                or nameof(AppSettings.FaceStaysWhenIdle) or nameof(AppSettings.SeekAvoidIcons):
                 Reposition();
                 break;
             case nameof(AppSettings.TransparentTaskbar):

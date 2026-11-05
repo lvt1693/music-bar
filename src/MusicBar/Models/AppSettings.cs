@@ -186,6 +186,10 @@ public sealed class AppSettings : ObservableObject
     bool _seekIdleMotion = true;
     public bool SeekIdleMotion { get => _seekIdleMotion; set => Set(ref _seekIdleMotion, value); }
 
+    /// <summary>The bar keeps clear of Windows' icons and runs on through the empty stretches between them.</summary>
+    bool _seekAvoidIcons;
+    public bool SeekAvoidIcons { get => _seekAvoidIcons; set => Set(ref _seekAvoidIcons, value); }
+
     double _fillOpacity = 0.34;
     public double FillOpacity { get => _fillOpacity; set => Set(ref _fillOpacity, Math.Clamp(value, 0.05, 1)); }
 

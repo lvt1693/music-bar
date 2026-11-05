@@ -2,8 +2,8 @@
 
 Thanh taskbar nằm im ba mươi năm rồi. Cho nó hát đi.
 
-**Tải về:** [bản cài đặt](https://github.com/lvt1693/music-bar/releases/latest/download/MusicBar-1.6.0-Setup.exe)
-hoặc [bản portable](https://github.com/lvt1693/music-bar/releases/latest/download/MusicBar-1.6.0-portable.zip)
+**Tải về:** [bản cài đặt](https://github.com/lvt1693/music-bar/releases/latest/download/MusicBar-1.6.1-Setup.exe)
+hoặc [bản portable](https://github.com/lvt1693/music-bar/releases/latest/download/MusicBar-1.6.1-portable.zip)
 (Windows 10 2004 trở lên hoặc Windows 11, 64-bit, không cần cài .NET).
 
 **Hướng dẫn dùng:** [wiki tiếng Việt](https://github.com/lvt1693/music-bar/wiki), có ảnh từng tab cài
@@ -41,6 +41,9 @@ hoặc [bản portable](https://github.com/lvt1693/music-bar/releases/latest/dow
   biến mất trước khi kịp tua, karaoke trôi chậm hơn lời hát, số lệch lời hiểu ngược, tự ẩn hoài vì
   tưởng đang toàn màn hình (bỏ hẳn tùy chọn này, giờ chỉ nhường chỗ khi taskbar bị che thật), màn
   phụ không hiện tên bài, tắt app mà taskbar không về như cũ.
+- [x] **05/11** Bản 1.6.1: tùy chọn **Chỉ chạy ở chỗ trống**, thanh tiến trình và visualizer né các
+  icon của Windows, chạy nối qua các khoảng trống. Sửa: lời đứng ở dòng cuối khi lặp lại bài với
+  vài trình phát, nút Control Center nổi đè lên game toàn màn hình.
 
 Thấy MusicBar hữu ích, muốn mời mình ly cà phê thì quét mã này nhé (VPBank · 178971468 · LE VAN TRUC).
 
@@ -61,7 +64,9 @@ Media Player, Apple Music… Không có nhạc thì nó lặn mất, taskbar v�
 - **Thanh tiến trình trải hết taskbar**, nằm dưới các icon. Mười bốn kiểu (bảng bên dưới),
   kiểu nào cũng lấy màu từ ảnh bìa, màu app đang phát, màu nhấn của Windows hoặc màu bạn chọn.
   Chạy theo 4 hướng: trái sang phải, phải sang trái, từ giữa ra hai đầu, hoặc từ hai đầu vào
-  giữa.
+  giữa. Không thích nó chạy qua các icon thì bật **Chỉ chạy ở chỗ trống**: thanh né Start, icon
+  ứng dụng và khay hệ thống, chạy nối từ khoảng trống này sang khoảng trống kia, mép mờ dần
+  cạnh icon.
 - **Hoặc một visualizer thay cho thanh tiến trình:** 6 kiểu chỉ nhảy theo nhạc, 60 khung / giây.
   Mỗi kiểu nhớ bảng màu riêng, và tự làm skin được (chi tiết ở dưới).
 - **Taskbar nằm đâu cũng chạy:** dưới, trên, hay dựng dọc bên trái / bên phải. Taskbar dọc thì
@@ -168,11 +173,11 @@ sẵn câu lệnh để dán.
 
 ## Cài
 
-- **Bản cài đặt** (`MusicBar-1.6.0-Setup.exe`): cài cho riêng tài khoản của bạn vào
+- **Bản cài đặt** (`MusicBar-1.6.1-Setup.exe`): cài cho riêng tài khoản của bạn vào
   `%LOCALAPPDATA%\Programs\MusicBar`, không hỏi quyền admin, có mục trong Start và gỡ được
   trong Cài đặt → Ứng dụng. Cài đè hay gỡ đi thì MusicBar được báo thoát trước, để trả taskbar
   và khay về đúng như Windows sắp xếp.
-- **Bản portable** (`MusicBar-1.6.0-portable.zip`): giải nén ra đâu cũng được, chạy
+- **Bản portable** (`MusicBar-1.6.1-portable.zip`): giải nén ra đâu cũng được, chạy
   `MusicBar.exe`.
 
 **Cập nhật:** từ bản 1.4, MusicBar tự xem GitHub mỗi lần chạy (và mỗi ngày một lần khi đang
@@ -352,7 +357,7 @@ C++") cho module taskbar Windows 11.
 ```powershell
 dotnet build src/MusicBar/MusicBar.csproj
 dotnet run --project src/MusicBar -- --demo
-.\installer\build.ps1 -Version 1.6.0     # ra artifacts\: Setup.exe (Inno Setup 6) và portable.zip
+.\installer\build.ps1 -Version 1.6.1     # ra artifacts\: Setup.exe (Inno Setup 6) và portable.zip
 ```
 
 ## Bên trong
@@ -497,6 +502,8 @@ fully usable) and adds:
   LED), a palette per style (the song's colors, 11 presets or three of your own), and skins: a
   small HLSL pixel shader that paints the bar on the GPU, with a [guide](docs/skins.md) written so
   you can hand it to an AI and get a skin back;
+- an option to keep the bar clear of Windows' icons, running on through the empty stretches
+  between them;
 - a face of your own pictures (PNG, GIF or WebP, animated too), one per mood;
 - a brightness slider in the control center (laptop panels through WMI, monitors over DDC/CI), and
   Win + A opening MusicBar's control center.

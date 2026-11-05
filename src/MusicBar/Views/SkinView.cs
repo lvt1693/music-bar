@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -28,6 +30,7 @@ public sealed partial class SkinEffect : ShaderEffect
     public static readonly DependencyProperty ColorCProperty = Constant("ColorC", Colors.White, 7);
     public static readonly DependencyProperty BeatProperty = Constant("Beat", 0.0, 8);
     public static readonly DependencyProperty BottomEdgeProperty = Constant("BottomEdge", 1.0, 9);
+    public static readonly DependencyProperty SpanProperty = Constant("Span", new Point(0, 1), 10);
 
     static DependencyProperty Constant(string name, object initial, int register)
         => DependencyProperty.Register(name, initial.GetType(), typeof(SkinEffect), new UIPropertyMetadata(initial, PixelShaderConstantCallback(register)));
@@ -38,7 +41,7 @@ public sealed partial class SkinEffect : ShaderEffect
         shader.SetStreamSource(new MemoryStream(bytecode));
         PixelShader = shader;
         foreach (var p in new[] { InputProperty, AudioProperty, TimeProperty, ProgressProperty, LevelProperty, PlayingProperty, SizeProperty,
-                     ColorAProperty, ColorBProperty, ColorCProperty, BeatProperty, BottomEdgeProperty })
+                     ColorAProperty, ColorBProperty, ColorCProperty, BeatProperty, BottomEdgeProperty, SpanProperty })
             UpdateShaderValue(p);
     }
 }
@@ -46,21 +49,27 @@ public sealed partial class SkinEffect : ShaderEffect
 /// <summary>
 /// Shows a skin: a rectangle whose pixels the skin's shader paints, fed each frame from a
 /// <see cref="SeekRenderer"/> that keeps the clock, the audio and the colors (it runs hidden,
-/// doing everything but drawing).
+/// doing everything but drawing). Kept clear of the taskbar's icons, it is one rectangle per empty
+/// stretch, each painting its own part of the one bar.
 /// </summary>
 public sealed class SkinView : Border
 {
-    readonly Rectangle _canvas = new() { Fill = new SolidColorBrush(Color.FromArgb(1, 0, 0, 0)) };
+    static readonly Brush Clear = Frozen(new SolidColorBrush(Color.FromArgb(1, 0, 0, 0)));
+
+    readonly Grid _stage = new();
+    readonly List<(Rectangle Canvas, SkinEffect? Effect)> _parts = [];
     readonly WriteableBitmap _audio = new(256, 2, 96, 96, PixelFormats.Bgra32, null);
     readonly byte[] _pixels = new byte[256 * 2 * 4];
     readonly ImageBrush _audioBrush;
-    SkinEffect? _effect;
+    IReadOnlyList<(double Left, double Right)> _pieces = [];
 
     public SkinView()
     {
-        Child = _canvas;
+        Child = _stage;
         _audioBrush = new ImageBrush(_audio) { Stretch = Stretch.Fill };
         IsHitTestVisible = false;
+        SizeChanged += (_, _) => LayParts();
+        LayParts();
     }
 
     public SkinInfo? Skin { get; private set; }
@@ -70,25 +79,87 @@ public sealed class SkinView : Border
     {
         if (ReferenceEquals(skin, Skin)) return;
         Skin = skin;
-        _effect = skin?.Bytecode is { } code ? new SkinEffect(code) { Audio = _audioBrush } : null;
-        _canvas.Effect = _effect;
+        for (int i = 0; i < _parts.Count; i++)
+        {
+            var effect = NewEffect();
+            _parts[i] = (_parts[i].Canvas, effect);
+            _parts[i].Canvas.Effect = effect;
+        }
+    }
+
+    SkinEffect? NewEffect() => Skin?.Bytecode is { } code ? new SkinEffect(code) { Audio = _audioBrush } : null;
+
+    /// <summary>The stretches (in this element's units) the bar keeps to; empty for the whole width.</summary>
+    public void SetPieces(IReadOnlyList<(double Left, double Right)> pieces)
+    {
+        _pieces = pieces.ToArray();
+        LayParts();
+    }
+
+    /// <summary>One rectangle per stretch (or one across everything), each fading in and out beside the icons.</summary>
+    void LayParts()
+    {
+        int count = Math.Max(1, _pieces.Count);
+        while (_parts.Count < count)
+        {
+            var canvas = new Rectangle { Fill = Clear, HorizontalAlignment = HorizontalAlignment.Left };
+            var effect = NewEffect();
+            canvas.Effect = effect;
+            _stage.Children.Add(canvas);
+            _parts.Add((canvas, effect));
+        }
+        while (_parts.Count > count)
+        {
+            _stage.Children.Remove(_parts[^1].Canvas);
+            _parts.RemoveAt(_parts.Count - 1);
+        }
+
+        double w = ActualWidth;
+        for (int i = 0; i < count; i++)
+        {
+            var canvas = _parts[i].Canvas;
+            if (_pieces.Count == 0)
+            {
+                canvas.HorizontalAlignment = HorizontalAlignment.Stretch;
+                canvas.Width = double.NaN;
+                canvas.Margin = new Thickness(0);
+                canvas.OpacityMask = null;
+                continue;
+            }
+            var (left, right) = _pieces[i];
+            canvas.HorizontalAlignment = HorizontalAlignment.Left;
+            canvas.Width = Math.Max(0, right - left);
+            canvas.Margin = new Thickness(left, 0, 0, 0);
+            canvas.OpacityMask = SeekRenderer.PieceFade(left, right, w, relative: true);
+        }
     }
 
     /// <summary>One frame: the time, the song and the sound, as the engine has them now.</summary>
     public void Update(SeekRenderer engine)
     {
-        if (_effect is not { } e) return;
+        if (Skin?.Bytecode == null) return;
         var (a, b, c) = engine.ColorsNow();
-        e.Time = engine.StyleTime;
-        e.Progress = engine.ProgressNow;
-        e.Level = engine.LevelNow;
-        e.Beat = engine.BeatNow;
-        e.Playing = engine.PlayingNow ? 1 : 0;
-        e.Size = new Point(Math.Max(1, ActualWidth), Math.Max(1, ActualHeight));
-        e.ColorA = a;
-        e.ColorB = b;
-        e.ColorC = c;
-        e.BottomEdge = engine.EdgeAtTop ? 1 : 0;
+        double full = _pieces.Count == 0 ? ActualWidth : _pieces.Sum(p => p.Right - p.Left);
+        full = Math.Max(1, full);
+        double at = 0;
+        for (int i = 0; i < _parts.Count; i++)
+        {
+            if (_parts[i].Effect is not { } e) continue;
+            e.Time = engine.StyleTime;
+            e.Progress = engine.ProgressNow;
+            e.Level = engine.LevelNow;
+            e.Beat = engine.BeatNow;
+            e.Playing = engine.PlayingNow ? 1 : 0;
+            e.Size = new Point(full, Math.Max(1, ActualHeight));
+            e.ColorA = a;
+            e.ColorB = b;
+            e.ColorC = c;
+            e.BottomEdge = engine.EdgeAtTop ? 1 : 0;
+            // Where this rectangle's part starts along the whole bar, and how much of it it is.
+            double width = _pieces.Count == 0 ? full : _pieces[i].Right - _pieces[i].Left;
+            e.Span = new Point(at / full, width / full);
+            at += width;
+        }
 
         // Row one, the spectrum (low notes on the left); row two, the waveform around the middle grey.
         var wave = engine.WaveNow;
@@ -108,6 +179,12 @@ public sealed class SkinView : Border
         _pixels[o] = _pixels[o + 1] = _pixels[o + 2] = value;
         _pixels[o + 3] = 255;
     }
+
+    static Brush Frozen(Brush b)
+    {
+        b.Freeze();
+        return b;
+    }
 }
 
 public partial class SkinEffect
@@ -122,5 +199,6 @@ public partial class SkinEffect
     public Color ColorC { get => (Color)GetValue(ColorCProperty); set => SetValue(ColorCProperty, value); }
     public double Beat { get => (double)GetValue(BeatProperty); set => SetValue(BeatProperty, value); }
     public double BottomEdge { get => (double)GetValue(BottomEdgeProperty); set => SetValue(BottomEdgeProperty, value); }
+    public Point Span { get => (Point)GetValue(SpanProperty); set => SetValue(SpanProperty, value); }
     public Brush Audio { get => (Brush)GetValue(AudioProperty); set => SetValue(AudioProperty, value); }
 }

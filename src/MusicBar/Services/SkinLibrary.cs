@@ -42,6 +42,7 @@ public static class SkinLibrary
         float4 colorC : register(c7);
         float beat : register(c8);
         float bottomEdge : register(c9);
+        float2 musicbarSpan : register(c10);
         float spectrum(float x) { return tex2D(audioTexture, float2(saturate(x), 0.25)).r; }
         float wave(float x) { return tex2D(audioTexture, float2(saturate(x), 0.75)).r * 2 - 1; }
         float rise(float2 uv) { return bottomEdge > 0.5 ? 1 - uv.y : uv.y; }
@@ -152,17 +153,34 @@ public static class SkinLibrary
     }
 
     /// <summary>
+    /// Put after every skin: the real entry point. It hands the skin's main the point it would be
+    /// at on the whole bar, so a bar cut into stretches between the icons is one skin across them
+    /// all (musicbarSpan: where this stretch starts along the bar, and its share of it).
+    /// </summary>
+    const string Entry = """
+
+        #line 1 "musicbar"
+        float4 musicbarMain(float2 uv : TEXCOORD) : COLOR { return main(float2(musicbarSpan.x + uv.x * musicbarSpan.y, uv.y)); }
+        """;
+
+    /// <summary>
     /// Compiles a skin as a pixel shader (ps_3_0, or ps_2_0 where the GPU has nothing newer), with
     /// the prelude in front and line numbers that still point into the skin's own file.
     /// </summary>
     public static byte[]? Compile(string source, out string? error)
+    {
+        // A main of another shape won't take the entry point; on its own, its errors are its own.
+        return Compile(source + Entry, "musicbarMain", out error) ?? Compile(source, "main", out error);
+    }
+
+    static byte[]? Compile(string source, string entry, out string? error)
     {
         error = null;
         var target = RenderCapability.IsPixelShaderVersionSupported(3, 0) ? "ps_3_0" : "ps_2_0";
         var text = Encoding.UTF8.GetBytes(Prelude + "#line 1 \"skin\"\n" + source);
         try
         {
-            int hr = D3DCompile(text, (IntPtr)text.Length, "skin", IntPtr.Zero, IntPtr.Zero, "main", target,
+            int hr = D3DCompile(text, (IntPtr)text.Length, "skin", IntPtr.Zero, IntPtr.Zero, entry, target,
                 OptimizationLevel3, 0, out var code, out var errors);
             if (hr < 0 || code == null)
             {

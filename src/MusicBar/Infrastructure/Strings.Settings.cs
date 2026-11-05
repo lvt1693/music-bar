@@ -159,6 +159,8 @@ public static partial class Strings
         d.Add("Set_NetEase", ("Also ask NetEase", "Tìm thêm trên NetEase"));
         d.Add("Set_NetEase_Desc", ("When LRCLIB has no synced lyrics, try NetEase Cloud Music (strong on Korean, Chinese and Japanese songs). An unofficial source: it may stop working any time.",
             "Khi LRCLIB không có lời chạy theo nhạc thì hỏi NetEase Cloud Music (mạnh nhạc Hàn, Hoa, Nhật). Nguồn không chính thức, có thể ngừng chạy bất cứ lúc nào."));
+        d.Add("Set_AvoidIcons", ("Only in the empty space", "Chỉ chạy ở chỗ trống"));
+        d.Add("Set_AvoidIcons_Desc", ("The bar and the visualizers keep clear of Windows' icons (Start, apps, the tray) and run on through the empty stretches between them.", "Thanh tiến trình và visualizer né các icon của Windows (Start, ứng dụng, khay hệ thống), chạy nối qua các khoảng trống giữa chúng."));
         d.Add("Set_IdleMotion", ("Keep moving when paused", "Vẫn chuyển động khi tạm dừng"));
         d.Add("Set_IdleMotion_Desc", ("Paused, the style drifts slowly in place instead of freezing. Off saves a little power.", "Tạm dừng nhạc thì hiệu ứng trôi chậm tại chỗ thay vì đứng im. Tắt đi thì đỡ tốn pin hơn chút."));
         d.Add("Set_FocusStartButton", ("Start", "Bắt đầu"));

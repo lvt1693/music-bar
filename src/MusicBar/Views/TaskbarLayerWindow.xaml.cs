@@ -144,6 +144,13 @@ public partial class TaskbarLayerWindow : Window
         SkinHost.OpacityMask = Seek.QuietMaskFor(Seek.ActualWidth);
     }
 
+    /// <summary>The empty stretches the bar keeps to, in the seekbar's own units; empty for the whole taskbar.</summary>
+    public void SetPieces(System.Collections.Generic.IReadOnlyList<(double Left, double Right)> pieces)
+    {
+        Seek.SetPieces(pieces);
+        SkinHost.SetPieces(pieces);
+    }
+
     /// <summary>Called every frame by the overlay.</summary>
     public void SetProgress(double fraction, bool hasTimeline, bool playing)
     {

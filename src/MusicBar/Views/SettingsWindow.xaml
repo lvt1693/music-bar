@@ -598,6 +598,9 @@
                         <ComboBox MinWidth="260" DisplayMemberPath="Label" SelectedValuePath="Value"
                                   ItemsSource="{x:Static v:SettingsOptions.SeekDirections}" SelectedValue="{Binding SeekDirection}" />
                     </v:SettingCard>
+                    <v:SettingCard Glyph="&#xE7C4;" Header="{l:Tr Set_AvoidIcons}" Description="{l:Tr Set_AvoidIcons_Desc}">
+                        <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding SeekAvoidIcons}" />
+                    </v:SettingCard>
                     <v:SettingCard Glyph="&#xE793;" Header="{l:Tr Set_FillOpacity}">
                         <StackPanel Orientation="Horizontal">
                             <Slider Width="220" Minimum="0.08" Maximum="0.9" SmallChange="0.02" LargeChange="0.1"

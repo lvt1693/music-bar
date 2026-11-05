@@ -60,6 +60,12 @@ internal sealed class ControlCenter : IDisposable
     /// <summary>The taskbar has the Windows 10 style tray this works with (Windows 10, ExplorerPatcher).</summary>
     public bool Supported { get; private set; }
 
+    /// <summary>
+    /// A full-screen window (a game, a video) is over the taskbar. The button is always on top, so it
+    /// would float over the game where the tray was and catch its clicks: it steps aside meanwhile.
+    /// </summary>
+    public bool Covered { get; set; }
+
     public void Start()
     {
         new WindowInteropHelper(_hotspot).EnsureHandle();
@@ -114,7 +120,7 @@ internal sealed class ControlCenter : IDisposable
             : _tracker.IsHorizontal ? new Native.RECT(qs.Start, bar.Top, qs.End, bar.Bottom)
             : new Native.RECT(bar.Left, qs.Start, bar.Right, qs.End);
         Supported = entry != null;
-        if (entry is not { } r || !_tracker.Shown)
+        if (entry is not { } r || !_tracker.Shown || Covered)
         {
             HideHotspot();
             return;

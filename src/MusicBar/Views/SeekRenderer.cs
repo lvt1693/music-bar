@@ -121,8 +121,20 @@ public sealed class SeekRenderer : FrameworkElement
 
     bool Split => _direction is SeekDirection.FromCenter or SeekDirection.FromEnds;
 
-    /// <summary>How far the playhead travels: the whole width, or half of it when the bar is split.</summary>
-    double Run => Split ? ActualWidth / 2 : ActualWidth;
+    /// <summary>How far the playhead travels: the whole length, or half of it when the bar is split.</summary>
+    double Run => Split ? Full / 2 : Full;
+
+    /// <summary>The length the style is drawn along: the whole width, or the empty stretches joined end to end.</summary>
+    double Full
+    {
+        get
+        {
+            if (_pieces.Count == 0) return ActualWidth;
+            double sum = 0;
+            foreach (var (left, right) in _pieces) sum += right - left;
+            return sum;
+        }
+    }
 
     public static bool UsesAudio(SeekStyle s) => s is not (SeekStyle.Classic or SeekStyle.Ribbon or SeekStyle.Cinema);
 
@@ -228,6 +240,52 @@ public sealed class SeekRenderer : FrameworkElement
         _quietZones.Clear();
         _quietZones.AddRange(zones);
         _dirty = true;
+    }
+
+    /// <summary>
+    /// The stretches (in this element's units) the bar keeps to when it stays clear of the taskbar's
+    /// icons; empty for the whole width. The style is drawn once along them joined end to end and
+    /// laid across them in order, so the progress runs on from one stretch into the next.
+    /// </summary>
+    public void SetPieces(IReadOnlyList<(double Left, double Right)> pieces)
+    {
+        bool same = pieces.Count == _pieces.Count;
+        for (int i = 0; same && i < pieces.Count; i++)
+            same = Math.Abs(pieces[i].Left - _pieces[i].Left) < 0.5 && Math.Abs(pieces[i].Right - _pieces[i].Right) < 0.5;
+        if (same) return;
+        _pieces.Clear();
+        _pieces.AddRange(pieces);
+        _fades = null;
+        _dirty = true;
+    }
+
+    readonly List<(double Left, double Right)> _pieces = [];
+    Brush?[]? _fades;
+    double _fadesWidth;
+
+    /// <summary>
+    /// A stretch's soft ends where icons sit beside it (none at the taskbar's own ends), as an opacity
+    /// mask in this element's units, or across the stretch's own box when <paramref name="relative"/>.
+    /// </summary>
+    internal static Brush? PieceFade(double left, double right, double width, bool relative = false)
+    {
+        const double feather = 14;
+        bool fadeIn = left > 1, fadeOut = right < width - 1;
+        double length = right - left;
+        if ((!fadeIn && !fadeOut) || length <= 0) return null;
+        double k = Math.Min(feather, length / 3) / length;
+        var stops = new GradientStopCollection
+        {
+            new(fadeIn ? Colors.Transparent : Colors.Black, 0),
+            new(Colors.Black, fadeIn ? k : 0),
+            new(Colors.Black, fadeOut ? 1 - k : 1),
+            new(fadeOut ? Colors.Transparent : Colors.Black, 1),
+        };
+        var brush = relative
+            ? new LinearGradientBrush(stops, new Point(0, 0.5), new Point(1, 0.5))
+            : new LinearGradientBrush(stops, new Point(left, 0), new Point(right, 0)) { MappingMode = BrushMappingMode.Absolute };
+        brush.Freeze();
+        return brush;
     }
 
     LinearGradientBrush QuietMask(double width)
@@ -398,16 +456,20 @@ public sealed class SeekRenderer : FrameworkElement
         double now = Now;
         _dirty = false;
         double w = ActualWidth, h = ActualHeight;
-        if (w < 4 || h < 4) return;
+        double full = Full;
+        if (w < 4 || h < 4 || full < 4) return;
         _renderPass++;
 
-        double run = IsVisualizer(_style) ? w : Run;
+        double run = IsVisualizer(_style) ? full : Run;
         double x = _timeline ? _progress * run : 0;
         _lastPx = x;
         var (a, b) = CurrentColors(now);
         var c = CurrentThird(now, a, b);
         double t = now - _lag;
-        var f = new Frame(dc, run, h, x, a, b, c, _intensity, _edgeAtTop, t, _level);
+        // Kept clear of the icons, the style is drawn once along the stretches joined end to end.
+        var joined = _pieces.Count > 0 ? new DrawingGroup() : null;
+        var target = joined?.Open() ?? dc;
+        var f = new Frame(target, run, h, x, a, b, c, _intensity, _edgeAtTop, t, _level);
 
         // Quiet zones are in this element's units, so the mask goes on before any mirroring.
         bool quiet = _quietZones.Count > 0;
@@ -421,7 +483,7 @@ public sealed class SeekRenderer : FrameworkElement
                 DrawStyle(f);
                 break;
             case SeekDirection.FromEnd:
-                DrawStyle(f, new Matrix(-1, 0, 0, 1, w, 0));
+                DrawStyle(f, new Matrix(-1, 0, 0, 1, full, 0));
                 break;
             case SeekDirection.FromCenter:
                 DrawStyle(f, new Matrix(1, 0, 0, 1, run, 0));
@@ -429,10 +491,41 @@ public sealed class SeekRenderer : FrameworkElement
                 break;
             case SeekDirection.FromEnds:
                 DrawStyle(f, Matrix.Identity);
-                DrawStyle(f, new Matrix(-1, 0, 0, 1, w, 0));
+                DrawStyle(f, new Matrix(-1, 0, 0, 1, full, 0));
                 break;
         }
+        if (joined != null)
+        {
+            target.Close();
+            LayAcross(dc, joined, w, h);
+        }
         if (quiet) dc.Pop();
+    }
+
+    /// <summary>The joined drawing cut into the stretches, in order, each fading out beside the icons.</summary>
+    void LayAcross(DrawingContext dc, Drawing joined, double w, double h)
+    {
+        if (_fades == null || _fades.Length != _pieces.Count || Math.Abs(_fadesWidth - w) > 0.5)
+        {
+            _fades = new Brush?[_pieces.Count];
+            for (int i = 0; i < _pieces.Count; i++) _fades[i] = PieceFade(_pieces[i].Left, _pieces[i].Right, w);
+            _fadesWidth = w;
+        }
+        double at = 0;
+        for (int i = 0; i < _pieces.Count; i++)
+        {
+            var (left, right) = _pieces[i];
+            double length = right - left;
+            if (length <= 0) continue;
+            dc.PushClip(new RectangleGeometry(new Rect(left, 0, length, h)));
+            if (_fades[i] is { } fade) dc.PushOpacityMask(fade);
+            dc.PushTransform(new TranslateTransform(left - at, 0));
+            dc.DrawDrawing(joined);
+            dc.Pop();
+            if (_fades[i] != null) dc.Pop();
+            dc.Pop();
+            at += length;
+        }
     }
 
     /// <summary>One copy of the style, placed by <paramref name="place"/> and kept inside its own run.</summary>
@@ -1253,7 +1346,7 @@ public sealed class SeekRenderer : FrameworkElement
             _flies.Clear();
             return;
         }
-        double w = ActualWidth, h = ActualHeight;
+        double w = Full, h = ActualHeight;
         if (w < 4 || h < 4) return;
         // New ones rise with the music: steadily with its loudness, in a burst on each beat.
         _spawnDebt += dt * (4 + 46 * _level) * (_playing ? 1 : 0.15);

@@ -70,6 +70,7 @@ static class Program
                 {
                     case "seek": Seek(args); break;
             case "looks": await Looks(args); break;
+            case "gaps": await Looks(args, gaps: true); break;
             case "settingsscroll": await SettingsScroll(args); break;
                     case "lyrics": await Lyrics(args); break;
                     case "panel": await Panel(args); break;
@@ -150,21 +151,30 @@ static class Program
     /// seconds of made-up music, then each skin given. The visualizers are drawn offscreen; a
     /// skin's shader only runs on the graphics card, so the skins are shown in a window off the
     /// screen and grabbed from it with PrintWindow.
+    /// gaps &lt;out.png&gt; &lt;scale&gt; [skin.hlsl ...]: the same kept clear of made-up icons (grey), the
+    /// way "Only in the empty space" lays the bar between a taskbar's icons.
     /// </summary>
-    static async Task Looks(string[] a)
+    static async Task Looks(string[] a, bool gaps = false)
     {
         string outPath = Path.GetFullPath(a[1]);
         double scale = D(a[2]);
         const double w = 960, h = 40, rowH = 60, labelW = 150;
         Color ca = C("#FF5F6D"), cb = C("#47A9FF"), cc = C("#FFC371");
         var rows = new List<(string Label, BitmapSource Image)>();
+        // Centred app icons and the tray at the right end, as on Windows 11.
+        (double Left, double Right)[] icons = gaps ? [(400, 560), (850, 960)] : [];
+        (double Left, double Right)[] pieces = gaps ? [(0, 394), (566, 844)] : [];
+        var styles = gaps
+            ? new[] { SeekStyle.Classic, SeekStyle.Spectrum, SeekStyle.Aurora, SeekStyle.Liquid, SeekStyle.Equalizer, SeekStyle.Oscilloscope, SeekStyle.Led }
+            : new[] { SeekStyle.Equalizer, SeekStyle.Horizon, SeekStyle.Oscilloscope, SeekStyle.Aura, SeekStyle.Fireflies, SeekStyle.Led, SeekStyle.Spectrum };
 
-        foreach (var style in new[] { SeekStyle.Equalizer, SeekStyle.Horizon, SeekStyle.Oscilloscope, SeekStyle.Aura, SeekStyle.Fireflies, SeekStyle.Led, SeekStyle.Spectrum })
+        foreach (var style in styles)
         {
             double time = 0;
             var seek = new SeekRenderer { Look = style, Intensity = 0.6, Width = w, Height = h, Clock = () => time };
             seek.SetEdge(true);
             seek.SetColors(ca, cb, animate: false, cc);
+            seek.SetPieces(pieces);
             var stage = Stage(seek, w, h);
             stage.UpdateLayout();
             for (int i = 0; i < 120; i++)
@@ -187,6 +197,8 @@ static class Program
             engine.SetColors(ca, cb, animate: false, cc);
             var view = new SkinView();
             view.SetSkin(skin);
+            engine.SetPieces(pieces);
+            view.SetPieces(pieces);
             var grid = new Grid { Width = w, Height = h, Background = new SolidColorBrush(Color.FromRgb(0x0B, 0x0B, 0x0F)) };
             grid.Children.Add(engine);
             grid.Children.Add(view);
@@ -224,6 +236,8 @@ static class Program
                 double y = rowH * i + (rowH - h) / 2;
                 dc.DrawRectangle(new SolidColorBrush(Color.FromRgb(0x0B, 0x0B, 0x0F)), null, new Rect(labelW, y, w, h));
                 dc.DrawImage(rows[i].Image, new Rect(labelW, y, w, h));
+                foreach (var (left, right) in icons)
+                    dc.DrawRoundedRectangle(null, new Pen(new SolidColorBrush(Color.FromArgb(0x90, 0xB0, 0xB0, 0xB8)), 1), new Rect(labelW + left + 2, y + 6, right - left - 4, h - 12), 4, 4);
                 dc.DrawText(new FormattedText(rows[i].Label, Inv, FlowDirection.LeftToRight, face, 14, Brushes.White, 1.0), new Point(14, rowH * i + rowH / 2 - 10));
             }
         }
