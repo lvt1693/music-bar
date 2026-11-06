@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}{{ t("sub_title") }} · MusicBar{% endblock %}
+{% block lyric %}{{ t("sub_sub") }}{% endblock %}
+{% block main %}
+<h1 class="page-title">{{ t("sub_title") }}</h1>
+<p style="color: var(--text-2); margin: -10px 0 18px; max-width: 46em">{{ t("sub_sub") }}</p>
+
+<form class="form" method="post" action="/submit" enctype="multipart/form-data">
+  <label class="drop">
+    {{ icon("upload-simple") }}
+    <b>{{ t("f_file") }}</b>
+    <span data-file-name>{{ t("f_file_hint") }}, .hlsl {{ t("or") }} .json, 64 KB</span>
+    <input type="file" name="file" accept=".hlsl,.fx,.txt,.json" required>
+  </label>
+  <label class="fld">{{ icon("text-aa") }}<span><b>{{ t("f_name") }}</b></span><input type="text" name="name" maxlength="40" required></label>
+  <label class="fld">{{ icon("smiley") }}<span><b>{{ t("f_nick") }}</b><span class="d">{{ t("f_nick_d") }}</span></span><input type="text" name="nickname" maxlength="24" required pattern="[\p{L}\p{N} ._\-]{2,24}"></label>
+  <label class="fld">{{ icon("info") }}<span><b>{{ t("f_desc") }}</b></span><input type="text" name="description" maxlength="300"></label>
+  <label class="fld">{{ icon("squares-four") }}<span><b>{{ t("f_category") }}</b></span>
+    <select name="category">{% for c in categories %}<option value="{{ c }}">{{ t("cat_" + c) }}</option>{% endfor %}</select>
+  </label>
+  <label class="drop">
+    {{ icon("palette") }}
+    <b>{{ t("f_preview") }}</b>
+    <span data-file-name>PNG, JPEG {{ t("or") }} WebP, 3 MB</span>
+    <input type="file" name="preview" accept="image/png,image/jpeg,image/webp">
+  </label>
+  <label class="check"><input type="checkbox" name="agree" required> {{ t("f_rules") }}</label>
+  <div><button class="btn btn-accent btn-lg" type="submit">{{ icon("upload-simple") }}{{ t("f_send") }}</button></div>
+</form>
+
+<div class="group aside-note">
+  <h2 class="group-title">{{ t("how_safe_t") }}</h2>
+  <div class="card set">{{ icon("shield-check") }}<div><span class="d" style="color:var(--text)">{{ t("how_safe_1") }}</span></div></div>
+  <div class="card set">{{ icon("shield-check") }}<div><span class="d" style="color:var(--text)">{{ t("how_safe_2") }}</span></div></div>
+  <div class="card set">{{ icon("shield-check") }}<div><span class="d" style="color:var(--text)">{{ t("how_safe_3") }}</span></div></div>
+  <div class="card set">{{ icon("info") }}<div><span class="d" style="color:var(--text)">{{ t("sub_app_tip") }}</span></div><div class="ctl"><a class="btn btn-soft btn-sm" href="{{ github }}/blob/main/docs/skins.md" rel="noopener">docs/skins.md</a></div></div>
+</div>
+{% endblock %}

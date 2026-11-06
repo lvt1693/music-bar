@@ -42,6 +42,7 @@ public sealed class BubbleWindow : Window
 
     public BubbleWindow()
     {
+        CpuRendering.Use(this);
         Title = "MusicBar";
         WindowStyle = WindowStyle.None;
         AllowsTransparency = true;

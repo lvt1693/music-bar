@@ -1,0 +1,36 @@
+[Unit]
+Description=MusicBar website (musicbar.truclv.com): product page, gallery, app API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+# Its own user, with nothing to write but its data: uploads are only ever read as bytes, never run.
+User=musicbar
+Group=musicbar
+WorkingDirectory=/opt/musicbar-web
+Environment=MUSICBAR_WEB_DATA=/var/lib/musicbar-web
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/musicbar-web/venv/bin/uvicorn server.app:app --host 127.0.0.1 --port 7490 --workers 1 --proxy-headers --forwarded-allow-ips=127.0.0.1 --no-server-header
+Restart=always
+RestartSec=3
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/musicbar-web
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+SystemCallArchitectures=native
+MemoryMax=600M
+TasksMax=64
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target

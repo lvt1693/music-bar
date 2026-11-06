@@ -56,7 +56,7 @@
                     <ControlTemplate TargetType="CheckBox">
                         <StackPanel Orientation="Horizontal" Background="Transparent">
                             <TextBlock x:Name="Label" Text="{l:Tr Set_Off}" Width="30" Margin="0,0,10,0" TextAlignment="Right"
-                                       VerticalAlignment="Center" Opacity="0.8" />
+                                       VerticalAlignment="Center" Opacity="0.6" />
                             <Grid Width="40" Height="20">
                                 <Border x:Name="Track" CornerRadius="10" BorderThickness="1" BorderBrush="#A0FFFFFF"
                                         Background="#0AFFFFFF" />
@@ -74,6 +74,9 @@
                                 <Setter TargetName="Track" Property="BorderBrush" Value="{StaticResource Accent}" />
                                 <Setter TargetName="Thumb" Property="Fill" Value="#FF111111" />
                                 <Setter TargetName="Label" Property="Text" Value="{l:Tr Set_On}" />
+                                <Setter TargetName="Label" Property="Foreground" Value="{StaticResource Accent}" />
+                                <Setter TargetName="Label" Property="Opacity" Value="1" />
+                                <Setter TargetName="Label" Property="FontWeight" Value="SemiBold" />
                                 <Trigger.EnterActions>
                                     <BeginStoryboard>
                                         <Storyboard>
@@ -264,6 +267,12 @@
                 </ListBoxItem>
                 <ListBoxItem>
                     <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE719;" FontFamily="{StaticResource Icons}" FontSize="16" VerticalAlignment="Center" />
+                        <TextBlock Text="{l:Tr Set_Page_Gallery}" Margin="14,0,0,0" FontSize="14" VerticalAlignment="Center" />
+                    </StackPanel>
+                </ListBoxItem>
+                <ListBoxItem>
+                    <StackPanel Orientation="Horizontal">
                         <TextBlock Text="&#xE8D6;" FontFamily="{StaticResource Icons}" FontSize="16" VerticalAlignment="Center" />
                         <TextBlock Text="{l:Tr Set_Page_Lyrics}" Margin="14,0,0,0" FontSize="14" VerticalAlignment="Center" />
                     </StackPanel>
@@ -303,8 +312,23 @@
             </Border>
         </Grid>
 
-        <!-- ============ Pages ============ -->
-        <ScrollViewer x:Name="PageScroll" Grid.Column="1" VerticalScrollBarVisibility="Auto" Padding="30,22,34,30">
+        <!-- ============ Pages, with the sponsor's banner under them ============ -->
+        <Grid Grid.Column="1">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <Border x:Name="AdBand" Grid.Row="1" Margin="30,6,34,16" CornerRadius="12" Cursor="Hand" Visibility="Collapsed"
+                Background="#0AFFFFFF" BorderBrush="#14FFFFFF" BorderThickness="1" MaxHeight="130" MouseLeftButtonUp="AdBand_Click">
+            <Grid>
+                <Image x:Name="AdImage" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" />
+                <Border HorizontalAlignment="Left" VerticalAlignment="Top" Margin="8" Padding="7,2" CornerRadius="6" Background="#99000000">
+                    <TextBlock Text="{l:Tr Set_Ad_Label}" FontSize="10.5" Foreground="#E6FFFFFF" />
+                </Border>
+                <StackPanel x:Name="AdDots" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,10,8" />
+            </Grid>
+        </Border>
+        <ScrollViewer x:Name="PageScroll" VerticalScrollBarVisibility="Auto" Padding="30,22,34,30">
             <Grid MaxWidth="900" HorizontalAlignment="Stretch">
 
                 <!-- General -->
@@ -327,6 +351,13 @@
                         <ComboBox x:Name="SourceCombo" MinWidth="260" DisplayMemberPath="Label" SelectedValuePath="Value"
                                   SelectedValue="{Binding PinnedAppId}" DropDownOpened="SourceCombo_DropDownOpened" />
                     </v:SettingCard>
+                    <!-- VLC 3 publishes no media session: read through its web interface, once switched on there. -->
+                    <StackPanel x:Name="VlcPanel" Visibility="Collapsed">
+                        <v:SettingCard Glyph="&#xE8B2;" Header="{l:Tr Set_Vlc}" Description="{l:Tr Set_Vlc_Desc}">
+                            <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding ReadVlc}" Click="Vlc_Click" />
+                        </v:SettingCard>
+                        <TextBlock x:Name="VlcStatus" FontSize="12" Opacity="0.75" TextWrapping="Wrap" Margin="54,-2,0,10" Visibility="Collapsed" />
+                    </StackPanel>
 
                     <TextBlock Text="{l:Tr Set_Bar_GroupScreens}" Style="{StaticResource Group}" />
                     <v:SettingCard Glyph="&#xE7F4;" Header="{l:Tr Set_DisplayTarget}" Description="{l:Tr Set_DisplayTarget_Desc}">
@@ -406,6 +437,10 @@
                     <v:SettingCard Glyph="&#xE92E;" Header="{l:Tr Set_WinA}" Description="{l:Tr Set_WinA_Desc}"
                                    IsEnabled="{Binding ControlCenter}">
                         <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding WinAOpensControlCenter}" />
+                    </v:SettingCard>
+                    <v:SettingCard Glyph="&#xEA8F;" Header="{l:Tr Set_NotificationDot}" Description="{l:Tr Set_NotificationDot_Desc}"
+                                   IsEnabled="{Binding ControlCenter}">
+                        <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding NotificationDot}" />
                     </v:SettingCard>
                 </StackPanel>
 
@@ -645,6 +680,51 @@
                     </v:SettingCard>
                 </StackPanel>
 
+                <!-- The online gallery: what others made, what was downloaded, sharing one's own. -->
+                <StackPanel x:Name="PageGallery" Visibility="Collapsed">
+                    <TextBlock Text="{l:Tr Set_Page_Gallery}" Style="{StaticResource PageTitle}" />
+                    <TextBlock Text="{l:Tr Set_Gal_Subtitle}" Style="{StaticResource PageSubtitle}" />
+                    <Border HorizontalAlignment="Left" CornerRadius="10" Padding="3" Margin="0,2,0,10" Background="#0DFFFFFF">
+                        <StackPanel x:Name="GalleryTabs" Orientation="Horizontal" />
+                    </Border>
+                    <TextBlock x:Name="GalleryStatus" FontSize="12" Opacity="0.7" Margin="2,0,0,10" TextWrapping="Wrap" />
+                    <UniformGrid x:Name="GalleryGrid" Columns="3" Margin="0,0,-8,0" />
+                    <WrapPanel Margin="0,4,0,6">
+                        <Button x:Name="GalleryMore" Content="{l:Tr Set_Gal_More}" Padding="14,5" Margin="0,0,8,6" Click="GalleryMore_Click" Visibility="Collapsed" />
+                        <Button Content="{l:Tr Set_Gal_Refresh}" Padding="14,5" Margin="0,0,8,6" Click="GalleryRefresh_Click" />
+                        <Button Content="{l:Tr Set_Gal_Web}" Padding="14,5" Margin="0,0,8,6" Click="GalleryWeb_Click" />
+                    </WrapPanel>
+
+                    <TextBlock Text="{l:Tr Set_Gal_GroupMine}" Style="{StaticResource Group}" />
+                    <TextBlock x:Name="PresetsEmpty" Text="{l:Tr Set_Gal_NoPresets}" FontSize="12" Opacity="0.55" Margin="2,0,0,8" TextWrapping="Wrap" />
+                    <UniformGrid x:Name="PresetGrid" Columns="4" Margin="0,0,-8,0" />
+
+                    <TextBlock Text="{l:Tr Set_Gal_GroupShare}" Style="{StaticResource Group}" />
+                    <v:SettingCard Glyph="&#xE77B;" Header="{l:Tr Set_Gal_Nickname}" Description="{l:Tr Set_Gal_Nickname_Desc}">
+                        <TextBox Width="220" MaxLength="24" Text="{Binding CommunityNickname, UpdateSourceTrigger=LostFocus}" />
+                    </v:SettingCard>
+                    <v:SettingCard Glyph="&#xE898;" Header="{l:Tr Set_Gal_Share}" Description="{l:Tr Set_Gal_Share_Desc}">
+                        <ComboBox x:Name="ShareWhat" MinWidth="260" DisplayMemberPath="Label" />
+                    </v:SettingCard>
+                    <Grid Margin="4,2,0,6">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="220" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="{l:Tr Set_Gal_ShareName}" FontSize="12" Opacity="0.7" Margin="0,0,0,4" />
+                            <TextBox x:Name="ShareName" MaxLength="40" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Margin="10,0,10,0">
+                            <TextBlock Text="{l:Tr Set_Gal_ShareDesc}" FontSize="12" Opacity="0.7" Margin="0,0,0,4" />
+                            <TextBox x:Name="ShareDesc" MaxLength="300" />
+                        </StackPanel>
+                        <Button x:Name="ShareButton" Grid.Column="2" VerticalAlignment="Bottom" Content="{l:Tr Set_Gal_ShareSend}" Padding="16,5" Click="Share_Click" />
+                    </Grid>
+                    <TextBlock x:Name="ShareStatus" FontSize="12" Opacity="0.85" TextWrapping="Wrap" Margin="4,4,0,8" Visibility="Collapsed" />
+                </StackPanel>
+
                 <!-- Lyrics -->
                 <StackPanel x:Name="PageLyrics" Visibility="Collapsed">
                     <TextBlock Text="{l:Tr Set_Page_Lyrics}" Style="{StaticResource PageTitle}" />
@@ -858,6 +938,10 @@
                                    Description="{l:Tr Set_Tip_RightClick_Desc}" />
                     <v:SettingCard Glyph="&#xE8A7;" Header="{l:Tr Set_Tip_ClickCover}" Description="{l:Tr Set_Tip_ClickCover_Desc}" />
 
+                    <v:SettingCard Glyph="&#xE7BE;" Header="{l:Tr Set_Tour}" Description="{l:Tr Set_Tour_Desc}">
+                        <Button Content="{l:Tr Set_TourButton}" Padding="14,5" Click="Tour_Click" />
+                    </v:SettingCard>
+
                     <TextBlock Text="{l:Tr Set_About_GroupUpdates}" Style="{StaticResource Group}" />
                     <v:SettingCard Glyph="&#xE895;" Header="{l:Tr Set_CheckUpdates}" Description="{l:Tr Set_CheckUpdates_Desc}">
                         <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding CheckForUpdates}" />
@@ -881,8 +965,12 @@
                             <Button Content="{l:Tr Set_ViewLog}" Padding="14,5" Margin="6,0,0,0" Click="OpenLog_Click" />
                         </StackPanel>
                     </v:SettingCard>
+                    <v:SettingCard Glyph="&#xE777;" Header="{l:Tr Set_Reset}" Description="{l:Tr Set_Reset_Desc}">
+                        <Button Content="{l:Tr Set_ResetButton}" Padding="14,5" Click="Reset_Click" />
+                    </v:SettingCard>
                 </StackPanel>
             </Grid>
         </ScrollViewer>
+        </Grid>
     </Grid>
 </Window>

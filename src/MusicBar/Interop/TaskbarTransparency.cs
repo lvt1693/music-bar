@@ -48,13 +48,25 @@ internal static class TaskbarTransparency
     /// </summary>
     public static void Apply(IntPtr taskbar) => Clear(taskbar);
 
-    /// <summary>Asks Explorer to repaint a taskbar's own background.</summary>
+    /// <summary>
+    /// Asks Explorer to repaint a taskbar's own background. Only the taskbars are told: broadcast, every
+    /// window redid its colors (each allowed half a second), which froze MusicBar for seconds and made a
+    /// game that had just gone full screen stutter.
+    /// </summary>
     public static void Restore(IntPtr taskbar)
     {
-        PostMessage(taskbar, WM_DWMCOLORIZATIONCOLORCHANGED, IntPtr.Zero, IntPtr.Zero);
-        SendMessageTimeout(new IntPtr(0xFFFF), 0x001A /* WM_SETTINGCHANGE */, IntPtr.Zero, "ImmersiveColorSet",
-            0x0002 /* SMTO_ABORTIFHUNG */, 500, out _);
+        var main = FindWindow("Shell_TrayWnd", null);
+        var taskbars = taskbar == main || main == IntPtr.Zero ? new[] { taskbar } : new[] { taskbar, main };
+        foreach (var h in taskbars)
+        {
+            PostMessage(h, WM_DWMCOLORIZATIONCOLORCHANGED, IntPtr.Zero, IntPtr.Zero);
+            SendMessageTimeout(h, 0x001A /* WM_SETTINGCHANGE */, IntPtr.Zero, "ImmersiveColorSet",
+                0x0002 /* SMTO_ABORTIFHUNG */, 500, out _);
+        }
     }
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    static extern IntPtr FindWindow(string? className, string? windowName);
 
     static void Clear(IntPtr hwnd)
     {

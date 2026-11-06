@@ -59,13 +59,16 @@ static const CLSID CLSID_TaskbarTap = { 0x391fc26b, 0x9159, 0x4921, { 0x8a, 0x61
 // Written by MusicBar (Interop/XamlTaskbar.cs): the taskbar windows to keep clear.
 static const wchar_t TargetsName[] = L"Local\\MusicBar.TaskbarClear.v2";
 // Versioned: a newer helper attaches even while an older one is still loaded in this Explorer.
-static const wchar_t ReadyPrefix[] = L"Local\\MusicBar.TaskbarTap.Ready.v11.";
+static const wchar_t ReadyPrefix[] = L"Local\\MusicBar.TaskbarTap.Ready.v13.";
 // Exists while this helper watches the taskbar's XAML. Explorer lets one helper watch at a
 // time, so a helper loaded next to an older one that never steps aside sees nothing.
-static const wchar_t WatchingPrefix[] = L"Local\\MusicBar.TaskbarTap.Watching.v11.";
+static const wchar_t WatchingPrefix[] = L"Local\\MusicBar.TaskbarTap.Watching.v13.";
 // Set by a newer MusicBar: this helper gives the taskbars back and stops watching, so the
 // newer helper can watch without Explorer restarting.
-static const wchar_t RetireEvent[] = L"Local\\MusicBar.TaskbarTap.Retire.v11";
+static const wchar_t RetireEvent[] = L"Local\\MusicBar.TaskbarTap.Retire.v13";
+// Set while a taskbar background is hidden: MusicBar keeps its layer under the taskbar only when
+// the taskbar really is see-through, else the bar would sit hidden behind a solid one.
+static const wchar_t ClearedPrefix[] = L"Local\\MusicBar.TaskbarTap.Cleared.v13.";
 
 struct TargetList
 {
@@ -585,15 +588,26 @@ private:
         if (!clear)
         {
             if (!hidden) return;
-            {
-                std::lock_guard<std::mutex> guard(g_shared.lock);
-                g_shared.hidden.erase(s.element);
-            }
             InstanceHandle value = 0;
             HRESULT hr = !own.local ? _tree->ClearProperty(s.element, s.opacity)
                 : SUCCEEDED(Create(s.valueType, own.value, value)) ? _tree->SetProperty(s.element, value, s.opacity)
                 : E_FAIL;
-            if (FAILED(hr)) Trace(L"Giving the taskbar its opacity back failed: 0x%08X", hr);
+            // The taskbar's own value can fail to come back from text: taking ours away shows it as well.
+            if (FAILED(hr) && own.local) hr = _tree->ClearProperty(s.element, s.opacity);
+            if (FAILED(hr) && hr != HRESULT_FROM_WIN32(ERROR_NOT_FOUND))
+            {
+                // Still hidden: the watcher tries again every second while MusicBar is away, rather
+                // than leaving the taskbar see-through until Explorer restarts.
+                if (hr != s.failed) Trace(L"Giving the taskbar its opacity back failed: 0x%08X, trying again", hr);
+                s.failed = hr;
+                return;
+            }
+            s.failed = S_OK;
+            {
+                std::lock_guard<std::mutex> guard(g_shared.lock);
+                g_shared.hidden.erase(s.element);
+            }
+            if (FAILED(hr)) Trace(L"Taskbar background %llu went away while hidden", static_cast<unsigned long long>(s.element));
             else Trace(L"Taskbar background %llu back: %s", static_cast<unsigned long long>(s.element), Describe(s.element).c_str());
             return;
         }
@@ -606,6 +620,27 @@ private:
         }
         // Repeated every second while clear, in case Explorer sets an opacity of its own meanwhile.
         HRESULT hr = _tree->SetProperty(s.element, s.zero, s.opacity);
+        if (hr == HRESULT_FROM_WIN32(ERROR_NOT_FOUND))
+        {
+            // Not found is most often the zero, not the background: XAML lets go of a value once it
+            // has been cleared off the property, so after the first time the taskbar got its
+            // opacity back, the old zero is unknown. Taken for a background gone away, it left the
+            // taskbar never cleared again (and the bar under it out of sight). A new zero, then.
+            s.zero = 0;
+            s.keepZero.Reset();
+            if (SUCCEEDED(Create(s.valueType, L"0", s.zero)))
+            {
+                _diagnostics->GetIInspectableFromHandle(s.zero, &s.keepZero);
+                hr = _tree->SetProperty(s.element, s.zero, s.opacity);
+            }
+        }
+        // Still not found: gone only if the element can't be read any more either.
+        if (hr == HRESULT_FROM_WIN32(ERROR_NOT_FOUND) && SUCCEEDED(ForEachValue(s.element, [](const PropertyChainValue&, const PropertyChainSource*) {})))
+        {
+            if (hr != s.failed) Trace(L"Taskbar background %llu is there but won't take a zero: trying again", static_cast<unsigned long long>(s.element));
+            s.failed = hr;
+            return;
+        }
         if (hr == HRESULT_FROM_WIN32(ERROR_NOT_FOUND))
         {
             // The taskbar built a new background (unannounced when the tree can't be watched).
@@ -706,6 +741,7 @@ private:
             Trace(L"Going on with the %zu taskbar backgrounds found", found);
         }
         _watching = CreateEventW(nullptr, TRUE, TRUE, (WatchingPrefix + std::to_wstring(GetCurrentProcessId())).c_str());
+        _cleared = CreateEventW(nullptr, TRUE, FALSE, (ClearedPrefix + std::to_wstring(GetCurrentProcessId())).c_str());
 
         for (int tick = 0;; tick++)
         {
@@ -743,6 +779,16 @@ private:
                 PutBackMode(_putBack);
                 _putBack = 0;
             }
+            bool pending;
+            {
+                std::lock_guard<std::mutex> guard(g_shared.lock);
+                pending = !g_shared.hidden.empty();
+            }
+            if (_cleared)
+            {
+                if (pending) SetEvent(_cleared);
+                else ResetEvent(_cleared);
+            }
             std::vector<HWND> pumps;
             bool changed;
             size_t count;
@@ -751,8 +797,9 @@ private:
                 changed = wanted != _wanted;
                 _wanted = wanted;
                 count = _surfaces.size();
-                // While clear, look again every second, in case Explorer sets an opacity of its own.
-                if (changed || (!wanted.empty() && tick % 4 == 0))
+                // While clear, look again every second, in case Explorer sets an opacity of its own;
+                // and while a background that should be back is still hidden, try it again.
+                if (changed || ((!wanted.empty() || pending) && tick % 4 == 0))
                     for (auto& entry : _pumps) pumps.push_back(entry.second);
             }
             for (HWND pump : pumps) PostMessageW(pump, WM_APPLY, 0, 0);
@@ -780,6 +827,8 @@ private:
         HRESULT hr = _tree->UnadviseVisualTreeChange(this);
         if (_watching) CloseHandle(_watching);
         _watching = nullptr;
+        if (_cleared) CloseHandle(_cleared);
+        _cleared = nullptr;
         Trace(L"Retired for a newer helper (unadvise 0x%08X)", hr);
     }
 
@@ -789,6 +838,7 @@ private:
     ComPtr<IVisualTreeService3> _tree;
     HANDLE _ready = nullptr;
     HANDLE _watching = nullptr;
+    HANDLE _cleared = nullptr;
 
     std::mutex _lock;
     std::map<InstanceHandle, Node> _nodes;

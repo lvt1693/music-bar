@@ -1,0 +1,24 @@
+{% from "_icons.html" import icon %}
+{# A coffee for the author, in the bottom right corner: Vietnamese pages show the bank QR (VietQR),
+   English ones GitHub Sponsors once the profile is live (releases.check_sponsors finds out by itself).
+   It gives a little shake now and then and opens into a card. #}
+{% if (lang == "vi" or sponsor) and not path.startswith("/admin") %}
+<aside class="donate" id="donate" aria-label="{{ t('donate_label') }}">
+  <button class="donate-pill" type="button" aria-expanded="false" aria-controls="donate-card">
+    {% if lang == "vi" %}<img src="/static/img/donate-qr.png" alt="" width="72" height="72">{% else %}<span class="donate-heart">{{ icon("heart-fill") }}</span>{% endif %}
+    <span>{{ t("donate_pill") }}</span>
+  </button>
+  <div class="donate-card" id="donate-card" hidden>
+    <button class="round donate-x" type="button" aria-label="{{ t('toast_close') }}">{{ icon("x") }}</button>
+    <p class="donate-title">{{ t("donate_title") }}</p>
+    {% if lang == "vi" %}
+    <img src="/static/img/donate.png" alt="{{ t('donate_alt') }}" width="260" height="406">
+    <p class="donate-note">{{ t("donate_note") }}</p>
+    {% if sponsor %}<p class="donate-note"><a class="btn-link" href="{{ sponsor }}" rel="noopener">{{ t("donate_sponsor_alt") }}</a></p>{% endif %}
+    {% else %}
+    <p class="donate-note">{{ t("donate_sponsor_note") }}</p>
+    <a class="btn btn-accent btn-lg" href="{{ sponsor }}" rel="noopener">{{ icon("heart-fill") }}{{ t("donate_sponsor_btn") }}</a>
+    {% endif %}
+  </div>
+</aside>
+{% endif %}

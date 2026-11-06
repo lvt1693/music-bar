@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Interop;
 using MusicBar.Infrastructure;
 using MusicBar.Interop;
 using MusicBar.Models;
@@ -16,11 +17,13 @@ public partial class App : Application
     const string MutexName = "MusicBar.SingleInstance.v1";
     const string ShowSettingsEventName = "MusicBar.ShowSettings.v1";
     const string ExitEventName = "MusicBar.Exit.v1";
+    const string LinkEventName = "MusicBar.OpenLink.v1";
 
     Mutex? _mutex;
     bool _ownsMutex;
     EventWaitHandle? _showSignal;
     EventWaitHandle? _exitSignal;
+    EventWaitHandle? _linkSignal;
     volatile bool _exiting;
 
     SettingsService? _settings;
@@ -53,13 +56,16 @@ public partial class App : Application
         }
 
         bool exitRequest = e.Args.Any(a => a.Equals("--exit", StringComparison.OrdinalIgnoreCase));
+        // A musicbar:// link from the website (an item to put on the taskbar).
+        var link = e.Args.FirstOrDefault(GalleryLinks.IsLink);
         _mutex = new Mutex(true, MutexName, out _ownsMutex);
         if (!_ownsMutex || exitRequest)
         {
             // Already running: forward the request to that instance, then leave.
             try
             {
-                using var signal = EventWaitHandle.OpenExisting(exitRequest ? ExitEventName : ShowSettingsEventName);
+                if (link != null && !exitRequest) System.IO.File.WriteAllText(GalleryLinks.Pending, link);
+                using var signal = EventWaitHandle.OpenExisting(exitRequest ? ExitEventName : link != null ? LinkEventName : ShowSettingsEventName);
                 signal.Set();
             }
             catch (Exception)
@@ -73,15 +79,17 @@ public partial class App : Application
 
         _showSignal = new EventWaitHandle(false, EventResetMode.AutoReset, ShowSettingsEventName);
         _exitSignal = new EventWaitHandle(false, EventResetMode.AutoReset, ExitEventName);
+        _linkSignal = new EventWaitHandle(false, EventResetMode.AutoReset, LinkEventName);
         new Thread(() =>
         {
-            var handles = new WaitHandle[] { _showSignal, _exitSignal };
+            var handles = new WaitHandle[] { _showSignal, _exitSignal, _linkSignal };
             while (!_exiting)
             {
                 int which = WaitHandle.WaitAny(handles);
                 if (_exiting) break;
                 if (which == 0) Dispatcher.BeginInvoke(() => ShowSettings());
-                else Dispatcher.BeginInvoke(ExitApp);
+                else if (which == 1) Dispatcher.BeginInvoke(ExitApp);
+                else Dispatcher.BeginInvoke(OpenPendingLink);
             }
         })
         { IsBackground = true, Name = "MusicBar.Signals" }.Start();
@@ -110,6 +118,9 @@ public partial class App : Application
         };
 
         Log.Info($"MusicBar starting ({string.Join(" ", e.Args)})");
+        // For measuring: MUSICBAR_RENDER=software draws every window on the CPU instead of the graphics card.
+        if (Environment.GetEnvironmentVariable("MUSICBAR_RENDER") == "software")
+            System.Windows.Media.RenderOptions.ProcessRenderMode = System.Windows.Interop.RenderMode.SoftwareOnly;
         _settings = new SettingsService();
         var settings = _settings.Current;
         // The very first time, before anything is touched: how Windows looked, to give back on uninstall.
@@ -136,12 +147,19 @@ public partial class App : Application
             _tray.SetTooltip(_media.HasSession && _media.Title.Length > 0 ? $"MusicBar · {_media.Title}" : "MusicBar");
 
         if (e.Args.Any(a => a.Equals("--demo", StringComparison.OrdinalIgnoreCase))) _media.StartDemo();
-        else await _media.InitializeAsync();
+        // Not awaited: right after signing in it may take a few tries, and nothing else waits on it.
+        else _ = _media.InitializeAsync();
         _stats = new ListeningStats(settings, _media);
 
-        if (_settings.IsFirstRun || e.Args.Any(a => a.Equals("--settings", StringComparison.OrdinalIgnoreCase)))
+        // The first time, the welcome tour instead of the settings window.
+        if (_settings.IsFirstRun || e.Args.Any(a => a.Equals("--welcome", StringComparison.OrdinalIgnoreCase)))
+            ShowWelcome();
+        else if (e.Args.Any(a => a.Equals("--settings", StringComparison.OrdinalIgnoreCase)))
             ShowSettings();
+        GalleryLinks.Register();
+        if (link != null) OpenLink(link);
         StartUpdateChecks(settings);
+        StartMemoryLog();
         StartRecapChecks(settings, now: e.Args.Any(a => a.Equals("--recap", StringComparison.OrdinalIgnoreCase)));
     }
 
@@ -242,6 +260,53 @@ public partial class App : Application
     }
 
     /// <param name="page">A page to open on (its place in the navigation list), or null to keep the one shown.</param>
+    OnboardingWindow? _welcome;
+
+    /// <summary>The welcome tour (the first run, Settings → About, or --welcome): one at a time.</summary>
+    public void ShowWelcome()
+    {
+        if (_settings == null || _media == null || _exiting) return;
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (_welcome != null)
+            {
+                _welcome.Activate();
+                return;
+            }
+            _welcome = new OnboardingWindow(_settings.Current, _media, () => ShowSettings());
+            _welcome.Closed += (_, _) => _welcome = null;
+            _welcome.Show();
+            _welcome.Activate();
+        });
+    }
+
+    /// <summary>The link a second copy left behind (it was started by the browser while this one ran).</summary>
+    void OpenPendingLink()
+    {
+        try
+        {
+            var link = System.IO.File.ReadAllText(GalleryLinks.Pending);
+            System.IO.File.Delete(GalleryLinks.Pending);
+            OpenLink(link);
+        }
+        catch (System.IO.IOException)
+        {
+        }
+    }
+
+    /// <summary>musicbar://install/&lt;slug&gt;: the online gallery page opens and puts that item on the taskbar.</summary>
+    void OpenLink(string link)
+    {
+        if (GalleryLinks.SlugOf(link) is not { } slug)
+        {
+            Log.Info($"Ignored a link MusicBar doesn't know: {link[..Math.Min(link.Length, 80)]}");
+            return;
+        }
+        Log.Info($"Gallery link: {slug}");
+        ShowSettings(SettingsWindow.GalleryPage);
+        _ = _settingsWindow?.OpenFromLinkAsync(slug);
+    }
+
     public void ShowSettings(int? page = null)
     {
         if (_settings == null || _media == null || _lyrics == null || _exiting) return;
@@ -294,12 +359,46 @@ public partial class App : Application
         _recapWindow?.Close();
         _stats?.Dispose();
         _settingsWindow?.Close();
+        _welcome?.Close();
         _bars?.Dispose();
         _tray?.Dispose();
         _tray = null;
         _showSignal?.Set();
         Shutdown();
     }
+
+    /// <summary>
+    /// Notes the memory in use every half hour, so a log sent in shows whether it keeps growing and
+    /// where: inside .NET's heap or outside it. For a test, MUSICBAR_MEMLOG sets the interval in
+    /// seconds, and MUSICBAR_MEMLOG_FULL=1 collects everything first, leaving only what is alive.
+    /// </summary>
+    void StartMemoryLog()
+    {
+        int seconds = int.TryParse(Environment.GetEnvironmentVariable("MUSICBAR_MEMLOG"), out var s) && s > 0 ? s : 1800;
+        bool full = Environment.GetEnvironmentVariable("MUSICBAR_MEMLOG_FULL") == "1";
+        _memoryTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(seconds) };
+        _memoryTimer.Tick += (_, _) =>
+        {
+            if (full)
+            {
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
+                GC.Collect();
+            }
+            using var me = System.Diagnostics.Process.GetCurrentProcess();
+            var gc = GC.GetGCMemoryInfo();
+            // Windows drawn by the graphics card cost driver memory: only a skin should need it.
+            var card = Windows.OfType<Window>()
+                .Where(w => HwndSource.FromHwnd(new WindowInteropHelper(w).Handle) is { CompositionTarget.RenderMode: RenderMode.Default } && w.IsVisible)
+                .Select(w => w.Title).ToList();
+            Log.Info($"Memory: private {me.PrivateMemorySize64 >> 20} MB, .NET heap {GC.GetTotalMemory(false) >> 20} MB "
+                     + $"(committed {gc.TotalCommittedBytes >> 20} MB), handles {me.HandleCount}, GCs {GC.CollectionCount(0)}/{GC.CollectionCount(1)}/{GC.CollectionCount(2)}"
+                     + $", on the graphics card: {(card.Count == 0 ? "none" : string.Join(", ", card))}");
+        };
+        _memoryTimer.Start();
+    }
+
+    System.Windows.Threading.DispatcherTimer? _memoryTimer;
 
     /// <summary>
     /// Run by the uninstaller (--uninstall): a copy still running hands back what it holds and quits,
@@ -327,6 +426,7 @@ public partial class App : Application
             service.SaveNow();
         }
         TrayMerge.RecoverLeftovers(Native.FindWindow("Shell_TrayWnd", null));
+        GalleryLinks.Unregister();
         var (putBack, restart) = SystemSnapshot.PutBack();
         if (restart) TaskbarTweaks.RestartExplorer();
         SystemSnapshot.Forget();

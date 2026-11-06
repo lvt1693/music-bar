@@ -89,6 +89,7 @@ internal sealed class ControlCenter : IDisposable
     {
         if (_disposed) return;
         UpdateWinA();
+        _hotspot.Dot = _s.NotificationDot;
         if (!_s.ControlCenter)
         {
             if (_merged)

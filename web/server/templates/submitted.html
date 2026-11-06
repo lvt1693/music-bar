@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}{{ t("sub_title") }} · MusicBar{% endblock %}
+{% block main %}
+{% if result.ok %}
+<section class="panel washed release">
+  <div class="top">{{ icon("check") }}<div><b>{{ t("sub_ok_title") }}</b><span>#{{ result.id }}</span></div></div>
+  <p>{{ t("sub_ok_d", n=result.name) }}</p>
+  {% if result.findings %}
+  <p class="fine">{{ t("warn_found") }}</p>
+  <ul class="findings">{% for f in result.findings %}<li><span class="v-{{ f.level }}">{{ f.level }}</span> {{ f.message }}{% if f.where %} <code class="code">{{ f.where }}</code>{% endif %}</li>{% endfor %}</ul>
+  {% endif %}
+  <p style="margin-top: 16px"><a class="btn btn-soft" href="/gallery">{{ t("back_gallery") }}</a></p>
+</section>
+{% else %}
+<section class="panel release">
+  <div class="top">{{ icon("warning") }}<div><b>{{ t("sub_fail_title") }}</b><span>{{ t("sub_rate") if result.rate else t("sub_fail_d") }}</span></div></div>
+  {% if not result.rate %}
+  <ul class="findings">{% for f in result.findings if f.level == "block" %}<li>{{ f.message }}{% if f.where %} <code class="code">{{ f.where }}</code>{% endif %}</li>{% endfor %}</ul>
+  {% endif %}
+  <p style="margin-top: 16px"><a class="btn btn-accent" href="/submit">{{ t("sub_again") }}</a></p>
+</section>
+{% endif %}
+{% endblock %}

@@ -145,7 +145,9 @@ public sealed class SkinView : Border
         for (int i = 0; i < _parts.Count; i++)
         {
             if (_parts[i].Effect is not { } e) continue;
-            e.Time = engine.StyleTime;
+            // The shader keeps time as a 32-bit float: after a day running it only has 8 ms steps, after a
+            // week 60 ms, and motion stutters. Wrapped every 4096 s (68 minutes) it stays sharp, for one jump.
+            e.Time = engine.StyleTime % 4096;
             e.Progress = engine.ProgressNow;
             e.Level = engine.LevelNow;
             e.Beat = engine.BeatNow;

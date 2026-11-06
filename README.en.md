@@ -4,13 +4,18 @@
 
 The taskbar has sat still for thirty years. Let it sing.
 
-**Download:** [installer](https://github.com/lvt1693/music-bar/releases/latest/download/MusicBar-1.7.0-Setup.exe)
-or [portable zip](https://github.com/lvt1693/music-bar/releases/latest/download/MusicBar-1.7.0-portable.zip)
+**Download:** [installer](https://github.com/lvt1693/music-bar/releases/latest/download/MusicBar-1.8.0-Setup.exe)
+or [portable zip](https://github.com/lvt1693/music-bar/releases/latest/download/MusicBar-1.8.0-portable.zip)
 (Windows 10 2004 or later, or Windows 11, 64-bit; no .NET to install).
 
-**What's new:** 1.7 adds an **RGB LED strip** with ten gaming-style effects that dance to the music,
-folds the style gallery into four tabs, and makes uninstalling put Windows back the way it was
-before MusicBar. Every version is listed in the [CHANGELOG](CHANGELOG.md) (in Vietnamese; each
+**Website:** [musicbar.truclv.com](https://musicbar.truclv.com), with the community **gallery**
+(skins, visualizers, LED strips) to download from or share yours.
+
+**What's new:** 1.8 brings an **online gallery** right inside the app, a **welcome tour** (every choice shows on your taskbar as you pick it),
+fixes the progress bar vanishing with a transparent taskbar, **uses far less RAM** (no more
+creeping up over long runs), works properly with an **auto-hiding
+taskbar**, reads **VLC**, and adds a button to
+restore the default settings and a red-dot option for notifications. Every version is listed in the [CHANGELOG](CHANGELOG.md) (in Vietnamese; each
 [release](https://github.com/lvt1693/music-bar/releases) on GitHub ends with a paragraph in English).
 
 ![A sleepy taskbar, a record scratch, the MusicBar icon drops in and the stage lights come on](docs/wake-up.gif)
@@ -22,7 +27,9 @@ the taskbar's free space. The taskbar still clicks, drags and pins apps as befor
 sits underneath it.
 
 It follows any app that plays through Windows Media Session: Spotify, YouTube in a browser, Media
-Player, Apple Music… With no music it gets out of the way and the taskbar is back to normal.
+Player, Apple Music… VLC doesn't tell Windows what it plays, so turn on **Read VLC** in Settings →
+General and MusicBar reads VLC directly. With no music it gets out of the way and the taskbar is
+back to normal.
 
 The app's interface is in English by default, with Vietnamese one click away. The
 [wiki](https://github.com/lvt1693/music-bar/wiki) (with a picture of every settings page) is in
@@ -53,10 +60,15 @@ Vietnamese.
   a Pomodoro timer for you.
 - **Your year in music** (more below): top songs, favorite artist, golden hour, what kind of
   listener you are, all in one picture to show off.
+- **A welcome tour the first time:** the bar's look, the taskbar's background, the player, the
+  lyrics, the face and a few habits, each showing on your taskbar as you pick it (with nothing
+  playing, a demo song plays meanwhile). Any step can be skipped, and each says where it lives in
+  the settings. Take it again from Settings → About.
 - **Tells you about updates:** at start (and daily) it checks GitHub and, if there's a new
   version, asks once in the corner of the screen.
-- **Light or dark background:** follows Windows' light or dark mode by default and changes when
-  Windows does; for the song's color mixed in, pick *Match Windows, tinted with the song's color*.
+- **See-through, light or dark:** by default the taskbar goes see-through with the bar right under
+  the icons. For a background, pick dark, light, *Match Windows* (it changes when Windows does) or
+  *Match Windows, tinted with the song's color*.
   On a light background the lyrics, buttons and face turn dark so Windows' black icons stay
   readable. With a transparent taskbar (or a very faint background) MusicBar looks at the
   wallpaper right behind the taskbar: dark text on a bright wallpaper, white on a dark one, live
@@ -171,7 +183,7 @@ ChatGPT / Claude / Gemini with a description of what you want: it has a ready-ma
 
 ## Install
 
-- **Installer** (`MusicBar-1.7.0-Setup.exe`): installs for your account only, in
+- **Installer** (`MusicBar-1.8.0-Setup.exe`): installs for your account only, in
   `%LOCALAPPDATA%\Programs\MusicBar`, no admin prompt, with a Start menu entry, and uninstalls
   from Settings → Apps. Before installing over it or uninstalling, MusicBar is asked to quit, so
   the taskbar and tray go back exactly as Windows arranged them.
@@ -182,7 +194,7 @@ ChatGPT / Claude / Gemini with a description of what you want: it has a ready-ma
   (then your choice stays). A normal exit only hands back what MusicBar holds while it runs (the
   transparent taskbar, the folded tray, the light or dark mode it switched); a taskbar size or
   alignment you chose in MusicBar stays, since that was your choice.
-- **Portable** (`MusicBar-1.7.0-portable.zip`): unzip anywhere and run `MusicBar.exe`.
+- **Portable** (`MusicBar-1.8.0-portable.zip`): unzip anywhere and run `MusicBar.exe`.
 
 **Updates:** from 1.4 on, MusicBar checks GitHub every time it starts (and once a day while
 running). When there's a new version a card shows above the tray: *Update now* downloads it,
@@ -195,9 +207,10 @@ Coming from 1.1 or older, restart Explorer (or sign out and back in) once, so th
 transparency module replaces the old one. Until then MusicBar still runs, but on several screens
 it tints the taskbar instead of making it transparent, and the settings remind you.
 
-Both downloads are the same app with .NET 10 bundled, so there's nothing else to install, and it
-uses about 55–60 MB of RAM (Task Manager's Memory column, measured on the test PC). The settings
-window opens by itself the first time; after that, click the tray icon. To start it with Windows,
+Both downloads are the same app with .NET 10 bundled, so there's nothing else to install, and
+while music plays it uses about 50 MB of RAM (Task Manager's Memory column, measured on the test
+PC), which stays put over long runs. The welcome
+tour opens by itself the first time; after that, click the tray icon for the settings. To start it with Windows,
 turn on **Start with Windows** in the settings. Settings, lyrics and the log live in
 `%LOCALAPPDATA%\MusicBar` for both downloads.
 
@@ -209,6 +222,7 @@ Command line, if you like:
 ```powershell
 MusicBar.exe --demo       # a sample song with lyrics, no player needed
 MusicBar.exe --settings   # open the settings (even while it's running)
+MusicBar.exe --welcome    # open the welcome tour
 MusicBar.exe --recap      # show the year-in-music banner now, without waiting for Christmas Eve
 MusicBar.exe --exit       # quit and give the taskbar back
 ```
@@ -220,6 +234,11 @@ kept just below the taskbar, and it only shows through when the taskbar is trans
 in **Settings → Taskbar → Make the taskbar transparent**. If
 [TranslucentTB](https://github.com/TranslucentTB/TranslucentTB) is running, MusicBar leaves the
 job to it.
+
+With an **auto-hiding taskbar**, MusicBar keeps Windows' own background and tints the bar over it:
+when the taskbar slides up there are app windows right behind it, not the wallpaper, and a clear
+taskbar would show their text through the icons and lyrics. The bar, player and face slide up and
+down with the taskbar.
 
 - **Windows 10 style taskbars** (Windows 10, ExplorerPatcher): MusicBar sets a DWM attribute on the
   taskbar window, and sets it again whenever Explorer changes the background (opening Start,
@@ -268,7 +287,8 @@ While MusicBar runs, the network / volume button (Windows 11) or the Control Cen
 
 **Win + A** opens MusicBar's panel (press again to close); turn that off in **Settings → Taskbar**.
 Win + N is still Windows' notification center. Turn the feature off, or quit MusicBar, and the tray
-is exactly as Windows arranged it.
+is exactly as Windows arranged it. New notifications show as a number on the tray button; for
+something quieter, turn on **A red dot for new notifications** in **Settings → Taskbar**.
 
 ## The face
 
@@ -376,7 +396,7 @@ C++" workload) for the Windows 11 taskbar module.
 ```powershell
 dotnet build src/MusicBar/MusicBar.csproj
 dotnet run --project src/MusicBar -- --demo
-.\installer\build.ps1 -Version 1.7.0     # into artifacts\: Setup.exe (Inno Setup 6) and portable.zip
+.\installer\build.ps1 -Version 1.8.0     # into artifacts\: Setup.exe (Inno Setup 6) and portable.zip
 ```
 
 ## Inside
@@ -401,11 +421,17 @@ src/MusicBar/
   Services/NotificationFeed.cs  reads / dismisses Windows notifications
   Services/WifiNetworks.cs      scans, joins, forgets Wi-Fi networks (wlanapi)
   Services/BluetoothDevices.cs  Bluetooth devices, pairing;  BluetoothAudioLink.cs connects headphones
-  Interop/TaskbarTracker.cs     where the taskbar is (vertical ones too), its free space via UI Automation
+  Interop/TaskbarTracker.cs     where the taskbar is (vertical and auto-hiding ones too), its free space
+  Interop/TaskbarAutomation.cs  reads the taskbar's buttons through UI Automation COM, without leaking
+  Services/Community.cs         the online gallery: browse, install (SHA-256 checked), share; sponsor banners
+  Services/LookPresets.cs       presets from the gallery (a style, three colors, strength, direction; no code)
+  web/                          the musicbar.truclv.com site (FastAPI): product page, downloads, gallery,
+                                review queue, the upload scanner (never runs a file), server deployment
   Interop/XamlTaskbar.cs        loads the Windows 11 taskbar transparency module
   Interop/TrayMerge.cs          hides the volume / bell icons, folds the tray, restores it
   Views/SeekRenderer.cs         the 14 progress styles, the visualizers, 4 directions;
                                 SeekRenderer.Leds.cs the RGB LED strip
+  Views/CpuRendering.cs         the taskbar's windows draw on the CPU (saves up to 200 MB of driver memory)
   Views/LyricsPresenter.cs      lyrics and their effects;  WordStackPresenter.cs for vertical taskbars
   Views/TaskbarOverlay.cs       ties it together: layering, colors, lyrics, menu
   Views/TaskbarOverlays.cs      one overlay per chosen taskbar
@@ -466,6 +492,11 @@ ElevenLabs. To rebuild it: go to `promo/` and run `npx hyperframes preview`.
 - Skins run on the graphics card (pixel shader 3.0). A PC with only software graphics (a virtual
   machine, Remote Desktop) only runs older shaders, and a long skin may not compile; MusicBar then
   keeps the progress style you had.
+- Reading VLC uses VLC's own web interface: MusicBar turns it on in VLC's settings file (`vlcrc`,
+  keeping a copy as `vlcrc.musicbar-backup`), listening on this computer only (127.0.0.1), port
+  47328, with a random password; a port or password you set there already is kept. VLC reads that
+  file when it starts, so it needs opening again once. When another app is playing, MusicBar
+  follows that one, unless you pin VLC.
 - Hovering a video on YouTube makes the browser play a preview: MusicBar waits 2.5 seconds to see
   whether the song really changed before switching lyrics, so moving to a new song in the browser
   changes the lyrics a few seconds late.

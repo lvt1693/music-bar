@@ -67,6 +67,7 @@ public sealed class MediaService : ObservableObject
         _settings = settings;
         _settings.PropertyChanged += OnSettingsChanged;
         _poll.Tick += (_, _) => Poll();
+        UpdateVlc();
     }
 
     public event EventHandler? TrackChanged;
@@ -136,25 +137,40 @@ public sealed class MediaService : ObservableObject
 
     public async Task InitializeAsync()
     {
-        try
+        // Right after signing in, Windows' media service may not answer yet, or fail, or never
+        // finish the request. Given up on, MusicBar would sit hidden for the whole run with no
+        // music to show: keep asking, each try with a time limit, waiting longer between tries.
+        GlobalSystemMediaTransportControlsSessionManager? manager = null;
+        int tries = 0;
+        // VLC is read without the media service, so the poll runs meanwhile.
+        _poll.Start();
+        while (manager == null)
         {
-            _manager = await GlobalSystemMediaTransportControlsSessionManager.RequestAsync();
+            tries++;
+            try
+            {
+                var request = GlobalSystemMediaTransportControlsSessionManager.RequestAsync().AsTask();
+                if (await Task.WhenAny(request, Task.Delay(TimeSpan.FromSeconds(10))) == request) manager = await request;
+                else Log.Error($"Media session manager didn't answer within 10 s (try {tries})");
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"Media session manager unavailable (try {tries})", ex);
+            }
+            if (manager == null) await Task.Delay(TimeSpan.FromSeconds(Math.Min(30, 2 * tries)));
         }
-        catch (Exception ex)
-        {
-            Log.Error("Media session manager unavailable", ex);
-            return;
-        }
+        if (tries > 1) Log.Info($"Media session manager ready after {tries} tries");
+        _manager = manager;
 
         _manager.SessionsChanged += (_, _) => _ui.BeginInvoke(RefreshSessions);
         _manager.CurrentSessionChanged += (_, _) => _ui.BeginInvoke(PickSession);
         RefreshSessions();
-        _poll.Start();
     }
 
     void OnSettingsChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(AppSettings.PinnedAppId) && !_demo) PickSession();
+        else if (e.PropertyName == nameof(AppSettings.ReadVlc)) UpdateVlc();
     }
 
     public TimeSpan GetPosition()
@@ -197,21 +213,26 @@ public sealed class MediaService : ObservableObject
     public IReadOnlyList<SessionInfo> GetSessions()
     {
         if (_demo) return [new SessionInfo(AppId, AppName, Title, IsPlaying, true)];
-        if (_manager == null) return [];
+        var list = new List<SessionInfo>();
+        // VLC, read through its web interface, is one of the players too.
+        if (_vlcStatus is { Stopped: false } vlc)
+            list.Add(new SessionInfo(VlcLink.AppId, AppVisualResolver.Resolve(VlcLink.AppId).Name, vlc.Title, vlc.Playing, _followingVlc));
+        if (_manager == null) return list;
         try
         {
-            return _manager.GetSessions().Select(s =>
+            list.AddRange(_manager.GetSessions().Select(s =>
             {
                 var id = s.SourceAppUserModelId;
                 _sessionTitles.TryGetValue(id, out var title);
                 return new SessionInfo(id, AppVisualResolver.Resolve(id).Name, title ?? "", IsPlayingSession(s),
                     _session != null && id == _session.SourceAppUserModelId);
-            }).ToList();
+            }));
+            return list;
         }
         catch (Exception ex)
         {
             Log.Error("Listing sessions failed", ex);
-            return [];
+            return list;
         }
     }
 
@@ -263,22 +284,37 @@ public sealed class MediaService : ObservableObject
 
     void PickSession()
     {
-        if (_manager == null || _demo) return;
-        IReadOnlyList<GlobalSystemMediaTransportControlsSession> all;
+        if (_demo || (_manager == null && _vlc == null)) return;
+        IReadOnlyList<GlobalSystemMediaTransportControlsSession> all = [];
         GlobalSystemMediaTransportControlsSession? current = null;
-        try
+        if (_manager != null)
         {
-            all = _manager.GetSessions();
-            current = _manager.GetCurrentSession();
-        }
-        catch (Exception ex)
-        {
-            Log.Error("Picking session failed", ex);
-            return;
+            try
+            {
+                all = _manager.GetSessions();
+                current = _manager.GetCurrentSession();
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Picking session failed", ex);
+                return;
+            }
         }
 
-        GlobalSystemMediaTransportControlsSession? target = null;
         var pinned = _settings.PinnedAppId;
+        // VLC, which has no media session: when it is the app pinned, or when it plays (or is paused
+        // while on the bar) and no media session plays, unless the app pinned is there.
+        bool anotherPlays = all.Any(IsPlayingSession);
+        if (_vlcStatus is { Stopped: false } vlc
+            && (pinned == VlcLink.AppId
+                || ((vlc.Playing || _followingVlc) && !anotherPlays && !all.Any(s => s.SourceAppUserModelId == pinned))))
+        {
+            if (!_followingVlc) FollowVlc(vlc);
+            return;
+        }
+        if (_followingVlc) _followingVlc = false;
+
+        GlobalSystemMediaTransportControlsSession? target = null;
         if (pinned.Length > 0) target = all.FirstOrDefault(s => s.SourceAppUserModelId == pinned);
 
         if (target == null)
@@ -375,6 +411,8 @@ public sealed class MediaService : ObservableObject
 
     void Poll()
     {
+        // VLC every other second, every second while it is the one on the bar.
+        if (_vlc != null && !_vlcBusy && (_followingVlc || _pollTicks % 2 == 0)) _ = PollVlcAsync();
         if (_session == null)
         {
             if (++_pollTicks % 3 == 0) PickSession();
@@ -593,6 +631,11 @@ public sealed class MediaService : ObservableObject
             IsPlaying = !IsPlaying;
             return;
         }
+        if (_followingVlc)
+        {
+            await SendVlcAsync("pl_pause");
+            return;
+        }
         if (_session is { } s) await Try(() => s.TryTogglePlayPauseAsync().AsTask());
     }
 
@@ -601,6 +644,11 @@ public sealed class MediaService : ObservableObject
         if (_demo)
         {
             LoadDemoTrack(_demoIndex + 1);
+            return;
+        }
+        if (_followingVlc)
+        {
+            await SendVlcAsync("pl_next");
             return;
         }
         if (_session is { } s) await Try(() => s.TrySkipNextAsync().AsTask());
@@ -612,6 +660,11 @@ public sealed class MediaService : ObservableObject
         {
             if (GetPosition() > TimeSpan.FromSeconds(3)) await SeekAsync(TimeSpan.Zero);
             else LoadDemoTrack(_demoIndex - 1);
+            return;
+        }
+        if (_followingVlc)
+        {
+            await SendVlcAsync("pl_previous");
             return;
         }
         if (_session is { } s) await Try(() => s.TrySkipPreviousAsync().AsTask());
@@ -627,6 +680,12 @@ public sealed class MediaService : ObservableObject
         _anchorPos = target;
         _anchorTime = DateTimeOffset.Now;
         if (_demo) return;
+        if (_followingVlc)
+        {
+            // VLC seeks to whole seconds.
+            await SendVlcAsync("seek", ((int)target.TotalSeconds).ToString(System.Globalization.CultureInfo.InvariantCulture));
+            return;
+        }
 
         var s = _session;
         if (s == null || !CanSeek) return;
@@ -657,6 +716,32 @@ public sealed class MediaService : ObservableObject
         LoadDemoTrack(0);
     }
 
+    // The welcome tour plays the demo song while nothing else plays, so each choice shows on the taskbar.
+    bool _preview;
+
+    /// <summary>The demo song for the welcome tour, unless music plays already (then that shows the choices).</summary>
+    public void StartPreview()
+    {
+        if (_demo || (HasSession && IsPlaying)) return;
+        _preview = true;
+        _session = null;
+        _followingVlc = false;
+        StartDemo();
+        Log.Info("Welcome tour: the demo song plays meanwhile");
+    }
+
+    /// <summary>The tour is over: back to the players, picked afresh.</summary>
+    public void StopPreview()
+    {
+        if (!_preview) return;
+        _preview = false;
+        _demo = false;
+        _session = null;
+        ClearState();
+        _poll.Start();
+        PickSession();
+    }
+
     void LoadDemoTrack(int index)
     {
         var tracks = DemoContent.Tracks;
@@ -683,5 +768,139 @@ public sealed class MediaService : ObservableObject
         TrackChanged?.Invoke(this, EventArgs.Empty);
         Thumbnail = DemoContent.CreateArt(t);
         ThumbnailChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    // ------------------------------------------------------------------ VLC
+    // VLC 3 publishes no media session. With Settings → General → VLC on, it is read through its
+    // web interface (VlcLink) and stands in for a session: picked like one, played and sought.
+
+    VlcLink? _vlc;
+    VlcStatus? _vlcStatus;
+    bool _followingVlc, _vlcBusy;
+    int _vlcMisses;
+
+    /// <summary>VLC's web interface answers (it is on, and VLC runs).</summary>
+    bool _vlcAnswers;
+    public bool VlcAnswers { get => _vlcAnswers; private set => Set(ref _vlcAnswers, value); }
+
+    void UpdateVlc()
+    {
+        if (_settings.ReadVlc && _vlc == null)
+        {
+            // Turned on by the user: VLC's web interface switched on in its settings, again if a reset
+            // of VLC's preferences took it away.
+            if (!VlcLink.Enabled) VlcLink.Enable();
+            _vlc = new VlcLink();
+        }
+        else if (!_settings.ReadVlc && _vlc != null)
+        {
+            _vlc.Dispose();
+            _vlc = null;
+            _vlcStatus = null;
+            VlcAnswers = false;
+            if (_followingVlc) PickSession();
+        }
+    }
+
+    async Task PollVlcAsync()
+    {
+        var vlc = _vlc;
+        if (vlc == null) return;
+        _vlcBusy = true;
+        try
+        {
+            var status = await vlc.ReadAsync();
+            if (!ReferenceEquals(vlc, _vlc)) return;
+            // An answer missed now and then (VLC busy opening a file) is no reason to let it go.
+            if (status == null && _vlcStatus != null && ++_vlcMisses < 3) return;
+            _vlcMisses = 0;
+            bool appeared = _vlcStatus == null && status != null;
+            _vlcStatus = status;
+            VlcAnswers = status != null;
+            if (appeared) Log.Info("VLC answers through its web interface");
+            if (_followingVlc)
+            {
+                if (status is { Stopped: false }) ApplyVlc(status);
+                else PickSession();
+            }
+            else if (status is { Playing: true })
+            {
+                PickSession();
+            }
+        }
+        finally
+        {
+            _vlcBusy = false;
+        }
+    }
+
+    void FollowVlc(VlcStatus status)
+    {
+        _followingVlc = true;
+        _session = null;
+        _pendingKey = "";
+        _trackKey = "";
+        var visual = AppVisualResolver.Resolve(VlcLink.AppId);
+        AppId = VlcLink.AppId;
+        AppName = visual.Name;
+        AppIcon = visual.Icon;
+        AppColor = visual.Color;
+        CanPlayPause = CanNext = CanPrevious = CanSeek = true;
+        HasSession = true;
+        Log.Info("Following VLC");
+        ApplyVlc(status);
+    }
+
+    void ApplyVlc(VlcStatus status)
+    {
+        string key = $"{VlcLink.AppId}\n{status.ItemId}\n{status.Title}\n{status.Artist}";
+        bool changed = key != _trackKey;
+        if (status.Playing != IsPlaying)
+        {
+            _anchorPos = GetPosition();
+            _anchorTime = DateTimeOffset.Now;
+            IsPlaying = status.Playing;
+        }
+        Duration = status.Length;
+        _rate = status.Rate;
+        // VLC says where it is once a second; in between the position runs on by itself, and is set
+        // again only when it has drifted, or jumped (a seek in VLC), so the lyrics don't stutter.
+        if (changed || !status.Playing || (GetPosition() - status.Position).Duration() > TimeSpan.FromSeconds(0.75))
+        {
+            _anchorPos = status.Position;
+            _anchorTime = DateTimeOffset.Now;
+        }
+        if (!changed) return;
+
+        _trackKey = key;
+        Title = status.Title;
+        Artist = status.Artist;
+        Album = status.Album;
+        AlbumArtist = Genres = "";
+        TrackNumber = AlbumTrackCount = 0;
+        if (Thumbnail != null)
+        {
+            Thumbnail = null;
+            ThumbnailChanged?.Invoke(this, EventArgs.Empty);
+        }
+        TrackChanged?.Invoke(this, EventArgs.Empty);
+        if (status.ArtUrl.Length > 0 && _vlc is { } vlc) _ = LoadVlcArtAsync(vlc, status.ArtUrl, key);
+    }
+
+    async Task LoadVlcArtAsync(VlcLink vlc, string url, string key)
+    {
+        var art = await vlc.ArtAsync(url);
+        if (art == null || key != _trackKey) return;
+        Thumbnail = art;
+        ThumbnailChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>A command to VLC, then a fresh look at it so the bar follows at once.</summary>
+    async Task<bool> SendVlcAsync(string command, string? value = null)
+    {
+        if (_vlc is not { } vlc) return false;
+        bool ok = await vlc.SendAsync(command, value);
+        if (ok && !_vlcBusy) await PollVlcAsync();
+        return ok;
     }
 }

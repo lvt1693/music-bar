@@ -37,7 +37,7 @@ public partial class SettingsWindow : Window
         _lyrics = lyrics;
         InitializeComponent();
         DataContext = settings;
-        _pages = [PageGeneral, PageBar, PagePlayer, PageFace, PageProgress, PageLyrics, PageAbout];
+        _pages = [PageGeneral, PageBar, PagePlayer, PageFace, PageProgress, PageGallery, PageLyrics, PageAbout];
 
         var version = Loc.T("Set_Version", Assembly.GetExecutingAssembly().GetName().Version?.ToString(3));
         VersionText.Text = version;
@@ -46,6 +46,7 @@ public partial class SettingsWindow : Window
         FontCombo.ItemsSource = BuildFonts(settings.FontFamily);
         SourceCombo.ItemsSource = _sources;
         RefreshSources();
+        RefreshVlc();
         RefreshLyricsInfo();
         RefreshLayerStatus();
         RefreshTaskbarTweaks(pendingRestart: false);
@@ -62,6 +63,7 @@ public partial class SettingsWindow : Window
         _media.PropertyChanged += OnMediaChanged;
         _media.ThumbnailChanged += OnThumbnailChanged;
         _s.PropertyChanged += OnSettingChanged;
+        Loaded += (_, _) => LoadAds();
         ShowFocusState(FocusPhase.Off, FocusTimer.Current.Phase);
         FocusTimer.Current.Changed += ShowFocusState;
         Closed += (_, _) =>
@@ -191,9 +193,7 @@ public partial class SettingsWindow : Window
             _loadingTweaks = false;
         }
 
-        TransparentCard.Description = Loc.T(Overlay?.TranslucentTaskbarDetected == true
-            ? "Set_Transparent_DescTranslucentTB"
-            : Interop.XamlTaskbar.Blocked ? "Set_Transparent_DescRestartExplorer" : "Set_Transparent_Desc");
+        RefreshTransparentNote();
         TaskbarSizeCard.Description = Loc.T(TaskbarTweaks.Kind == TaskbarKind.Windows11 && TaskbarTweaks.HasTaskbarSizeSetting
             ? "Set_TaskbarSize_DescWin11"
             : TaskbarTweaks.CanShrinkHeight
@@ -208,6 +208,15 @@ public partial class SettingsWindow : Window
             status += " " + Loc.T("Set_Tb_TryExplorerPatcher");
         status += " " + Loc.T(pendingRestart ? "Set_Tb_PendingRestart" : "Set_Tb_RestartNote");
         TaskbarStatusText.Text = status;
+    }
+
+    void RefreshTransparentNote()
+    {
+        TransparentCard.Description = Loc.T(Overlay?.TranslucentTaskbarDetected == true
+            ? "Set_Transparent_DescTranslucentTB"
+            : Interop.XamlTaskbar.Blocked ? "Set_Transparent_DescRestartExplorer"
+            : Overlay?.TaskbarAutoHides == true && _s.LayerMode == LayerMode.Auto ? "Set_Transparent_DescAutoHide"
+            : "Set_Transparent_Desc");
     }
 
     void TaskbarSize_Changed(object sender, SelectionChangedEventArgs e)
@@ -331,10 +340,22 @@ public partial class SettingsWindow : Window
             }
             TickFacePictures();
         }
+        // What the taskbar is doing changes behind the page (the helper clearing it, auto-hide switched,
+        // TranslucentTB started): the notes follow along instead of telling what was true when it opened.
+        if (IsVisible && PageBar.Visibility == Visibility.Visible && DateTime.Now - _barNotesAt > TimeSpan.FromSeconds(1))
+        {
+            _barNotesAt = DateTime.Now;
+            RefreshLayerStatus();
+            RefreshTransparentNote();
+        }
+        if (IsVisible && PageGallery.Visibility == Visibility.Visible)
+            TickGallery(0.22 + (_previewClock.Elapsed.TotalSeconds * 0.015) % 0.6);
         if (!IsVisible || PageProgress.Visibility != Visibility.Visible) return;
         double t = _previewClock.Elapsed.TotalSeconds;
         TickLooks(0.22 + (t * 0.015) % 0.6);
     }
+
+    DateTime _barNotesAt;
 
     void RefreshLayerStatus()
     {
@@ -347,7 +368,11 @@ public partial class SettingsWindow : Window
     void OnSettingChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(AppSettings.LyricsFolder)) RefreshLyricsInfo();
-        if (e.PropertyName == nameof(AppSettings.LayerMode)) RefreshLayerStatus();
+        if (e.PropertyName == nameof(AppSettings.LayerMode))
+        {
+            RefreshLayerStatus();
+            RefreshTransparentNote();
+        }
         if (e.PropertyName is nameof(AppSettings.SeekStyle) or nameof(AppSettings.Skin) or nameof(AppSettings.Palettes)) RefreshLooks();
         if (e.PropertyName == nameof(AppSettings.FillOpacity))
             foreach (var look in _looks) look.Engine.Intensity = _s.FillOpacity;
@@ -365,7 +390,25 @@ public partial class SettingsWindow : Window
     {
         if (e.PropertyName is nameof(MediaService.Title) or nameof(MediaService.Artist) or nameof(MediaService.HasSession))
             UpdateNowPlaying();
+        else if (e.PropertyName == nameof(MediaService.VlcAnswers))
+            RefreshVlc();
     }
+
+    /// <summary>VLC's switch shows with VLC installed; under it, what happens next, or that it works.</summary>
+    void RefreshVlc()
+    {
+        VlcPanel.Visibility = VlcLink.Installed ? Visibility.Visible : Visibility.Collapsed;
+        string? status = !_s.ReadVlc ? null
+            : _media.VlcAnswers ? Loc.T("Set_Vlc_Connected")
+            : !VlcLink.Enabled ? Loc.T("Set_Vlc_Failed")
+            : VlcLink.Running ? Loc.T("Set_Vlc_Restart")
+            : Loc.T("Set_Vlc_Ready");
+        VlcStatus.Text = status ?? "";
+        VlcStatus.Visibility = status != null ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    /// <summary>Turned on, VLC's web interface has just been switched on in its settings (MediaService does it): say what's next.</summary>
+    void Vlc_Click(object sender, RoutedEventArgs e) => RefreshVlc();
 
     void OnThumbnailChanged(object? sender, EventArgs e) => NowArt.ImageSource = _media.Thumbnail;
 
@@ -393,6 +436,7 @@ public partial class SettingsWindow : Window
             _pages[i].Visibility = i == Nav.SelectedIndex ? Visibility.Visible : Visibility.Collapsed;
         PageScroll.ScrollToTop();
         if (PageLyrics.Visibility == Visibility.Visible) RefreshLyricsInfo();
+        if (PageGallery.Visibility == Visibility.Visible) ShowGalleryPage();
     }
 
     void Swatch_Click(object sender, RoutedEventArgs e)
@@ -493,6 +537,19 @@ public partial class SettingsWindow : Window
     {
         if (File.Exists(AppPaths.LogFile)) Open(AppPaths.LogFile);
         else Open(AppPaths.DataDir);
+    }
+
+    void Tour_Click(object sender, RoutedEventArgs e) => (Application.Current as App)?.ShowWelcome();
+
+    /// <summary>Every option back to how MusicBar comes, after asking: it can't be undone.</summary>
+    void Reset_Click(object sender, RoutedEventArgs e)
+    {
+        var answer = MessageBox.Show(this, Loc.T("Set_Reset_Ask"), Loc.T("Set_Reset"), MessageBoxButton.OKCancel, MessageBoxImage.Warning);
+        if (answer != MessageBoxResult.OK) return;
+        _s.ResetToDefaults();
+        Log.Info("Settings put back to their defaults");
+        ShowLookGroup(CurrentLookGroup());
+        MessageBox.Show(this, Loc.T("Set_Reset_Done"), Loc.T("Set_Reset"), MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
     /// <summary>The bar, when this window runs inside MusicBar (a preview tool may host it alone).</summary>

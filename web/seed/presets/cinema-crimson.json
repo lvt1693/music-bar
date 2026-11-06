@@ -1,0 +1,11 @@
+{
+  "format": "musicbar-look/1",
+  "name": "Cinema Crimson",
+  "kind": "progress",
+  "style": "Liquid",
+  "colors": ["#E3263F", "#7E0F27", "#F4C25B"],
+  "intensity": 0.55,
+  "direction": "FromStart",
+  "idleMotion": true,
+  "description": "Deep velvet red pours up to the playhead, rich as a theater curtain just before the film starts."
+}

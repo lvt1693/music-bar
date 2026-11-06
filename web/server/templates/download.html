@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}{{ t("dl_title") }} · MusicBar{% endblock %}
+{% block lyric %}{{ t("band_sub") }}{% endblock %}
+{% block main %}
+{% set rel = releases[0] if releases else None %}
+<h1 class="page-title">{{ t("dl_title") }}</h1>
+
+<section class="panel washed release">
+  <div class="top">
+    <img src="/static/img/musicbar-icon.png" alt="" width="44" height="44">
+    <div>
+      <b>MusicBar {{ rel.version if rel else "" }}</b>
+      <span>{% if rel %}{{ t("dl_version", d=(rel.published_at or "")[:10]) }}{% else %}{{ t("dl_none") }}{% endif %}</span>
+    </div>
+  </div>
+  {% if rel %}
+  {# The installer first: "setup" sorts after "portable", so the other way round. #}
+  {% for a in rel.assets | sort(attribute="name", reverse=True) %}
+  {% set setup = a.name.endswith("Setup.exe") %}
+  <div class="card set">
+    {{ icon("download-simple") if setup else icon("file-code") }}
+    <div><b>{{ t("dl_setup") if setup else t("dl_portable") }}, {{ "%.1f" | format(a.size / 1048576) }} MB</b><span class="d">{{ t("dl_setup_d") if setup else t("dl_portable_d") }}</span><span class="d hash">SHA-256 {{ a.sha256 }}</span></div>
+    <div class="ctl">
+      <button class="round" type="button" data-copy="{{ a.sha256 }}" aria-label="{{ t('copy') }} SHA-256" data-tip="{{ t('copy') }} SHA-256">{{ icon("copy") }}</button>
+      <a class="btn {{ 'btn-accent' if setup else 'btn-soft' }}" href="/download/{{ rel.tag }}/{{ a.name }}">{{ t("dl_mirror") }}</a>
+      <a class="btn btn-soft" href="{{ a.github_url }}" rel="noopener">GitHub</a>
+    </div>
+  </div>
+  {% endfor %}
+  {% else %}
+  <p><a class="btn btn-accent btn-lg" href="{{ github }}/releases/latest" rel="noopener">{{ icon("github-logo") }}GitHub</a></p>
+  {% endif %}
+  {% if film("hero.mp4") %}
+  <div class="film" style="margin: 16px 0 0">
+    <video autoplay muted loop playsinline preload="metadata" poster="{{ media('hero-poster.jpg') }}" data-auto-video aria-label="MusicBar">
+      <source src="{{ media('hero.webm') }}" type="video/webm">
+      <source src="{{ media('hero.mp4') }}" type="video/mp4">
+    </video>
+  </div>
+  {% endif %}
+  <p class="fine">{% if app_downloads %}{{ t("fact_downloads", n=num(app_downloads)) }} {% endif %}{{ t("dl_smartscreen") }}</p>
+</section>
+
+<div class="group">
+  <h2 class="group-title">{{ t("dl_req") }}</h2>
+  <div class="card set">{{ icon("cpu") }}<div><b>{{ t("dl_req_os") }}</b><span class="d">{{ t("dl_req_net") }}. {{ t("dl_req_account") }}.</span></div></div>
+  {% if releases | length > 1 %}{% set old = releases[1] %}
+  <div class="card set">{{ icon("clock-counter-clockwise") }}<div><b>{{ t("dl_older") }}: {{ old.version }}</b></div><div class="ctl">{% for a in old.assets | sort(attribute="name", reverse=True) %}<a class="btn btn-soft btn-sm" href="/download/{{ old.tag }}/{{ a.name }}">{{ t("dl_setup") if a.name.endswith("Setup.exe") else t("dl_portable") }}</a>{% endfor %}</div></div>
+  {% endif %}
+  <div class="card set">{{ icon("github-logo") }}<div><b>{{ t("dl_all_releases") }}</b></div><div class="ctl"><a class="btn btn-soft btn-sm" href="{{ github }}/releases" rel="noopener">GitHub</a></div></div>
+</div>
+
+{% if rel and rel.notes %}
+<div class="group">
+  <h2 class="group-title">{{ t("dl_notes") }}</h2>
+  <div class="card notes">{{ rel.notes | md }}</div>
+</div>
+{% endif %}
+{% endblock %}

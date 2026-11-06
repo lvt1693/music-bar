@@ -1,0 +1,11 @@
+{
+  "format": "musicbar-look/1",
+  "name": "Lavender Lightsticks",
+  "kind": "led",
+  "style": "LedStarlight",
+  "colors": ["#A877FF", "#7B5CFF", "#F1DDFF"],
+  "intensity": 0.8,
+  "direction": "FromStart",
+  "idleMotion": true,
+  "description": "Purple sparks twinkle along the screen edge like a whole arena holding up its lightsticks."
+}

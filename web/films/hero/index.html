@@ -1,0 +1,873 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1600, height=900" />
+    <script src="assets/vendor/gsap.min.js"></script>
+    <style>
+      /* Segoe UI Variable, the app's own face, installed with Windows 11. One variable file:
+         wght 300-700 and an optical-size axis (Text = 10.5, Display = 36). */
+      @font-face {
+        font-family: "Segoe UI Variable";
+        src: local("Segoe UI Variable"), local("SegoeUIVariable");
+        font-weight: 300 700;
+        font-style: normal;
+      }
+      :root {
+        --ground: #1c1c20;
+        --panel: rgba(20, 20, 24, 0.96);
+        --edge: rgba(255, 255, 255, 0.14);
+        --wash: rgba(255, 107, 107, 0.13);
+        --accent: #ff6b6b;
+        --soft: rgba(255, 255, 255, 0.1);
+        --text: #ffffff;
+        --text-2: rgba(255, 255, 255, 0.72);
+        --lid: #22252f;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 1600px;
+        height: 900px;
+        overflow: hidden;
+        background: var(--ground);
+      }
+      #root {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: var(--ground);
+        color: var(--text);
+        font-family: "Segoe UI Variable", sans-serif;
+        font-weight: 400;
+        font-variation-settings: "opsz" 10.5;
+        font-optical-sizing: none;
+        -webkit-font-smoothing: antialiased;
+      }
+      #ground {
+        position: absolute;
+        inset: 0;
+        background: var(--ground);
+      }
+      /* The camera. The world under it is a Windows 11 desktop magnified 2.5x:
+         1 Windows px = 2.5 px here, so the 48 px taskbar is 120 px tall. */
+      #cam {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 1600px;
+        height: 900px;
+      }
+
+      /* ---------------------------------------------------------------- the gallery panel */
+      #panel {
+        position: absolute;
+        left: 100px;
+        top: 170px;
+        width: 1400px;
+        height: 580px;
+        border-radius: 35px;
+        background: var(--panel);
+        border: 2px solid var(--edge);
+        box-shadow: 0 20px 80px rgba(0, 0, 0, 0.45);
+        overflow: hidden;
+        z-index: 2;
+      }
+      #panel-wash {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 190px;
+        background: linear-gradient(180deg, var(--wash) 0%, rgba(255, 107, 107, 0) 100%);
+      }
+      #panel-title {
+        position: absolute;
+        left: 40px;
+        top: 34px;
+        font-size: 40px;
+        line-height: 56px;
+        font-weight: 600;
+        font-variation-settings: "opsz" 36;
+        white-space: nowrap;
+      }
+      .tile {
+        position: absolute;
+        width: 650px;
+        height: 198px;
+        border-radius: 20px;
+        border: 3.5px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.05);
+      }
+      #tile-a {
+        left: 38px;
+        top: 123px;
+      }
+      #tile-b {
+        left: 708px;
+        top: 123px;
+      }
+      #tile-c {
+        left: 38px;
+        top: 341px;
+      }
+      #tile-d {
+        left: 708px;
+        top: 341px;
+      }
+      .screen {
+        position: absolute;
+        left: 15px;
+        top: 15px;
+        width: 613px;
+        height: 85px;
+        border-radius: 12.5px;
+        overflow: hidden;
+        background: #0b0b0f;
+      }
+      .screen video,
+      .clone video {
+        position: absolute;
+        left: -78px;
+        top: 0;
+        width: 769px;
+        height: 85px;
+      }
+      .name {
+        position: absolute;
+        left: 22px;
+        top: 118px;
+        font-size: 31px;
+        line-height: 44px;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+      .btn {
+        position: absolute;
+        right: 20px;
+        top: 115px;
+        height: 52px;
+        padding: 0 30px;
+        border-radius: 17.5px;
+        background: var(--soft);
+        border: 2px solid rgba(255, 255, 255, 0.1);
+        font-size: 29px;
+        line-height: 48px;
+        white-space: nowrap;
+      }
+
+      /* ---------------------------------------------------------------- the taskbar */
+      #tb {
+        position: absolute;
+        left: 0;
+        top: 780px;
+        width: 1600px;
+        height: 120px;
+        z-index: 3;
+      }
+      #tb-bg {
+        position: absolute;
+        inset: 0;
+        background: #222226;
+      }
+      /* MusicBar's look, drawn behind everything on the taskbar (strength 90 %). */
+      #look {
+        position: absolute;
+        inset: 0;
+        overflow: hidden;
+      }
+      .lk {
+        position: absolute;
+        left: 0;
+        top: -57px;
+        width: 1600px;
+        height: 177px;
+        opacity: 0.9;
+      }
+      #tb-edge {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 2px;
+        background: rgba(255, 255, 255, 0.08);
+      }
+      #cover {
+        position: absolute;
+        left: 30px;
+        top: 20px;
+        width: 80px;
+        height: 80px;
+        border-radius: 10px;
+      }
+      #np-title {
+        position: absolute;
+        left: 130px;
+        top: 0;
+        font-size: 30px;
+        line-height: 120px;
+        font-weight: 600;
+        white-space: nowrap;
+        text-shadow: 0 1px 6px rgba(0, 0, 0, 0.55);
+      }
+      .ctl {
+        position: absolute;
+        top: 42px;
+        width: 36px;
+        height: 36px;
+        fill: #ffffff;
+        filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.5));
+      }
+      #ctl-prev {
+        left: 374px;
+      }
+      #ctl-pause {
+        left: 442px;
+      }
+      #ctl-next {
+        left: 510px;
+      }
+      .tbb {
+        position: absolute;
+        top: 10px;
+        width: 100px;
+        height: 100px;
+        border-radius: 10px;
+      }
+      #tb-start {
+        left: 1250px;
+      }
+      #tb-search {
+        left: 1355px;
+      }
+      #tb-mb {
+        left: 1460px;
+      }
+      #tb-mb-focus {
+        position: absolute;
+        inset: 0;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.06);
+      }
+      .tbb svg,
+      .tbb img {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 56px;
+        height: 56px;
+        margin: -28px 0 0 -28px;
+      }
+      #tb-start svg {
+        fill: #4cc2ff;
+      }
+      #tb-search svg {
+        width: 48px;
+        height: 48px;
+        margin: -24px 0 0 -24px;
+        fill: #ffffff;
+      }
+      #tb-mb img {
+        width: 60px;
+        height: 60px;
+        margin: -30px 0 0 -30px;
+      }
+      #tb-mb-ind {
+        position: absolute;
+        left: 30px;
+        top: 90px;
+        width: 40px;
+        height: 7px;
+        border-radius: 4px;
+        background: var(--accent);
+      }
+      #lyric {
+        position: absolute;
+        left: 775px;
+        top: 0;
+        width: 672px;
+        height: 120px;
+      }
+      #lyric video {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 672px;
+        height: 120px;
+      }
+
+      /* ---------------------------------------------------------------- the face (from promo/index.html, x 5/3) */
+      #face-rig {
+        position: absolute;
+        left: 560px;
+        top: 0;
+        width: 167px;
+        height: 120px;
+        filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.55));
+      }
+      #face-bob,
+      #face-squash,
+      #face {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 167px;
+        height: 120px;
+      }
+      .eye {
+        position: absolute;
+        top: 28.33px;
+        width: 30px;
+        height: 40px;
+      }
+      #eyeL {
+        left: 45px;
+      }
+      #eyeR {
+        left: 88.33px;
+      }
+      .eye-ball {
+        position: absolute;
+        inset: 0;
+        border-radius: 50%;
+        overflow: hidden;
+        background: #fffdf6;
+        box-shadow: 0 0 0 3.33px #15171e;
+      }
+      .pupil {
+        position: absolute;
+        left: 8.33px;
+        top: 13.33px;
+        width: 13.33px;
+        height: 16.67px;
+        border-radius: 50%;
+        background: #15171e;
+      }
+      .shine {
+        position: absolute;
+        left: 3.33px;
+        top: 1.67px;
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: #fff;
+      }
+      .lid {
+        position: absolute;
+        left: -3.33px;
+        top: -3.33px;
+        width: 36.67px;
+        height: 46.67px;
+        background: var(--lid);
+        border-bottom: 3.33px solid #0e1015;
+      }
+      .eye-happy {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 30px;
+        height: 40px;
+        overflow: visible;
+      }
+      .eye-happy path {
+        fill: none;
+        stroke: #fffdf6;
+        stroke-width: 3.5;
+        stroke-linecap: round;
+      }
+      #mouth {
+        position: absolute;
+        left: 48.33px;
+        top: 75px;
+        width: 66.67px;
+        height: 30px;
+        overflow: visible;
+      }
+      #mouth .line {
+        fill: none;
+        stroke: #fffdf6;
+        stroke-width: 3;
+        stroke-linecap: round;
+      }
+      #mouth .hole {
+        fill: #120c10;
+        stroke: #fffdf6;
+        stroke-width: 2.4;
+        stroke-linejoin: round;
+      }
+      #mouth .tongue {
+        fill: #ff7b8a;
+      }
+      #mic {
+        position: absolute;
+        left: 702px;
+        top: -40px;
+        width: 43.33px;
+        height: 116.67px;
+        overflow: visible;
+      }
+
+      /* ---------------------------------------------------------------- the falling previews and the pointer */
+      .clone {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 613px;
+        height: 85px;
+        border-radius: 12.5px;
+        overflow: hidden;
+        background: #0b0b0f;
+        z-index: 5;
+      }
+      #cursor {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 36px;
+        height: 54px;
+        z-index: 6;
+      }
+      #cursor-s {
+        position: absolute;
+        inset: 0;
+      }
+      #cursor svg {
+        width: 36px;
+        height: 54px;
+        overflow: visible;
+        filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.35));
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="main"
+      data-start="0"
+      data-duration="12.2"
+      data-width="1600"
+      data-height="900"
+      data-fps="30"
+    >
+      <div id="ground"></div>
+
+      <div id="cam" data-layout-allow-overflow>
+        <!-- MusicBar's online gallery, as one of the app's panels -->
+        <div id="panel" data-ui="captured">
+          <div id="panel-wash"></div>
+          <div id="panel-title">Kho trực tuyến</div>
+
+          <div class="tile" id="tile-a">
+            <div class="screen">
+              <video id="pv-a1" class="clip" src="assets/clips/northern-curtains.mp4" muted playsinline
+                data-start="0" data-duration="4.766666" data-media-start="2.28" data-playback-rate="0.77" data-track-index="10"></video>
+              <video id="pv-a2" class="clip" src="assets/clips/northern-curtains.mp4" muted playsinline
+                data-start="9.266666" data-duration="2.933334" data-media-start="0.021333" data-playback-rate="0.77" data-track-index="10"></video>
+            </div>
+            <div class="name">Northern Curtains</div>
+            <div class="btn" id="a-apply">Áp dụng</div>
+            <div class="btn" id="a-on">Đang dùng</div>
+          </div>
+
+          <div class="tile" id="tile-b">
+            <div class="screen">
+              <video id="pv-b1" class="clip" src="assets/clips/gamer-rgb.mp4" muted playsinline
+                data-start="0" data-duration="4.766666" data-media-start="2.28" data-playback-rate="0.77" data-track-index="11"></video>
+              <video id="pv-b2" class="clip" src="assets/clips/gamer-rgb.mp4" muted playsinline
+                data-start="9.266666" data-duration="2.933334" data-media-start="0.021333" data-playback-rate="0.77" data-track-index="11"></video>
+            </div>
+            <div class="name">Gamer RGB</div>
+            <div class="btn" id="b-apply">Áp dụng</div>
+            <div class="btn" id="b-on">Đang dùng</div>
+          </div>
+
+          <div class="tile" id="tile-c">
+            <div class="screen">
+              <video id="pv-c1" class="clip" src="assets/clips/pumpkin-ember.mp4" muted playsinline
+                data-start="0" data-duration="4.766666" data-media-start="2.28" data-playback-rate="0.77" data-track-index="12"></video>
+              <video id="pv-c2" class="clip" src="assets/clips/pumpkin-ember.mp4" muted playsinline
+                data-start="9.266666" data-duration="2.933334" data-media-start="0.021333" data-playback-rate="0.77" data-track-index="12"></video>
+            </div>
+            <div class="name">Pumpkin Ember</div>
+            <div class="btn" id="c-apply">Áp dụng</div>
+            <div class="btn" id="c-on">Đang dùng</div>
+          </div>
+
+          <div class="tile" id="tile-d">
+            <div class="screen">
+              <video id="pv-d1" class="clip" src="assets/clips/lime-summer.mp4" muted playsinline
+                data-start="0" data-duration="4.766666" data-media-start="2.28" data-playback-rate="0.77" data-track-index="13"></video>
+              <video id="pv-d2" class="clip" src="assets/clips/lime-summer.mp4" muted playsinline
+                data-start="9.266666" data-duration="2.933334" data-media-start="0.021333" data-playback-rate="0.77" data-track-index="13"></video>
+            </div>
+            <div class="name">Lime Summer</div>
+            <div class="btn" id="d-apply">Áp dụng</div>
+          </div>
+        </div>
+
+        <!-- the Windows 11 taskbar, with MusicBar on it -->
+        <div id="tb" data-ui="captured" data-layout-allow-overflow>
+          <div id="tb-bg"></div>
+          <div id="look">
+            <video id="lk-a1" class="clip lk" src="assets/clips/northern-curtains.mp4" muted playsinline
+              data-start="0" data-duration="2.033333" data-media-start="1" data-track-index="1"></video>
+            <video id="lk-b" class="clip lk" src="assets/clips/gamer-rgb.mp4" muted playsinline
+              data-start="2.033333" data-duration="2.033333" data-media-start="1" data-track-index="2"></video>
+            <video id="lk-c" class="clip lk" src="assets/clips/pumpkin-ember.mp4" muted playsinline
+              data-start="4.066666" data-duration="7.633334" data-media-start="0.1" data-playback-rate="0.76" data-track-index="1"></video>
+            <video id="lk-a2" class="clip lk" src="assets/clips/northern-curtains.mp4" muted playsinline
+              data-start="11.7" data-duration="0.5" data-media-start="0.5" data-track-index="2"></video>
+          </div>
+          <div id="tb-edge"></div>
+
+          <!-- the player -->
+          <img id="cover" src="assets/img/cover-dem-thanh-pho.png" alt="" />
+          <div id="np-title">Đêm thành phố</div>
+          <svg class="ctl" id="ctl-prev" viewBox="0 0 256 256"><path d="M208,47.88V208.12a16,16,0,0,1-24.43,13.43L64,146.77V216a8,8,0,0,1-16,0V40a8,8,0,0,1,16,0v69.23L183.57,34.45A15.95,15.95,0,0,1,208,47.88Z" /></svg>
+          <svg class="ctl" id="ctl-pause" viewBox="0 0 256 256"><path d="M216,48V208a16,16,0,0,1-16,16H160a16,16,0,0,1-16-16V48a16,16,0,0,1,16-16h40A16,16,0,0,1,216,48ZM96,32H56A16,16,0,0,0,40,48V208a16,16,0,0,0,16,16H96a16,16,0,0,0,16-16V48A16,16,0,0,0,96,32Z" /></svg>
+          <svg class="ctl" id="ctl-next" viewBox="0 0 256 256"><path d="M208,40V216a8,8,0,0,1-16,0V146.77L72.43,221.55A15.95,15.95,0,0,1,48,208.12V47.88A15.95,15.95,0,0,1,72.43,34.45L192,109.23V40a8,8,0,0,1,16,0Z" /></svg>
+
+          <!-- the karaoke line, from MusicBar's own lyrics renderer -->
+          <div id="lyric">
+            <video id="ly" class="clip" src="assets/clips/lyrics-default.webm" muted playsinline
+              data-start="6.066666" data-duration="2.433334" data-media-start="3.117" data-playback-rate="1.076" data-track-index="3"></video>
+          </div>
+
+          <!-- the face, by the player -->
+          <div id="face-rig">
+            <div id="face-bob">
+              <div id="face-squash">
+                <div id="face">
+                  <div class="eye" id="eyeL">
+                    <div class="eye-ball"><div class="pupil"></div><div class="shine"></div><div class="lid"></div></div>
+                    <svg class="eye-happy" viewBox="0 0 18 24"><path d="M2 16 Q9 5 16 16" /></svg>
+                  </div>
+                  <div class="eye" id="eyeR">
+                    <div class="eye-ball"><div class="pupil"></div><div class="shine"></div><div class="lid"></div></div>
+                    <svg class="eye-happy" viewBox="0 0 18 24"><path d="M2 16 Q9 5 16 16" /></svg>
+                  </div>
+                  <svg id="mouth" viewBox="0 0 40 18">
+                    <path class="m line" id="m-flat" d="M12 8 Q20 9.5 28 8" />
+                    <path class="m line" id="m-smile" d="M9 5 Q20 16 31 5" />
+                    <g class="m" id="m-o"><ellipse class="hole" cx="20" cy="8" rx="4.2" ry="5" /></g>
+                    <g class="m" id="m-open"><path class="hole" d="M8 3 Q20 3 32 3 Q30 17 20 17 Q10 17 8 3 Z" /><ellipse class="tongue" cx="20" cy="13.5" rx="5" ry="2.6" /></g>
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
+          <svg id="mic" viewBox="0 0 26 70">
+            <rect x="9" y="26" width="8" height="42" rx="4" fill="#1D1F27" stroke="#0E1015" stroke-width="1.2" />
+            <rect x="7.5" y="29" width="11" height="4" rx="2" fill="#FF6B6B" />
+            <circle cx="13" cy="14" r="12" fill="#C9CDD6" stroke="#0E1015" stroke-width="1.4" />
+            <path d="M4 10 H22 M3 15 H23 M5 20 H21 M9 3.5 V24.5 M13 2 V26 M17 3.5 V24.5" stroke="#8E94A3" stroke-width="1" />
+            <circle cx="9" cy="9" r="2.4" fill="#FFFFFF" opacity="0.7" />
+          </svg>
+
+          <!-- Windows' centred icons: Start, Search, MusicBar (focused while its panel is open) -->
+          <div class="tbb" id="tb-start"><svg viewBox="0 0 256 256"><path d="M104,144v51.64a8,8,0,0,1-8,8,8.54,8.54,0,0,1-1.43-.13l-64-11.64A8,8,0,0,1,24,184V144a8,8,0,0,1,8-8H96A8,8,0,0,1,104,144Zm-2.87-89.78a8,8,0,0,0-6.56-1.73l-64,11.64A8,8,0,0,0,24,72v40a8,8,0,0,0,8,8H96a8,8,0,0,0,8-8V60.36A8,8,0,0,0,101.13,54.22ZM208,136H128a8,8,0,0,0-8,8v57.45a8,8,0,0,0,6.57,7.88l80,14.54A7.61,7.61,0,0,0,208,224a8,8,0,0,0,8-8V144A8,8,0,0,0,208,136Zm5.13-102.14a8,8,0,0,0-6.56-1.73l-80,14.55A8,8,0,0,0,120,54.55V112a8,8,0,0,0,8,8h80a8,8,0,0,0,8-8V40A8,8,0,0,0,213.13,33.86Z" /></svg></div>
+          <div class="tbb" id="tb-search"><svg viewBox="0 0 256 256"><path d="M229.66,218.34l-50.07-50.06a88.11,88.11,0,1,0-11.31,11.31l50.06,50.07a8,8,0,0,0,11.32-11.32ZM40,112a72,72,0,1,1,72,72A72.08,72.08,0,0,1,40,112Z" /></svg></div>
+          <div class="tbb" id="tb-mb"><div id="tb-mb-focus"></div><img src="assets/img/musicbar-icon.png" alt="" /><div id="tb-mb-ind"></div></div>
+        </div>
+
+        <!-- a tile's live preview, lifted off and dropped onto the taskbar -->
+        <div class="clone" id="cl-b">
+          <video id="cl-b-v" class="clip" src="assets/clips/gamer-rgb.mp4" muted playsinline
+            data-start="1.4" data-duration="0.633333" data-media-start="3.358" data-playback-rate="0.77" data-track-index="20"></video>
+        </div>
+        <div class="clone" id="cl-c">
+          <video id="cl-c-v" class="clip" src="assets/clips/pumpkin-ember.mp4" muted playsinline
+            data-start="3.433333" data-duration="0.633333" data-media-start="4.9237" data-playback-rate="0.77" data-track-index="20"></video>
+        </div>
+        <div class="clone" id="cl-a">
+          <video id="cl-a-v" class="clip" src="assets/clips/northern-curtains.mp4" muted playsinline
+            data-start="11.1" data-duration="0.6" data-media-start="1.433" data-playback-rate="0.77" data-track-index="20"></video>
+        </div>
+
+        <!-- the pointer (Windows arrow) -->
+        <div id="cursor">
+          <div id="cursor-s">
+            <svg viewBox="0 0 24 36"><path d="M2.5 2.5 L2.5 27 L8.2 21.6 L12.2 30.8 L16.1 29.1 L12.2 20.2 L20 20.2 Z" fill="#FFFFFF" stroke="#000000" stroke-width="1.4" stroke-linejoin="round" /></svg>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      (function () {
+        // ---- measured eases (motionmaxxing runtime, copied)
+        const powerOut = (p) => (t) => 1 - Math.pow(1 - t, p);
+        const powerIn = (p) => (t) => Math.pow(t, p);
+        const expoOut = (k) => {
+          const d = 1 - Math.exp(-k);
+          return (t) => (1 - Math.exp(-k * t)) / d;
+        };
+        const spring = (c, om) => {
+          const f = (t) => 1 - Math.exp(-c * t) * (Math.cos(om * t) + (c / om) * Math.sin(om * t));
+          const n = f(1);
+          return (t) => f(t) / n;
+        };
+        const smoothP = (p) => (t) => {
+          const a = Math.pow(t, p), b = Math.pow(1 - t, p);
+          return a / (a + b);
+        };
+        const guard = (f) => (t) => (t <= 0 ? 0 : t >= 1 ? 1 : f(t));
+        const E = {
+          popOver: guard(spring(2.67, 4.36)),
+          softLand: guard(expoOut(3.41)),
+          glide: guard(powerOut(1.7)),
+          cruise: (t) => t,
+          softInOut: guard(smoothP(1.42)),
+          gentleIn: guard(powerIn(2.07)),
+          accelExit: guard(powerIn(2.6)),
+        };
+
+        const F = (f) => f / 30;
+        const tl = gsap.timeline({ paused: true });
+        const set = (f, sel, vars) => tl.set(sel, vars, F(f));
+        const to = (f0, f1, sel, vars, ease) =>
+          tl.to(sel, Object.assign({}, vars, { duration: F(f1 - f0), ease: ease || E.softLand }), F(f0));
+        const fromTo = (f0, f1, sel, a, b, ease) =>
+          tl.fromTo(sel, a, Object.assign({}, b, { duration: F(f1 - f0), ease: ease || E.softLand, immediateRender: false }), F(f0));
+
+        // Beats at 118 BPM: beat k sits at frame round(k * 15.254).
+        const BEAT = (k) => Math.round((k * 30 * 60) / 118);
+
+        // ---- places in the world (px at the wide framing)
+        const CLICK = { a: [480, 380], b: [1150, 380], c: [480, 598], cover: [72, 842] };
+        const SCREEN = { a: [158.5, 313.5], b: [828.5, 313.5], c: [158.5, 531.5] };
+        const TIP = 3.75; // the arrow's tip inside its box
+        const LOOK = { a: [-2, -8], b: [6, -6], c: [-3, -7], cover: [-7, 1], down: [0, 7], you: [0, 1], lyric: [7, 1] };
+
+        // ---- initial state (frame 0 is the poster and the loop point)
+        set(0, "#cam", { x: 0, y: 0, scale: 1, transformOrigin: "0 0" });
+        set(0, "#panel", { opacity: 1, y: 0 });
+        set(0, ".tile", { scale: 1, transformOrigin: "50% 50%" });
+        set(0, "#tile-a", { borderColor: "#FF6B6B" });
+        set(0, "#tile-b, #tile-c, #tile-d", { borderColor: "rgba(255,255,255,0.08)" });
+        set(0, "#a-apply, #b-on, #c-on", { opacity: 0 });
+        set(0, "#a-on, #b-apply, #c-apply, #d-apply", { opacity: 1 });
+        set(0, ".clone", { opacity: 0, x: 0, y: 0, scaleX: 1, scaleY: 1, borderRadius: 12.5, transformOrigin: "0 0" });
+        set(0, "#cursor", { x: CLICK.a[0] - TIP, y: CLICK.a[1] - TIP });
+        set(0, "#cursor-s", { scale: 1, transformOrigin: "10% 7%" });
+        set(0, "#tb-mb-focus", { opacity: 1 });
+        set(0, "#tb-mb-ind", { scaleX: 1, backgroundColor: "#FF6B6B", transformOrigin: "50% 50%" });
+        set(0, "#lyric", { clipPath: "inset(0% 100% 0% 0%)" });
+        set(0, "#mic", { opacity: 0, scale: 0, y: 30, rotation: 0, transformOrigin: "50% 100%" });
+        set(0, "#face-bob", { y: 0 });
+        set(0, "#face-squash", { scaleX: 1, scaleY: 1, transformOrigin: "50% 100%" });
+        set(0, ".lid", { scaleY: 0.04, transformOrigin: "50% 0%" });
+        set(0, ".pupil", { x: LOOK.a[0], y: LOOK.a[1] });
+        set(0, ".eye-ball", { opacity: 0 });
+        set(0, ".eye-happy", { opacity: 1 });
+        const MOUTHS = ["#m-flat", "#m-smile", "#m-o", "#m-open"];
+        MOUTHS.forEach((m) => set(0, m, { opacity: m === "#m-open" ? 1 : 0 }));
+
+        // ---- the face (rig from promo/index.html, timed in frames)
+        const LID = { open: 0.04, wide: 0, closed: 1 };
+        function eyes(f, state) {
+          const happy = state === "happy";
+          set(f, ".eye-ball", { opacity: happy ? 0 : 1 });
+          set(f, ".eye-happy", { opacity: happy ? 1 : 0 });
+          if (!happy) {
+            to(f, f + 4, "#eyeL .lid", { scaleY: LID[state] }, E.glide);
+            to(f + 2, f + 6, "#eyeR .lid", { scaleY: LID[state] }, E.glide);
+          }
+        }
+        function look(f, p, dur) {
+          to(f, f + (dur || 6), "#eyeL .pupil", { x: p[0], y: p[1] }, E.glide);
+          to(f + 1, f + 1 + (dur || 6), "#eyeR .pupil", { x: p[0], y: p[1] }, E.glide);
+        }
+        function blink(f) {
+          to(f, f + 2, ".lid", { scaleY: 1 }, E.gentleIn);
+          to(f + 3, f + 7, ".lid", { scaleY: LID.open }, E.glide);
+        }
+        function mouth(f, name) {
+          MOUTHS.forEach((m) => set(f, m, { opacity: m === "#m-" + name ? 1 : 0 }));
+        }
+        function nod(f) {
+          to(f, f + 2, "#face-squash", { scaleY: 0.95, scaleX: 1.025 }, E.glide);
+          to(f + 2, f + 8, "#face-squash", { scaleY: 1, scaleX: 1 }, E.softLand);
+        }
+        // The band lands under it: a jolt, a little jump, a grin.
+        function cheer(f, short) {
+          eyes(f, "wide");
+          mouth(f, "o");
+          to(f, f + 2, "#face-squash", { scaleY: 0.86, scaleX: 1.06 }, E.glide);
+          to(f + 2, f + 5, "#face-squash", { scaleY: 1.04, scaleX: 0.98 }, E.glide);
+          set(f + 3, ".eye-ball", { opacity: 0 });
+          set(f + 3, ".eye-happy", { opacity: 1 });
+          mouth(f + 3, "open");
+          const h = short ? 10 : 16;
+          to(f + 2, f + 6, "#face-bob", { y: -h }, E.glide);
+          to(f + 6, f + 10, "#face-bob", { y: 0 }, E.gentleIn);
+          to(f + 10, f + 12, "#face-squash", { scaleY: 0.93, scaleX: 1.03 }, E.glide);
+          to(f + 12, f + (short ? 15 : 18), "#face-squash", { scaleY: 1, scaleX: 1 }, E.softLand);
+        }
+
+        // ---- the pointer
+        function move(f0, f1, a, b) {
+          tl.fromTo("#cursor", { x: a[0] - TIP }, { x: b[0] - TIP, duration: F(f1 - f0), ease: E.glide, immediateRender: false }, F(f0));
+          tl.fromTo("#cursor", { y: a[1] - TIP }, { y: b[1] - TIP, duration: F(f1 - f0), ease: E.softInOut, immediateRender: false }, F(f0));
+        }
+        function press(f, tile) {
+          to(f, f + 2, "#cursor-s", { scale: 0.86 }, E.glide);
+          to(f + 2, f + 6, "#cursor-s", { scale: 1 }, E.softLand);
+          if (tile) {
+            to(f, f + 2, tile, { scale: 0.985 }, E.glide);
+            to(f + 2, f + 7, tile, { scale: 1 }, E.softLand);
+          }
+        }
+        // The tile answers a frame after the press: the coral edge moves, the buttons change.
+        function pick(f, on, off) {
+          set(f, "#tile-" + on, { borderColor: "#FF6B6B" });
+          set(f, "#tile-" + off, { borderColor: "rgba(255,255,255,0.08)" });
+          set(f, "#" + on + "-apply", { opacity: 0 });
+          set(f, "#" + on + "-on", { opacity: 1 });
+          set(f, "#" + off + "-on", { opacity: 0 });
+          set(f, "#" + off + "-apply", { opacity: 1 });
+        }
+        // The tile's own live preview lifts off and drops into the taskbar, landing on the beat.
+        function drop(id, s, fa, fl) {
+          set(fa, id, { opacity: 1, x: s[0], y: s[1], scaleX: 1, scaleY: 1, borderRadius: 12.5 });
+          fromTo(fa, fa + 4, id, { x: s[0], y: s[1], scaleX: 1, scaleY: 1 }, { x: s[0] - 4, y: s[1] - 14, scaleX: 1.015, scaleY: 1.05 }, E.softLand);
+          fromTo(fa + 4, fl, id, { x: s[0] - 4 }, { x: 0 }, E.gentleIn);
+          fromTo(fa + 4, fl, id, { y: s[1] - 14, scaleX: 1.015, scaleY: 1.05, borderRadius: 12.5 },
+            { y: 780, scaleX: 1600 / 613, scaleY: 120 / 85, borderRadius: 0 }, E.accelExit);
+          set(fl, id, { opacity: 0 });
+        }
+
+        // ================================================================ the loop
+        // The camera follows the attention: it leans 4 % toward the tile the pointer goes for, follows
+        // the preview down to the taskbar, then settles back to the wide framing.
+        const lean = (p, s) => ({ x: p[0] * (1 - s), y: p[1] * (1 - s), scale: s });
+        const WIDE0 = { x: 0, y: 0, scale: 1 };
+        const BAND = lean([800, 900], 1.04);
+        const cam = (f0, f1, a, b, ease) => fromTo(f0, f1, "#cam", Object.assign({}, a), Object.assign({}, b), ease);
+        cam(16, 40, WIDE0, lean(CLICK.b, 1.04), E.softInOut);
+        cam(44, 61, lean(CLICK.b, 1.04), BAND, E.glide);
+        cam(66, 100, BAND, lean(CLICK.c, 1.04), E.softInOut);
+        cam(105, 122, lean(CLICK.c, 1.04), BAND, E.glide);
+
+        // f0-f14: the poster. Northern Curtains is on, the face is still grinning from the last pick.
+        eyes(10, "open");
+        mouth(10, "smile");
+        nod(BEAT(1));
+
+        // Pick 1: Gamer RGB, lands on beat 4.
+        move(14, 34, CLICK.a, CLICK.b);
+        look(16, LOOK.b, 10);
+        nod(BEAT(2));
+        press(40, "#tile-b");
+        pick(42, "b", "a");
+        drop("#cl-b", SCREEN.b, 42, BEAT(4));
+        look(48, LOOK.down, 8);
+        cheer(BEAT(4));
+        look(BEAT(4) + 4, LOOK.you, 4);
+
+        // Pick 2: Pumpkin Ember, lands on beat 8.
+        eyes(80, "open");
+        mouth(80, "smile");
+        move(74, 94, CLICK.b, CLICK.c);
+        look(76, LOOK.c, 10);
+        nod(BEAT(6));
+        press(101, "#tile-c");
+        pick(103, "c", "b");
+        drop("#cl-c", SCREEN.c, 103, BEAT(8));
+        look(109, LOOK.down, 8);
+        cheer(BEAT(8));
+
+        // Done choosing: click the cover, the panel closes like a Windows flyout.
+        eyes(140, "open");
+        mouth(140, "smile");
+        move(112, 130, CLICK.c, CLICK.cover);
+        look(126, LOOK.cover, 8);
+        press(134, null);
+        fromTo(135, 141, "#panel", { opacity: 1 }, { opacity: 0 }, E.cruise);
+        fromTo(135, 143, "#panel", { y: 0 }, { y: 40 }, E.accelExit);
+        set(135, "#tb-mb-focus", { opacity: 0 });
+        fromTo(135, 141, "#tb-mb-ind", { scaleX: 1 }, { scaleX: 0.375 }, E.softLand);
+        set(135, "#tb-mb-ind", { backgroundColor: "rgba(255,255,255,0.55)" });
+
+        // The camera pushes in onto the face and the empty stretch of the taskbar.
+        // 2x (the lyric render is only upscaled 1.2x) framing world x 490 to 1290, y 605 to 1055: the
+        // block from the mic top (740) to the band bottom (900) sits around the middle of the frame.
+        // It creeps to 2.03x about the face and line (890, 840) while the line is sung.
+        const K0 = { x: -980, y: -1210, scale: 2 };
+        const K1 = { x: -1006.7, y: -1235.2, scale: 2.03 };
+        fromTo(140, 162, "#cam", Object.assign({}, BAND), Object.assign({}, K0), E.softLand);
+        fromTo(162, 254, "#cam", Object.assign({}, K0), Object.assign({}, K1), E.cruise);
+        look(146, LOOK.you, 6);
+        nod(BEAT(10));
+
+        // The mic pops up (the film's one spring) and the face sings the line, word by word.
+        set(158, "#mic", { opacity: 1 });
+        fromTo(158, 172, "#mic", { scale: 0, y: 30, rotation: -8 }, { scale: 1, y: 0, rotation: -8 }, E.popOver);
+        eyes(158, "wide");
+        mouth(158, "o");
+        eyes(166, "open");
+        mouth(166, "smile");
+        nod(BEAT(11));
+        fromTo(180, 190, "#lyric", { clipPath: "inset(0% 100% 0% 0%)" }, { clipPath: "inset(0% 0% 0% 0%)" }, E.softLand);
+        look(178, LOOK.lyric, 8);
+        blink(194);
+        // word onsets of "Hôm nay em được hát rồi" at this playback rate
+        const WORDS = [183, 191, 204, 212, 229, 237];
+        WORDS.forEach((w, i) => {
+          mouth(w, "open");
+          mouth(w + 5, i === WORDS.length - 1 ? "open" : "o");
+        });
+        [12, 13, 14, 15, 16].forEach((k, i) => {
+          nod(BEAT(k));
+          to(BEAT(k), BEAT(k) + 6, "#mic", { rotation: i % 2 ? -4 : -12 }, E.glide);
+        });
+        set(BEAT(14) - 1, ".eye-ball", { opacity: 0 });
+        set(BEAT(14) - 1, ".eye-happy", { opacity: 1 });
+        mouth(248, "open");
+        // The line is done: the band closes, the mic drops.
+        fromTo(249, 255, "#lyric", { clipPath: "inset(0% 0% 0% 0%)" }, { clipPath: "inset(0% 0% 0% 100%)" }, E.accelExit);
+        fromTo(246, 254, "#mic", { y: 0, opacity: 1 }, { y: 70, opacity: 0 }, E.accelExit);
+        eyes(252, "open");
+        mouth(252, "smile");
+        look(254, LOOK.you, 6);
+
+        // Back out to the desktop; click the cover, the panel opens again.
+        fromTo(254, 276, "#cam", Object.assign({}, K1), Object.assign({}, WIDE0), E.softInOut);
+        cam(296, 320, WIDE0, lean(CLICK.a, 1.04), E.softInOut);
+        cam(335, 351, lean(CLICK.a, 1.04), BAND, E.glide);
+        cam(351, 366, BAND, WIDE0, E.softLand);
+        nod(BEAT(17));
+        nod(BEAT(18));
+        look(266, LOOK.cover, 8);
+        press(276, null);
+        fromTo(278, 283, "#panel", { opacity: 0 }, { opacity: 1 }, E.cruise);
+        fromTo(278, 286, "#panel", { y: 40 }, { y: 0 }, E.softLand);
+        set(278, "#tb-mb-focus", { opacity: 1 });
+        set(278, "#tb-mb-ind", { backgroundColor: "#FF6B6B" });
+        fromTo(278, 284, "#tb-mb-ind", { scaleX: 0.375 }, { scaleX: 1 }, E.softLand);
+        look(282, LOOK.a, 8);
+        nod(BEAT(19));
+        blink(300);
+
+        // Pick 3: back to Northern Curtains, lands on beat 23. Frame 366 is frame 0.
+        move(294, 316, CLICK.cover, CLICK.a);
+        nod(BEAT(20));
+        nod(BEAT(21));
+        press(331, "#tile-a");
+        pick(333, "a", "c");
+        drop("#cl-a", SCREEN.a, 333, BEAT(23));
+        look(338, LOOK.down, 8);
+        cheer(BEAT(23), true);
+        look(BEAT(23) + 4, LOOK.a, 6);
+
+        window.__timelines = window.__timelines || {};
+        window.__timelines["main"] = tl;
+      })();
+    </script>
+  </body>
+</html>

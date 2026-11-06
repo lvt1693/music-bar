@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% from "_card.html" import card with context %}
+{% block lyric %}{{ t("tb_now") }}{% endblock %}
+{% block main %}
+{% set version = release.version if release else "1.8.0" %}
+<section class="hero" data-lyric="{{ t('intro_title') }}">
+  <h1 class="hero-title" data-words>{{ t("intro_title") }}</h1>
+  <p class="hero-sub">{{ t("intro_sub") }}</p>
+  <div class="acts">
+    <a class="btn btn-accent btn-lg" href="/download">{{ icon("download-simple") }}{{ t("cta_download") }} {{ version }}</a>
+    <a class="btn btn-soft btn-lg" href="/gallery">{{ t("cta_gallery") }}</a>
+  </div>
+  <p class="fact">{% if app_downloads %}{{ t("fact_downloads", n=num(app_downloads)) }} {% endif %}{{ t("fact_free") }}</p>
+</section>
+
+{% if film("reel.mp4") %}
+<div class="screen reel" id="reel" aria-hidden="true">
+  <video autoplay muted loop playsinline preload="metadata" poster="{{ media('reel-poster.jpg') }}" data-film>
+    <source src="{{ media('reel.webm') }}" type="video/webm">
+    <source src="{{ media('reel.mp4') }}" type="video/mp4">
+  </video>
+</div>
+{% endif %}
+
+{# The story, one feature a scene; the scroll drives each scene (web/DESIGN.md, "Motion"). #}
+<section class="scene outfits" id="outfits" data-lyric="{{ t('st_outfit_t') }}">
+  <div class="scene-in">
+    <div class="scene-text">
+      <h2>{{ t("st_outfit_t") }}</h2>
+      <p>{{ t("st_outfit_d") }}</p>
+      <ol class="names">
+        {% for key in ["aurora", "silk", "holo", "ink", "bokeh", "spectrum"] %}<li{% if loop.first %} class="on"{% endif %}>{{ t("style_" + key) }}</li>{% endfor %}
+      </ol>
+    </div>
+    <div class="outfit-stage">
+      <div class="screen outfit-screen">
+        {% for key in ["aurora", "silk", "holo", "ink", "bokeh", "spectrum"] %}
+        <video class="outfit{% if loop.first %} on{% endif %}" muted loop playsinline preload="{{ 'metadata' if loop.first else 'none' }}" data-src="/static/media/seek-{{ key }}.mp4" poster="/static/media/seek-{{ key }}.jpg" aria-label="{{ t('style_' + key) }}"></video>
+        {% endfor %}
+      </div>
+      <div class="scrub" aria-hidden="true"><i></i></div>
+    </div>
+  </div>
+</section>
+
+<section class="scene karaoke" id="karaoke" data-lyric="{{ t('st_kara_line') }}">
+  <div class="scene-in">
+    <p class="kara-line" data-words>{{ t("st_kara_line") }}</p>
+    <div class="kara-foot">
+      <div class="scene-text"><h2>{{ t("st_kara_t") }}</h2><p>{{ t("st_kara_d") }}</p></div>
+      <div class="screen kara-screen"><video muted loop playsinline preload="none" data-src="/static/media/lyrics-dancing.mp4" poster="/static/media/lyrics-dancing.jpg" aria-label="{{ t('sing_fig') }}"></video></div>
+    </div>
+  </div>
+</section>
+
+<section class="scene clear" id="clear" data-lyric="{{ t('st_clear_t') }}">
+  <div class="scene-in">
+    <div class="clear-stage" aria-hidden="true">
+      <svg class="wall" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+        <defs>
+          <linearGradient id="wp-sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFE9C2"/><stop offset=".55" stop-color="#FFCC98"/><stop offset="1" stop-color="#FFB487"/></linearGradient>
+          <radialGradient id="wp-sun" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#FF9C78"/><stop offset=".82" stop-color="#FF8A6B"/><stop offset="1" stop-color="#FF8A6B" stop-opacity="0"/></radialGradient>
+        </defs>
+        <rect width="1920" height="1080" fill="url(#wp-sky)"/>
+        <circle cx="1330" cy="440" r="170" fill="url(#wp-sun)"/>
+        <ellipse cx="420" cy="230" rx="170" ry="34" fill="#FFF6E6" opacity=".7"/>
+        <ellipse cx="1620" cy="190" rx="140" ry="26" fill="#FFF6E6" opacity=".6"/>
+        <path d="M0 640 C 260 540 470 560 700 620 C 930 680 1110 560 1360 560 C 1600 560 1760 620 1920 600 L1920 1080 L0 1080 Z" fill="#F4A774"/>
+        <path d="M0 760 C 220 690 420 700 640 750 C 880 806 1080 700 1320 720 C 1560 740 1740 800 1920 770 L1920 1080 L0 1080 Z" fill="#E3825F"/>
+        <path d="M0 880 C 300 820 560 850 820 890 C 1080 930 1340 840 1600 860 C 1760 872 1860 900 1920 896 L1920 1080 L0 1080 Z" fill="#C4654F"/>
+      </svg>
+      <div class="mini-tb">
+        <video muted loop playsinline preload="none" data-src="/static/media/bar-aurora.webm"></video>
+        <span class="mini-face face"><i class="eye l"></i><i class="eye r"></i><i class="mouth"></i></span>
+        <span class="mini-apps">{{ icon("windows-logo-fill") }}{{ icon("magnifying-glass") }}<img src="/static/img/musicbar-icon.png" alt=""></span>
+        <span class="mini-clock">22:30<br>06/11</span>
+      </div>
+    </div>
+    <div class="scene-text clear-text"><h2>{{ t("st_clear_t") }}</h2><p>{{ t("st_clear_d") }}</p></div>
+  </div>
+</section>
+
+<section class="scene facescene" id="face" data-lyric="{{ t('face_lyric') }}">
+  <div class="scene-in">
+    <div class="face-stage" aria-hidden="true">
+      <div class="face-peek"><div class="face big"><i class="eye l"></i><i class="eye r"></i><i class="mouth"></i></div></div>
+      <div class="face-bar"></div>
+    </div>
+    <div class="scene-text"><h2>{{ t("st_face_t") }}</h2><p>{{ t("set_face_d") }}</p></div>
+  </div>
+</section>
+
+{% if items %}
+<section class="scene shelf" id="shelf" data-lyric="{{ t('g_gallery') }}">
+  <div class="shelf-head scene-text">
+    <h2>{{ t("st_gallery_t") }}</h2>
+    <p>{{ t("g_gallery_d", n=total, d=num(item_downloads)) }}</p>
+  </div>
+  <div class="shelf-view"><div class="shelf-track">{% for item in items %}{{ card(item, t, num) }}{% endfor %}</div></div>
+  <p class="shelf-more"><a class="btn btn-soft" href="/gallery">{{ t("see_all") }}</a></p>
+</section>
+{% endif %}
+
+<section class="panel washed release endcap" data-lyric="{{ t('cta_download') }} {{ version }}">
+  <div class="top">
+    <img src="/static/img/musicbar-icon.png" alt="" width="44" height="44">
+    <div><b>MusicBar {{ version }}</b><span>{{ t("band_sub") }}</span></div>
+  </div>
+  <div class="acts" style="display:flex;gap:10px;flex-wrap:wrap">
+    <a class="btn btn-accent btn-lg" href="/download">{{ icon("download-simple") }}{{ t("cta_download") }} {{ version }}</a>
+    <a class="btn btn-soft btn-lg" href="{{ github }}" rel="noopener">{{ icon("github-logo") }}GitHub</a>
+  </div>
+  <p class="fine">{% if app_downloads %}{{ t("fact_downloads", n=num(app_downloads)) }} {% endif %}{{ t("fm_light") }} {{ t("fm_light_d") }}</p>
+</section>
+{% endblock %}
+{% block scripts %}
+<script src="/static/vendor/gsap.min.js" defer></script>
+<script src="/static/vendor/ScrollTrigger.min.js" defer></script>
+<script src="/static/js/home.js?v=14" defer></script>
+{% endblock %}

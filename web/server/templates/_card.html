@@ -1,0 +1,34 @@
+{% from "_icons.html" import icon %}
+{# One look in the gallery, as a card: its strip sitting like a taskbar at the bottom of a little desk
+   lit by its own colors, who made it, how often it was downloaded, and one button that hands it to
+   MusicBar (the app downloads it if it doesn't have it yet, then puts it on). data-try puts it on the
+   taskbar at the bottom of the page while the pointer is over the card; data-item feeds the quick look
+   that opens when the card is clicked. Import it "with context" (it reads lang). #}
+{% macro card(item, t, num) -%}
+{%- set fallback = {"visualizer": "Spectrum", "progress": "Classic", "led": "Led"} -%}
+{%- set about = item.description_en if lang == "en" else item.description -%}
+<article class="card look" data-try='{{ {"style": item.style or fallback[item.category], "colors": item.colors or [item.accent], "name": item.name, "author": item.author} | tojson }}' data-item='{{ {"slug": item.slug, "name": item.name, "by": t("by") ~ " " ~ item.author ~ ", " ~ t("kind_" + item.category), "about": about, "downloads": num(item.downloads), "preview": item.preview_url, "video": item.video_url, "colors": item.colors, "file": item.download_url, "size": "%.1f KB" | format(item.size / 1024), "page": item.page_url} | tojson }}'>
+  <div class="desk"{% if item.preview_url %} style="--shot: url('{{ item.preview_url }}')"{% elif item.colors %} style="--glow: {{ item.colors[0] }}"{% endif %}>
+    <div class="strip">
+      {%- if item.type == "preset" and not item.preview_url %}
+      <canvas data-preset='{{ {"style": item.style, "colors": item.colors} | tojson }}' aria-label="{{ item.name }}"></canvas>
+      {%- elif item.preview_url %}
+      <img src="{{ item.preview_url }}" alt="{{ item.name }}" loading="lazy">
+      {%- if item.video_url %}<video muted loop playsinline preload="none" data-hover-video="{{ item.video_url }}" aria-hidden="true"></video>{% endif %}
+      {%- elif item.video_url %}
+      <video muted loop playsinline preload="metadata" src="{{ item.video_url }}#t=2" aria-label="{{ item.name }}" data-hover-video></video>
+      {%- else %}
+      <span class="noprev">{{ item.name }}</span>
+      {%- endif %}
+    </div>
+  </div>
+  <div class="look-body">
+    <a class="look-name" href="{{ item.page_url }}" data-quick>{{ item.name }}</a>
+    <span class="look-by">{{ t("by") }} {{ item.author }}, {{ t("kind_" + item.category) }}</span>
+    <div class="look-foot">
+      <span class="look-dl" title="{{ t('item_dl_d') }}">{{ icon("download-simple") }}<span class="num">{{ num(item.downloads) }}</span></span>
+      <a class="btn btn-soft btn-sm" href="musicbar://apply/{{ item.slug }}" data-open-app data-file="{{ item.download_url }}">{{ t("apply") }}</a>
+    </div>
+  </div>
+</article>
+{%- endmacro %}

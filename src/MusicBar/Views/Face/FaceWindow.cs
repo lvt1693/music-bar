@@ -46,6 +46,7 @@ public sealed class FaceWindow : Window
 
     public FaceWindow(AppSettings settings, MediaService media, AudioMeter audio)
     {
+        CpuRendering.Use(this);
         _s = settings;
         _media = media;
         _audio = audio;

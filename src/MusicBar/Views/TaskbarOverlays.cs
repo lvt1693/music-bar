@@ -26,6 +26,9 @@ public sealed class TaskbarOverlays : IDisposable
     readonly TrackInfoService _trackInfo;
     readonly Dictionary<string, TaskbarOverlay> _secondary = [];
     readonly DispatcherTimer _sync = new() { Interval = TimeSpan.FromSeconds(2) };
+    // A moment after waking, unlocking or a change of displays (they come in bursts), everything is drawn anew.
+    readonly DispatcherTimer _refresh = new() { Interval = TimeSpan.FromSeconds(1.5) };
+    readonly Dispatcher _ui = Dispatcher.CurrentDispatcher;
     string _lastPlan = "";
 
     public TaskbarOverlays(AppSettings settings, MediaService media, LyricsService lyrics)
@@ -36,6 +39,13 @@ public sealed class TaskbarOverlays : IDisposable
         _trackInfo = new TrackInfoService(settings);
         Main = new TaskbarOverlay(settings, media, lyrics, _audio, _trackInfo, monitorDevice: null);
         _sync.Tick += (_, _) => Sync();
+        _refresh.Tick += (_, _) =>
+        {
+            _refresh.Stop();
+            Sync();
+            Main.Refresh();
+            foreach (var overlay in _secondary.Values) overlay.Refresh();
+        };
         _s.PropertyChanged += OnSettingChanged;
     }
 
@@ -47,7 +57,31 @@ public sealed class TaskbarOverlays : IDisposable
         Main.Start();
         Sync();
         _sync.Start();
+        Microsoft.Win32.SystemEvents.PowerModeChanged += OnPowerModeChanged;
+        Microsoft.Win32.SystemEvents.SessionSwitch += OnSessionSwitch;
+        Microsoft.Win32.SystemEvents.DisplaySettingsChanged += OnDisplaySettingsChanged;
     }
+
+    void OnPowerModeChanged(object? sender, Microsoft.Win32.PowerModeChangedEventArgs e)
+    {
+        if (e.Mode == Microsoft.Win32.PowerModes.Resume) RefreshSoon("woke from sleep");
+    }
+
+    void OnSessionSwitch(object? sender, Microsoft.Win32.SessionSwitchEventArgs e)
+    {
+        if (e.Reason is Microsoft.Win32.SessionSwitchReason.SessionUnlock or Microsoft.Win32.SessionSwitchReason.ConsoleConnect
+            or Microsoft.Win32.SessionSwitchReason.RemoteConnect) RefreshSoon("unlocked");
+    }
+
+    void OnDisplaySettingsChanged(object? sender, EventArgs e) => RefreshSoon("the displays changed");
+
+    /// <summary>The events come on their own thread, and often several at once: one redraw, a moment later.</summary>
+    void RefreshSoon(string why) => _ui.BeginInvoke(() =>
+    {
+        Log.Info($"Drawing everything anew: {why}");
+        _refresh.Stop();
+        _refresh.Start();
+    });
 
     void OnSettingChanged(object? sender, PropertyChangedEventArgs e)
     {
@@ -118,6 +152,10 @@ public sealed class TaskbarOverlays : IDisposable
     public void Dispose()
     {
         _sync.Stop();
+        _refresh.Stop();
+        Microsoft.Win32.SystemEvents.PowerModeChanged -= OnPowerModeChanged;
+        Microsoft.Win32.SystemEvents.SessionSwitch -= OnSessionSwitch;
+        Microsoft.Win32.SystemEvents.DisplaySettingsChanged -= OnDisplaySettingsChanged;
         _s.PropertyChanged -= OnSettingChanged;
         foreach (var overlay in _secondary.Values) overlay.Dispose();
         _secondary.Clear();

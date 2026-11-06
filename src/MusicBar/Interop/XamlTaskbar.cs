@@ -28,9 +28,10 @@ internal static class XamlTaskbar
     const string TargetsName = @"Local\MusicBar.TaskbarClear.v2";
     const int MaxTargets = 16;
     // Must match the helper; bumped whenever the helper changes, so a newer one gets loaded.
-    const int HelperVersion = 11;
+    const int HelperVersion = 13;
     static readonly string ReadyPrefix = $@"Local\MusicBar.TaskbarTap.Ready.v{HelperVersion}.";
     static readonly string WatchingPrefix = $@"Local\MusicBar.TaskbarTap.Watching.v{HelperVersion}.";
+    static readonly string ClearedPrefix = $@"Local\MusicBar.TaskbarTap.Cleared.v{HelperVersion}.";
     // From v3 (MusicBar 1.2) on, a helper steps aside when a newer one asks, so updating needs no Explorer restart.
     const int FirstRetiringVersion = 3;
     // The helper of MusicBar 1.0-1.1 keeps Explorer's XAML tree until Explorer restarts, so a
@@ -56,6 +57,17 @@ internal static class XamlTaskbar
     /// clear every monitor's, so none is cleared until Explorer restarts.
     /// </summary>
     public static bool Blocked { get; private set; }
+
+    /// <summary>
+    /// Whether the helper in this taskbar's Explorer has a background hidden right now; null when
+    /// it can't say (no helper of this version there yet, still loading).
+    /// </summary>
+    public static bool? Cleared(IntPtr taskbar)
+    {
+        Native.GetWindowThreadProcessId(taskbar, out uint pid);
+        if (pid == 0 || !EventWaitHandle.TryOpenExisting(ClearedPrefix + pid, out var cleared)) return null;
+        using (cleared) return cleared.WaitOne(0);
+    }
 
     /// <summary>Notes which helper is in charge of this Explorer (throttled; call it on every tick).</summary>
     public static void CheckHelper(IntPtr taskbar)

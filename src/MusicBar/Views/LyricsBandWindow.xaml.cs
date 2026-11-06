@@ -24,6 +24,7 @@ public partial class LyricsBandWindow : Window
 
     public LyricsBandWindow()
     {
+        CpuRendering.Use(this);
         InitializeComponent();
         SourceInitialized += (_, _) =>
         {

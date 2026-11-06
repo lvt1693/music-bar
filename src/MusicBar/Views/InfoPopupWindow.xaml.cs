@@ -46,6 +46,7 @@ public partial class InfoPopupWindow : Window
 
     public InfoPopupWindow(SolidColorBrush accentBrush)
     {
+        CpuRendering.Use(this);
         InitializeComponent();
         ProgressFill.Background = accentBrush;
         Card.SizeChanged += (_, _) => Card.Clip = new RectangleGeometry(new Rect(Card.RenderSize), 14, 14);
@@ -166,6 +167,17 @@ public partial class InfoPopupWindow : Window
         if (!IsOpen) return;
         _dismissTimer.Stop();
         _dismissTimer.Start();
+    }
+
+    /// <summary>
+    /// The player went from under the card (an auto-hiding taskbar slid away as the pointer left it
+    /// for the card): the card stays while the pointer is on it and goes once it leaves.
+    /// </summary>
+    public void LetGo()
+    {
+        if (!IsOpen) return;
+        if (Root.IsMouseOver || _dragging) _dismissTimer.Stop();
+        else RequestDismiss();
     }
 
     void Root_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e) => _dismissTimer.Stop();

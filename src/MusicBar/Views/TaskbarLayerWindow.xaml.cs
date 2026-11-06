@@ -46,6 +46,7 @@ public partial class TaskbarLayerWindow : Window
             Hwnd = new WindowInteropHelper(this).Handle;
             Native.AddExStyle(Hwnd, Native.WS_EX_TOOLWINDOW | Native.WS_EX_NOACTIVATE | Native.WS_EX_TRANSPARENT,
                 Native.WS_EX_APPWINDOW);
+            CpuRendering.Set(this, !Seek.Skinned);
         };
     }
 
@@ -89,6 +90,8 @@ public partial class TaskbarLayerWindow : Window
         SkinHost.Visibility = skinned ? Visibility.Visible : Visibility.Collapsed;
         Seek.Visibility = skinned ? Visibility.Hidden : Visibility.Visible;
         Seek.Skinned = skinned;
+        // A skin is a pixel shader only the graphics card runs; everything else draws on the CPU.
+        CpuRendering.Set(this, !skinned);
 
         // The seekbar always draws along its own x axis with the desktop-facing edge at its top
         // or bottom. On a vertical taskbar it is turned a quarter left, so it runs bottom to top

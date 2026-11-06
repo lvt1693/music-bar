@@ -72,6 +72,14 @@ static class Program
             case "looks": await Looks(args); break;
             case "gaps": await Looks(args, gaps: true); break;
             case "leds": await Looks(args, styles: SettingsOptions.LedStrips.Select(o => o.Value).ToArray()); break;
+            case "reset": ResetCheck(); break;
+            case "welcome": await WelcomeTour(args); break;
+            case "defaults":
+                Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(new AppSettings(), new System.Text.Json.JsonSerializerOptions
+                {
+                    WriteIndented = true, Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() },
+                }));
+                break;
             case "settingsscroll": await SettingsScroll(args); break;
                     case "lyrics": await Lyrics(args); break;
                     case "panel": await Panel(args); break;
@@ -83,6 +91,7 @@ static class Program
                     case "facelife": await FaceLife(args); break;
                     case "props": Props(args); break;
                     case "download": await Download(args); break;
+                    case "clip": await Clip(args); break;
                     default: throw new ArgumentException("unknown mode " + args[0]);
                 }
             }
@@ -95,6 +104,65 @@ static class Program
         };
         app.Run();
         return code;
+    }
+
+    /// <summary>
+    /// clip &lt;in.json|in.hlsl&gt; &lt;outDir&gt; &lt;seconds&gt; &lt;w&gt; &lt;h&gt; [#A #B #C]: a gallery item's preview as frames, drawn by
+    /// the app's own code: a preset through the engine, a skin as its shader on the GPU over the engine's
+    /// made-up music. Grabbed from an off-screen window (a shader only draws on the graphics card).
+    /// </summary>
+    static async Task Clip(string[] a)
+    {
+        string input = Path.GetFullPath(a[1]);
+        string outDir = Directory.CreateDirectory(a[2]).FullName;
+        double seconds = D(a[3]), w = D(a[4]), h = D(a[5]);
+        double time = 0;
+        var engine = new SeekRenderer { Width = w, Height = h, Clock = () => time };
+        engine.SetEdge(true);
+        SkinView? view = null;
+        var host = new Grid { Width = w, Height = h, Background = new SolidColorBrush(Color.FromRgb(0x0B, 0x0B, 0x0F)) };
+        if (input.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+        {
+            var preset = LookPresets.Parse(File.ReadAllText(input), Path.GetFileName(input)) ?? throw new InvalidDataException("not a preset");
+            engine.Look = preset.Style;
+            engine.Intensity = preset.Intensity;
+            engine.Direction = preset.Direction;
+            engine.SetColors(preset.Colors[0], preset.Colors[1], animate: false, preset.Colors[2]);
+            host.Children.Add(engine);
+        }
+        else
+        {
+            var text = File.ReadAllText(input);
+            var bytecode = SkinLibrary.Compile(text, out var error) ?? throw new InvalidDataException(error);
+            bool visualizer = text.Contains("kind: visualizer", StringComparison.OrdinalIgnoreCase);
+            engine.Look = visualizer ? SeekStyle.Equalizer : SeekStyle.Classic;
+            engine.Skinned = true;
+            engine.Visibility = Visibility.Hidden;
+            engine.SetColors(C(a.Length > 6 ? a[6] : "#FF5F6D"), C(a.Length > 7 ? a[7] : "#47A9FF"), animate: false, C(a.Length > 8 ? a[8] : "#FFC371"));
+            view = new SkinView();
+            view.SetSkin(new SkinInfo(Path.GetFileName(input), "", "", "", visualizer, bytecode, null));
+            host.Children.Add(engine);
+            host.Children.Add(view);
+        }
+        var window = new Window
+        {
+            WindowStyle = WindowStyle.None, ResizeMode = ResizeMode.NoResize, ShowInTaskbar = false, ShowActivated = false,
+            Left = -20000, Top = -20000, SizeToContent = SizeToContent.WidthAndHeight, Content = host,
+        };
+        window.Show();
+        int frames = (int)Math.Round(seconds * Fps);
+        for (int i = 0; i < frames; i++)
+        {
+            time = 20 + i / Fps;
+            engine.SetState(0.18 + 0.64 * i / Math.Max(1, frames - 1), timeline: true, playing: true);
+            engine.Tick();
+            view?.Update(engine);
+            await Dispatcher.Yield(DispatcherPriority.Background);
+            await Task.Delay(30);
+            SavePng(Grab(window, 1), Path.Combine(outDir, $"f{i:0000}.png"));
+        }
+        window.Close();
+        Console.WriteLine($"{Path.GetFileName(input)}: {frames} frames → {outDir}");
     }
 
     static double D(string s) => double.Parse(s, Inv);
@@ -281,6 +349,57 @@ static class Program
         }
         window.Close();
         Console.WriteLine($"page {page} → {outDir}");
+    }
+
+    /// <summary>
+    /// welcome &lt;out-dir&gt; &lt;language&gt; [skip]: the welcome tour off the screen, each step saved as
+    /// stepN.png (with "skip", the end as reached by skipping).
+    /// </summary>
+    static async Task WelcomeTour(string[] a)
+    {
+        string outDir = Directory.CreateDirectory(a[1]).FullName;
+        var language = Enum.Parse<AppLanguage>(a[2], true);
+        var settings = new AppSettings { Language = language };
+        MusicBar.Infrastructure.Loc.Instance.Language = language;
+        var media = new MediaService(settings);
+        var window = new OnboardingWindow(settings, media, () => { })
+        {
+            WindowStartupLocation = WindowStartupLocation.Manual, Left = -20000, Top = -20000, ShowActivated = false,
+        };
+        window.Show();
+        var go = typeof(OnboardingWindow).GetMethod("Go", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        var skip = typeof(OnboardingWindow).GetMethod("Skip", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        int steps = a.Length > 3 && a[3] == "skip" ? 1 : 8;
+        for (int i = 0; i < steps; i++)
+        {
+            if (steps == 1) skip.Invoke(window, null);
+            else go.Invoke(window, [i]);
+            await Task.Delay(1400);
+            var rtb = new RenderTargetBitmap((int)window.ActualWidth, (int)window.ActualHeight, 96, 96, PixelFormats.Pbgra32);
+            rtb.Render(window);
+            SavePng(rtb, Path.Combine(outDir, steps == 1 ? "skipped.png" : $"step{i}.png"));
+        }
+        window.Close();
+        Console.WriteLine($"welcome → {outDir}");
+    }
+
+    /// <summary>reset: changes options (some of them kept on a reset), resets, and prints what each one is after.</summary>
+    static void ResetCheck()
+    {
+        var s = new AppSettings
+        {
+            SeekStyle = SeekStyle.LedFire, FillOpacity = 0.8, HideWhenIdle = false, SeekAvoidIcons = true, ReadVlc = true,
+            LyricsOffsetMs = 750, Language = AppLanguage.Vietnamese, ProxyUrl = "http://proxy:3128", SkippedVersion = "9.9.9", WindowsModeBefore = 1,
+        };
+        s.Palettes["Spectrum"] = "preset:neon";
+        int changes = 0;
+        s.PropertyChanged += (_, _) => changes++;
+        s.ResetToDefaults();
+        var d = new AppSettings();
+        Console.WriteLine($"{changes} change notices");
+        Console.WriteLine($"reset  SeekStyle {s.SeekStyle} (default {d.SeekStyle}), FillOpacity {s.FillOpacity} ({d.FillOpacity}), HideWhenIdle {s.HideWhenIdle} ({d.HideWhenIdle})");
+        Console.WriteLine($"reset  SeekAvoidIcons {s.SeekAvoidIcons} ({d.SeekAvoidIcons}), ReadVlc {s.ReadVlc} ({d.ReadVlc}), LyricsOffsetMs {s.LyricsOffsetMs} ({d.LyricsOffsetMs}), Palettes {s.Palettes.Count} ({d.Palettes.Count})");
+        Console.WriteLine($"kept   Language {s.Language}, ProxyUrl {s.ProxyUrl}, SkippedVersion {s.SkippedVersion}, WindowsModeBefore {s.WindowsModeBefore}");
     }
 
     /// <summary>What a window shows on the graphics card, as Windows composes it (PrintWindow with full content).</summary>
@@ -774,10 +893,12 @@ static class Program
             ShowActivated = false,
         };
         window.Show();
+        // MUSICBAR_CAPTURE_DELAY (ms): a longer wait per page, for pages that load from the network.
+        int delay = int.TryParse(Environment.GetEnvironmentVariable("MUSICBAR_CAPTURE_DELAY"), out var ms) ? ms : 700;
         for (int page = 0; page < window.PageCount; page++)
         {
             window.Page = page;
-            await Task.Delay(700);
+            await Task.Delay(delay);
             window.UpdateLayout();
             // The window's own dark backdrop isn't part of its content: lay the content over one.
             var content = Snap((FrameworkElement)window.Content, scale);

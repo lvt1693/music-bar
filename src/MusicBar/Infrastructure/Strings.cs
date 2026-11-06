@@ -20,6 +20,7 @@ public static partial class Strings
         AddLyrics(d);
         AddFace(d);
         AddRecap(d);
+        AddWelcome(d);
         return d;
     }
 
@@ -32,4 +33,6 @@ public static partial class Strings
     static partial void AddFace(Dictionary<string, (string En, string Vi)> d);
 
     static partial void AddRecap(Dictionary<string, (string En, string Vi)> d);
+
+    static partial void AddWelcome(Dictionary<string, (string En, string Vi)> d);
 }

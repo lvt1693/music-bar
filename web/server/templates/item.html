@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}{{ item.name }} · {{ t("gallery_title") }} · MusicBar{% endblock %}
+{% block description %}{{ (item.description_en if lang == "en" else item.description) or t("gallery_sub") }}{% endblock %}
+{% block lyric %}{{ item.name }}, {{ t("by") }} {{ item.author }}{% endblock %}
+{% block main %}
+{%- set fallback = {"visualizer": "Spectrum", "progress": "Classic", "led": "Led"} -%}
+{%- set about = item.description_en if lang == "en" else item.description -%}
+<nav class="crumbs" aria-label="{{ t('gallery_title') }}"><a href="/gallery">{{ t("gallery_title") }}</a>{{ icon("caret-up", "rot") }}<span>{{ item.name }}</span></nav>
+
+<section class="panel item-head" data-try-page='{{ {"style": item.style or fallback[item.category], "colors": item.colors or [item.accent], "name": item.name, "author": item.author} | tojson }}'>
+  <div class="screen">
+    {%- if item.video_url %}
+    <video muted loop playsinline preload="metadata" src="{{ item.video_url }}" {% if item.preview_url %}poster="{{ item.preview_url }}"{% endif %} aria-label="{{ item.name }}" data-auto-video></video>
+    {%- elif item.type == "preset" %}
+    <canvas data-preset='{{ {"style": item.style, "colors": item.colors} | tojson }}' aria-label="{{ item.name }}"></canvas>
+    {%- elif item.preview_url %}
+    <img src="{{ item.preview_url }}" alt="{{ item.name }}">
+    {%- else %}
+    <span class="noprev">{{ item.name }}</span>
+    {%- endif %}
+  </div>
+  <div class="line">
+    <div>
+      <h1>{{ item.name }}</h1>
+      <p class="by">{{ t("by") }} {{ item.author }}, {{ t("kind_" + item.category) }}</p>
+    </div>
+    <div class="acts">
+      <a class="btn btn-accent btn-lg" href="musicbar://apply/{{ item.slug }}" data-open-app data-file="{{ item.download_url }}">{{ t("apply") }}</a>
+    </div>
+  </div>
+  {% if about %}<p class="item-about">{{ about }}</p>{% endif %}
+  <div class="dlg-facts">
+    <span class="look-dl" title="{{ t('item_dl_d') }}">{{ icon("download-simple") }}<span><b class="num">{{ num(item.downloads) }}</b> {{ t("dl_word") }}</span></span>
+    {% if item.colors %}<span class="swatch">{% for c in item.colors %}<i style="background: {{ c }}" title="{{ c }}"></i>{% endfor %}</span>{% endif %}
+    <a class="btn-link" href="{{ item.download_url }}">{{ t("download_file") }}, {{ "%.1f" | format(item.size / 1024) }} KB</a>
+  </div>
+</section>
+
+<details class="card more-info">
+  <summary>{{ t("item_more") }}</summary>
+  <div class="more-body">
+    <p>{{ t("item_how_app") }}</p>
+    <p class="hash">SHA-256 {{ item.sha256 }} <button class="round" type="button" data-copy="{{ item.sha256 }}" aria-label="{{ t('copy') }} SHA-256" data-tip="{{ t('copy') }}">{{ icon("copy") }}</button></p>
+    {% if source and item.type == "skin" %}<pre class="source"><code>{{ source }}</code></pre>{% endif %}
+  </div>
+</details>
+{% endblock %}

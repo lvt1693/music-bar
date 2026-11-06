@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Admin · MusicBar{% endblock %}
+{% block main %}
+<section class="wrap page-head" style="max-width: 460px">
+  <div class="eyebrow">Admin</div>
+  <h1 style="font-size: 54px">MusicBar</h1>
+  <form class="panel form" method="post" action="/admin/login" style="margin-top: 26px">
+    {% if error %}<ul class="findings"><li class="block">{{ error }}</li></ul>{% endif %}
+    <label>Password<input class="field" type="password" name="password" autocomplete="current-password" required autofocus></label>
+    <div><button class="btn btn-sig" type="submit">Sign in</button></div>
+  </form>
+</section>
+{% endblock %}

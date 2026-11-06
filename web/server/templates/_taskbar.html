@@ -1,0 +1,119 @@
+{% from "_icons.html" import icon %}
+{# A Windows 11 taskbar (dark mode, centered), with MusicBar playing on it: the bar under the icons
+   (its real render when there is one), the face by the player, the karaoke line. It is also the
+   site's navigation. #}
+<div class="tb" id="tb">
+  <div class="tb-bg"></div>
+  <video class="tb-video" id="tb-video" src="/static/media/bar-silk.webm" preload="auto" muted loop playsinline aria-hidden="true"></video>
+  <canvas class="tb-canvas" id="tb-canvas" aria-hidden="true" hidden></canvas>
+  <nav class="tb-row" aria-label="{{ t('tb_label') }}">
+    <div class="tb-np">
+      <div class="tb-face face blink" aria-hidden="true"><i class="eye l"></i><i class="eye r"></i><i class="mouth"></i></div>
+      <div class="tb-text">
+        <span class="tb-title" id="tb-title">{{ t("tb_now") }}</span>
+        <span class="tb-lyric" id="tb-lyric" aria-hidden="true"></span>
+      </div>
+      <div class="tb-ctl">
+        <button class="prev" type="button" data-tb="prev" aria-label="{{ t('tb_prev') }}">{{ icon("skip-back-fill") }}</button>
+        <button type="button" data-tb="play" aria-label="{{ t('tb_pause') }}" aria-pressed="true" data-on="{{ t('tb_pause') }}" data-off="{{ t('tb_play') }}"><span class="pz">{{ icon("pause-fill") }}</span><span class="pl" hidden>{{ icon("play-fill") }}</span></button>
+        <button class="next" type="button" data-tb="next" aria-label="{{ t('tb_next') }}">{{ icon("skip-forward-fill") }}</button>
+      </div>
+    </div>
+
+    <div class="tb-apps">
+      <button class="tb-btn tb-start" type="button" data-fly="start" aria-expanded="false" aria-controls="fly-start" aria-label="{{ t('tb_start') }}" data-tip="{{ t('tb_start') }}">{{ icon("windows-logo-fill") }}</button>
+      <form class="tb-search" action="/gallery" role="search">{{ icon("magnifying-glass") }}<input name="q" type="search" placeholder="{{ t('tb_search') }}" aria-label="{{ t('tb_search') }}" autocomplete="off"></form>
+      <a class="tb-btn{% if path == '/' %} open focus{% endif %}" href="/" aria-label="MusicBar" data-tip="MusicBar"><img src="/static/img/musicbar-icon.png" alt="" width="24" height="24"></a>
+      <a class="tb-btn{% if path.startswith('/gallery') %} open focus{% endif %}" href="/gallery" aria-label="{{ t('nav_gallery') }}" data-tip="{{ t('nav_gallery') }}"><span style="color:#FF7A4D">{{ icon("squares-four-fill") }}</span></a>
+      <a class="tb-btn{% if path == '/download' %} open focus{% endif %}" href="/download" aria-label="{{ t('nav_download') }}" data-tip="{{ t('nav_download') }}"><span style="color:#4CC2FF">{{ icon("download-simple-fill") }}</span></a>
+      <a class="tb-btn wide-only{% if path.startswith('/submit') %} open focus{% endif %}" href="/submit" aria-label="{{ t('nav_submit') }}" data-tip="{{ t('nav_submit') }}"><span style="color:#6CCB5F">{{ icon("upload-simple-fill") }}</span></a>
+      <a class="tb-btn wide-only" href="{{ github }}" rel="noopener" aria-label="GitHub" data-tip="GitHub">{{ icon("github-logo-fill") }}</a>
+    </div>
+
+    <div class="tb-tray">
+      <button class="tb-tbtn wide-only" type="button" data-fly="hidden" aria-expanded="false" aria-controls="fly-hidden" aria-label="{{ t('tb_hidden') }}" data-tip="{{ t('tb_hidden') }}">{{ icon("caret-up") }}</button>
+      <a class="tb-tbtn tb-ime" href="{{ other_lang_url }}" hreflang="{{ 'en' if lang == 'vi' else 'vi' }}" aria-label="{{ t('lang_switch') }}" data-tip="{{ t('lang_switch') }}"><span>{{ "VIE" if lang == "vi" else "ENG" }}</span><small>{{ "VN" if lang == "vi" else "US" }}</small></a>
+      <button class="tb-tbtn" type="button" data-fly="qs" aria-expanded="false" aria-controls="fly-qs" aria-label="{{ t('tb_qs') }}" data-tip="{{ t('tb_qs') }}">{{ icon("wifi-high") }}<span class="spk">{{ icon("speaker-high") }}</span></button>
+      <button class="tb-tbtn tb-clock" type="button" data-fly="nc" aria-expanded="false" aria-controls="fly-nc" aria-label="{{ t('tb_nc') }}"><span id="tb-time">00:00</span><br><span id="tb-date">{{ "06/11/2026" if lang == "vi" else "11/6/2026" }}</span></button>
+      <button class="tb-tbtn tb-badge wide-only" type="button" data-fly="nc" aria-label="{{ t('tb_nc') }}" data-n="{{ 1 + (1 if recent else 0) }}">{{ icon("bell") }}</button>
+      <a class="tb-desk" href="#top" aria-label="{{ t('tb_desk') }}" data-tip="{{ t('tb_desk') }}"></a>
+    </div>
+  </nav>
+</div>
+
+<div class="fly start" id="fly-start" role="dialog" aria-label="{{ t('tb_start') }}">
+  <form class="start-search" action="/gallery" role="search">{{ icon("magnifying-glass") }}<input name="q" type="search" placeholder="{{ t('start_search') }}" aria-label="{{ t('start_search') }}" autocomplete="off"></form>
+  <section class="start-sec">
+    <header><h4>{{ t("start_pinned") }}</h4><a href="/gallery">{{ t("start_all") }}{{ icon("caret-up", "rot") }}</a></header>
+    <div class="pins">
+      <a class="pin" href="/"><img src="/static/img/musicbar-icon.png" alt="" width="32" height="32">MusicBar</a>
+      <a class="pin" href="/gallery"><span style="color:#FF7A4D">{{ icon("squares-four-fill") }}</span>{{ t("nav_gallery") }}</a>
+      <a class="pin" href="/download"><span style="color:#4CC2FF">{{ icon("download-simple-fill") }}</span>{{ t("nav_download") }}</a>
+      <a class="pin" href="/submit"><span style="color:#6CCB5F">{{ icon("upload-simple-fill") }}</span>{{ t("nav_submit") }}</a>
+      <a class="pin" href="{{ github }}" rel="noopener">{{ icon("github-logo-fill") }}GitHub</a>
+      <a class="pin" href="{{ github }}/blob/main/CHANGELOG.md" rel="noopener"><span style="color:#FFB900">{{ icon("clock-counter-clockwise-fill") }}</span>{{ t("start_changelog") }}</a>
+      <a class="pin" href="{{ other_lang_url }}"><span style="color:#C239B3">{{ icon("translate-fill") }}</span>{{ t("lang_name") }}</a>
+      {% if admin %}<a class="pin" href="/admin"><span style="color:#9A9A9A">{{ icon("lock-key-fill") }}</span>Admin</a>{% endif %}
+    </div>
+  </section>
+  <section class="start-sec">
+    <header><h4>{{ t("start_rec") }}</h4></header>
+    <div class="recs">
+      {% if release %}
+      <a class="rec" href="/download"><span class="thumb"><img src="/static/img/musicbar-icon.png" alt=""></span><span>{{ t("start_release", v=release.version) }}<small>{{ (release.published_at or "")[:10] }}</small></span></a>
+      {% endif %}
+      {% for r in recent %}
+      <a class="rec" href="{{ r.page_url }}"><span class="thumb">{% if r.preview_url %}<img src="{{ r.preview_url }}" alt="" loading="lazy">{% else %}<span class="swatch">{% for c in r.colors[:3] %}<i style="background:{{ c }}"></i>{% endfor %}</span>{% endif %}</span><span>{{ r.name }}<small>{{ t("by") }} {{ r.author }}</small></span></a>
+      {% endfor %}
+    </div>
+  </section>
+  <div class="start-foot">
+    <span class="me"><span style="color:#9A9A9A">{{ icon("user-circle-fill") }}</span>{{ t("start_guest") }}</span>
+    <button type="button" data-tb="motion" aria-label="{{ t('start_motion_off') }}" data-tip="{{ t('start_motion_off') }}" data-on="{{ t('start_motion_off') }}" data-off="{{ t('start_motion_on') }}">{{ icon("power") }}</button>
+  </div>
+</div>
+
+<div class="fly qs" id="fly-qs" role="dialog" aria-label="{{ t('tb_qs') }}">
+  <div class="qs-tiles">
+    <div class="qs-tile"><button type="button" data-tb="clear" aria-pressed="false" aria-label="{{ t('qs_clear') }}">{{ icon("drop-half") }}</button>{{ t("qs_clear") }}</div>
+    <div class="qs-tile"><button type="button" data-tb="motion" aria-pressed="true" aria-label="{{ t('qs_motion') }}">{{ icon("waveform") }}</button>{{ t("qs_motion") }}</div>
+    <div class="qs-tile"><a class="qs-btn" href="{{ other_lang_url }}" aria-label="{{ t('lang_name') }}">{{ icon("translate") }}</a>{{ t("lang_name") }}</div>
+  </div>
+  <label class="qs-slider">{{ icon("speaker-high") }}<input type="range" min="0" max="100" value="70" data-tb="gain" aria-label="{{ t('qs_volume') }}"><output class="num">70</output></label>
+  <div class="qs-foot"><span id="qs-now" data-t="{{ t('qs_now', n='{n}') }}">{{ t("qs_now", n="Spectrum") }}</span><span>MusicBar {{ release.version if release else "1.8.0" }}</span></div>
+</div>
+
+<div class="fly nc" id="fly-nc" role="dialog" aria-label="{{ t('nc_title') }}">
+  <header><h4>{{ t("nc_title") }}</h4><button type="button" data-tb="nc-clear">{{ t("nc_clear") }}</button></header>
+  {% if release %}
+  <a class="note" href="/download"><span class="app"><img src="/static/img/musicbar-icon.png" alt="">MusicBar</span><b>{{ t("nc_release_t", v=release.version) }}</b><span>{{ t("nc_release_d") }}</span></a>
+  {% endif %}
+  {% if recent %}
+  <a class="note" href="{{ recent[0].page_url }}"><span class="app"><img src="/static/img/musicbar-icon.png" alt="">{{ t("nav_gallery") }}</span><b>{{ t("nc_gallery_t", n=recent[0].name) }}</b><span>{{ t("nc_gallery_d", a=recent[0].author) }}</span></a>
+  {% endif %}
+  <div class="cal" id="nc-date"></div>
+</div>
+
+<div class="fly hidden-icons" id="fly-hidden" role="dialog" aria-label="{{ t('tb_hidden') }}">
+  <a href="{{ other_lang_url }}" aria-label="{{ t('lang_name') }}" data-tip="{{ t('lang_name') }}">{{ icon("translate") }}</a>
+  <a href="{{ github }}/issues" rel="noopener" aria-label="{{ t('foot_issues') }}" data-tip="{{ t('foot_issues') }}">{{ icon("bug") }}</a>
+  <a href="{{ github }}" rel="noopener" aria-label="GitHub" data-tip="GitHub">{{ icon("github-logo") }}</a>
+</div>
+
+<div class="toasts" id="toasts" aria-live="polite"></div>
+{%- set looks = [] -%}
+{%- for key, style, colors in [
+  ("silk", "Silk", ["#47A9FF", "#4CFFB0", "#B26CFF"]),
+  ("aurora", "Aurora", ["#4CFFB0", "#47A9FF", "#B26CFF"]),
+  ("holo", "Holo", ["#A877FF", "#FF71CE", "#FFFFFF"]),
+  ("ink", "Ink", ["#2E8BFF", "#00D4C7", "#7A6CFF"]),
+  ("bokeh", "Bokeh", ["#FF71CE", "#01CDFE", "#B967FF"]),
+  ("spectrum", "Spectrum", ["#FF6B6B", "#FFC371", "#FF8C42"]),
+] -%}
+{%- set _ = looks.append({"key": key, "style": style, "colors": colors, "name": t("style_" + key), "video": "/static/media/bar-" + key + ".webm"}) -%}
+{%- endfor %}
+<script type="application/json" id="tb-strings">{{ {
+  "lang": lang, "looks": looks, "by": t("by"),
+  "openT": t("toast_open_t"), "openD": t("toast_open_d"), "get": t("toast_get"), "close": t("toast_close"),
+  "copied": t("toast_copied"), "file": t("toast_file")
+} | tojson }}</script>

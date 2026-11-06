@@ -31,6 +31,7 @@ internal static class Native
     public const int MA_NOACTIVATE = 3;
 
     public const uint EVENT_SYSTEM_FOREGROUND = 0x0003;
+    public const uint EVENT_OBJECT_LOCATIONCHANGE = 0x800B;
     public const uint WINEVENT_OUTOFCONTEXT = 0;
 
     public const uint MONITOR_DEFAULTTONULL = 0;
@@ -180,6 +181,28 @@ internal static class Native
 
     [DllImport("user32.dll")]
     public static extern bool UnhookWinEvent(IntPtr hook);
+
+    [StructLayout(LayoutKind.Sequential)]
+    struct APPBARDATA
+    {
+        public uint cbSize;
+        public IntPtr hWnd;
+        public uint uCallbackMessage;
+        public uint uEdge;
+        public RECT rc;
+        public IntPtr lParam;
+    }
+
+    [DllImport("shell32.dll")]
+    static extern UIntPtr SHAppBarMessage(uint message, ref APPBARDATA data);
+
+    /// <summary>The taskbar is set to hide itself (one setting for every taskbar). Asks Explorer, so off the UI thread.</summary>
+    public static bool TaskbarAutoHides()
+    {
+        const uint ABM_GETSTATE = 4, ABS_AUTOHIDE = 1;
+        var data = new APPBARDATA { cbSize = (uint)Marshal.SizeOf<APPBARDATA>() };
+        return ((ulong)SHAppBarMessage(ABM_GETSTATE, ref data) & ABS_AUTOHIDE) != 0;
+    }
 
     [DllImport("user32.dll")]
     public static extern bool ShowWindow(IntPtr hWnd, int cmd);

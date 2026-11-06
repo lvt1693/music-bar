@@ -21,6 +21,43 @@ public static partial class Strings
         d.Add("Set_Page_Bar", ("Taskbar", "Taskbar"));
         d.Add("Set_Page_Player", ("Player", "Trình phát"));
         d.Add("Set_Page_Progress", ("Progress bar", "Thanh tiến trình"));
+        d.Add("Set_Page_Gallery", ("Online gallery", "Kho trực tuyến"));
+        d.Add("Set_Gal_Subtitle", ("Skins, visualizers and LED strips other people made, each scanned and approved by hand. One click to try it on your taskbar.", "Skin, visualizer, dải LED do mọi người làm, món nào cũng được quét và duyệt tay. Bấm một cái là thử ngay trên taskbar."));
+        d.Add("Set_Gal_All", ("Everything", "Tất cả"));
+        d.Add("Set_Gal_Loading", ("Loading the gallery…", "Đang tải kho…"));
+        d.Add("Set_Gal_Empty", ("Nothing here yet.", "Chưa có gì ở đây."));
+        d.Add("Set_Gal_Count", ("{0} in the gallery. The live previews are the real thing.", "Kho có {0} món. Bản xem trước chạy y như thật."));
+        d.Add("Set_Gal_Offline", ("Can't reach the gallery right now. Check the connection (or the proxy in General) and try again.", "Chưa kết nối được tới kho. Kiểm tra mạng (hoặc proxy ở mục Chung) rồi thử lại."));
+        d.Add("Set_Gal_More", ("Show more", "Xem thêm"));
+        d.Add("Set_Gal_Refresh", ("Refresh", "Tải lại"));
+        d.Add("Set_Gal_Web", ("Open the gallery on the web", "Mở kho trên web"));
+        d.Add("Set_Gal_By", ("by", "của"));
+        d.Add("Set_Gal_Downloads", ("{0} downloads", "{0} lượt tải"));
+        d.Add("Set_Gal_Apply", ("Apply", "Áp dụng"));
+        d.Add("Set_Gal_InUse", ("On now", "Đang dùng"));
+        d.Add("Set_Gal_NoSuchItem", ("That item isn't in the gallery (any more).", "Món này không có (hoặc không còn) trong kho."));
+        d.Add("Set_Gal_Applied", ("“{0}” is on your taskbar now.", "“{0}” đang chạy trên taskbar."));
+        d.Add("Set_Gal_Failed", ("Couldn't get “{0}”: {1}", "Không tải được “{0}”: {1}"));
+        d.Add("Set_Gal_GroupMine", ("Presets you got", "Preset đã tải về"));
+        d.Add("Set_Gal_NoPresets", ("Presets you get from the gallery land here; click one to put it back on. Skins go to Progress bar → Your skins.", "Preset tải từ kho nằm ở đây, bấm để dùng lại. Skin thì nằm ở Thanh tiến trình → Skin của bạn."));
+        d.Add("Set_Gal_Remove", ("Remove", "Xoá"));
+        d.Add("Set_Gal_GroupShare", ("Share yours", "Đăng giao diện của bạn"));
+        d.Add("Set_Gal_Nickname", ("Your nickname", "Nickname của bạn"));
+        d.Add("Set_Gal_Nickname_Desc", ("Shown on the gallery next to what you share (2 to 24 letters or digits).", "Hiện trên kho cạnh món bạn đăng (2 đến 24 chữ hoặc số)."));
+        d.Add("Set_Gal_Share", ("What to share", "Đăng cái gì"));
+        d.Add("Set_Gal_Share_Desc", ("The look on your taskbar now (its style, colors and strength), or one of your skins. It goes up once it's reviewed.", "Kiểu thanh đang dùng (kiểu, màu, độ đậm) hoặc một skin của bạn. Được duyệt xong là lên kho."));
+        d.Add("Set_Gal_ShareLook", ("The look on now ({0})", "Kiểu thanh đang dùng ({0})"));
+        d.Add("Set_Gal_ShareSkin", ("Skin: {0}", "Skin: {0}"));
+        d.Add("Set_Gal_ShareName", ("Name", "Tên"));
+        d.Add("Set_Gal_ShareDesc", ("A few words about it", "Mô tả ngắn"));
+        d.Add("Set_Gal_ShareSend", ("Send for review", "Gửi duyệt"));
+        d.Add("Set_Gal_NeedNick", ("Set your nickname first.", "Đặt nickname trước đã nhé."));
+        d.Add("Set_Gal_NeedName", ("Give it a name.", "Đặt tên cho nó đã."));
+        d.Add("Set_Gal_Sending", ("Sending…", "Đang gửi…"));
+        d.Add("Set_Gal_Sent", ("“{0}” is waiting for review. It shows up in the gallery once approved.", "“{0}” đang chờ duyệt. Duyệt xong là hiện trong kho."));
+        d.Add("Set_Gal_TooMany", ("That's a lot of sharing: try again in a while.", "Bạn gửi hơi nhiều rồi, lát nữa gửi tiếp nhé."));
+        d.Add("Set_Gal_Refused", ("The gallery didn't take it:", "Kho chưa nhận:"));
+        d.Add("Set_Ad_Label", ("Sponsored", "Tài trợ"));
         d.Add("Set_Page_Lyrics", ("Lyrics", "Lời bài hát"));
         d.Add("Set_Page_About", ("About", "Giới thiệu"));
 
@@ -52,6 +89,7 @@ public static partial class Strings
         d.Add("Set_Bar_GroupBackground", ("Background", "Nền taskbar"));
         d.Add("Set_Transparent", ("Make the taskbar transparent", "Làm taskbar trong suốt"));
         d.Add("Set_Transparent_Desc", ("Built into MusicBar, no need to install TranslucentTB. When you exit MusicBar, the taskbar gets its background back.", "Có sẵn trong MusicBar, không cần cài TranslucentTB. Thoát MusicBar là taskbar có lại nền như cũ."));
+        d.Add("Set_Transparent_DescAutoHide", ("Your taskbar hides itself, so when it slides up there are apps right behind it, not the wallpaper. MusicBar keeps Windows' own background then and tints the bar over it, so icons and lyrics stay readable.", "Taskbar của bạn đang tự ẩn, nên lúc nó trồi lên thì phía sau là cửa sổ ứng dụng chứ không phải hình nền. Khi đó MusicBar giữ nền của Windows và phủ mờ thanh nhạc lên trên, để icon và lời vẫn dễ đọc."));
         d.Add("Set_Transparent_DescTranslucentTB", ("TranslucentTB is running, so MusicBar leaves this to it.", "TranslucentTB đang chạy nên MusicBar để nó lo phần này."));
         d.Add("Set_Transparent_DescRestartExplorer", ("The taskbar helper from an older MusicBar is still loaded in Explorer and would clear every monitor's taskbar, so MusicBar is tinting over the taskbar for now. Restart Explorer (button below) to finish the update.", "Bộ phận làm trong suốt của bản MusicBar cũ vẫn đang nạp trong Explorer và sẽ xoá nền taskbar của mọi màn hình, nên tạm thời MusicBar phủ mờ lên taskbar. Bấm Khởi động lại Explorer (bên dưới) để hoàn tất cập nhật."));
         d.Add("Set_Background", ("Background under the progress bar", "Nền dưới thanh tiến trình"));
@@ -159,6 +197,24 @@ public static partial class Strings
         d.Add("Set_NetEase", ("Also ask NetEase", "Tìm thêm trên NetEase"));
         d.Add("Set_NetEase_Desc", ("When LRCLIB has no synced lyrics, try NetEase Cloud Music (strong on Korean, Chinese and Japanese songs). An unofficial source: it may stop working any time.",
             "Khi LRCLIB không có lời chạy theo nhạc thì hỏi NetEase Cloud Music (mạnh nhạc Hàn, Hoa, Nhật). Nguồn không chính thức, có thể ngừng chạy bất cứ lúc nào."));
+        d.Add("Set_Tour", ("The welcome tour", "Phần hướng dẫn"));
+        d.Add("Set_Tour_Desc", ("The main choices again, one step at a time, each showing on your taskbar as you pick it.", "Đi lại các lựa chọn chính từng bước, chọn gì taskbar đổi ngay cái đó."));
+        d.Add("Set_TourButton", ("Start", "Bắt đầu"));
+        d.Add("Set_NotificationDot", ("A red dot for new notifications", "Chấm đỏ báo thông báo mới"));
+        d.Add("Set_NotificationDot_Desc", ("On the control center's button, a small red dot instead of the number of new notifications.", "Trên nút trung tâm điều khiển, hiện một chấm đỏ nhỏ thay vì số thông báo mới."));
+        d.Add("Set_Vlc", ("Read VLC", "Đọc VLC"));
+        d.Add("Set_Vlc_Desc", ("VLC doesn't tell Windows what it plays. Turned on, MusicBar reads it through VLC's own web interface: on this computer only, with a password of its own.",
+            "VLC không báo cho Windows biết nó đang phát gì. Bật mục này, MusicBar đọc qua giao diện web của chính VLC: chỉ trong máy này, mật khẩu riêng."));
+        d.Add("Set_Vlc_Restart", ("Close VLC and open it again: it picks the change up when it starts.", "Đóng VLC rồi mở lại: VLC chỉ nhận thay đổi khi khởi động."));
+        d.Add("Set_Vlc_Ready", ("All set: open VLC and play something.", "Xong: mở VLC và phát nhạc là được."));
+        d.Add("Set_Vlc_Connected", ("Connected to VLC.", "Đã kết nối với VLC."));
+        d.Add("Set_Vlc_Failed", ("VLC's settings couldn't be changed. Close VLC and turn this on again.", "Chưa đổi được cài đặt của VLC. Đóng VLC rồi bật lại mục này."));
+        d.Add("Set_Reset", ("Restore default settings", "Khôi phục cài đặt mặc định"));
+        d.Add("Set_Reset_Desc", ("Every option back to how MusicBar comes. The language, the proxy and the lyrics folder stay, and so do your lyrics, skins, face pictures and listening history.",
+            "Mọi tùy chọn về như lúc mới cài. Ngôn ngữ, proxy và thư mục lời giữ nguyên, lời bài hát, skin, ảnh mặt và lịch sử nghe cũng vậy."));
+        d.Add("Set_ResetButton", ("Restore", "Khôi phục"));
+        d.Add("Set_Reset_Ask", ("Put every setting back to its default? This can't be undone.", "Đưa mọi cài đặt về mặc định? Không hoàn tác được."));
+        d.Add("Set_Reset_Done", ("Settings are back to their defaults.", "Cài đặt đã về mặc định."));
         d.Add("Set_AvoidIcons", ("Only in the empty space", "Chỉ chạy ở chỗ trống"));
         d.Add("Set_AvoidIcons_Desc", ("The bar and the visualizers keep clear of Windows' icons (Start, apps, the tray) and run on through the empty stretches between them.", "Thanh tiến trình và visualizer né các icon của Windows (Start, ứng dụng, khay hệ thống), chạy nối qua các khoảng trống giữa chúng."));
         d.Add("Set_IdleMotion", ("Keep moving when paused", "Vẫn chuyển động khi tạm dừng"));

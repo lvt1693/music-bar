@@ -43,6 +43,7 @@ public partial class ControlCenterWindow : Window
 
     public ControlCenterWindow(NotificationFeed feed, AudioOutputs audio)
     {
+        CpuRendering.Use(this);
         InitializeComponent();
         _feed = feed;
         _audio = audio;

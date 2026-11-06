@@ -31,6 +31,7 @@ internal sealed class TrayHotspotWindow : Window
 
     public TrayHotspotWindow(Brush accent)
     {
+        CpuRendering.Use(this);
         WindowStyle = WindowStyle.None;
         AllowsTransparency = true;
         Background = new SolidColorBrush(Color.FromArgb(0x01, 0, 0, 0));
@@ -90,8 +91,35 @@ internal sealed class TrayHotspotWindow : Window
 
     public void SetBadge(int count)
     {
+        _count = count;
         _badge.Visibility = count > 0 ? Visibility.Visible : Visibility.Collapsed;
         _badgeText.Text = count > 9 ? "9+" : count.ToString();
+    }
+
+    int _count;
+    bool _dot;
+    Brush? _accent;
+    static readonly Brush DotRed = Frozen(new SolidColorBrush(Color.FromRgb(0xFF, 0x3B, 0x30)));
+
+    /// <summary>New notifications as a small red dot, like a phone's, instead of their number.</summary>
+    public bool Dot
+    {
+        get => _dot;
+        set
+        {
+            if (value == _dot) return;
+            _dot = value;
+            _accent ??= _badge.Background;
+            _badge.MinWidth = value ? 8 : 14;
+            _badge.Height = value ? 8 : 14;
+            _badge.CornerRadius = new CornerRadius(value ? 4 : 7);
+            _badge.Padding = value ? new Thickness(0) : new Thickness(3, 0, 3, 0);
+            _badge.BorderThickness = new Thickness(value ? 1 : 1.5);
+            _badge.Margin = value ? new Thickness(0, 4, 3, 0) : new Thickness(0, 1, 0, 0);
+            _badge.Background = value ? DotRed : _accent;
+            _badgeText.Visibility = value ? Visibility.Collapsed : Visibility.Visible;
+            SetBadge(_count);
+        }
     }
 
     public void SetBadgeForeground(Color accent) =>

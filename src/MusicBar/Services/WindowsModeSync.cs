@@ -1,6 +1,7 @@
 using System;
 using System.Runtime.InteropServices;
 using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.Win32;
 using MusicBar.Infrastructure;
 using MusicBar.Interop;
@@ -56,24 +57,25 @@ internal sealed class WindowsModeSync(AppSettings settings)
         bool user = UserLight;
         if (light == user)
         {
-            Release();
+            Release(wait: false);
             return;
         }
         if (_s.WindowsModeBefore < 0) _s.WindowsModeBefore = user ? 1 : 0;
         if (_wrote == null) Holding(user);
         _wrote = light;
-        if (now != light) Write(light);
+        if (now != light) Write(light, wait: false);
     }
 
     /// <summary>Puts the user's own mode back, unless it was changed elsewhere since MusicBar set it.</summary>
-    public void Release()
+    /// <param name="wait">Wait until the apps have heard of it, as on the way out; else they hear in the background.</param>
+    public void Release(bool wait = true)
     {
         _declined = null;
         if (_s.WindowsModeBefore < 0) return;
         bool user = _s.WindowsModeBefore == 1;
         bool now = ColorUtil.WindowsTaskbarIsLight();
         bool changedElsewhere = _wrote is bool wrote && now != wrote;
-        if (!changedElsewhere && now != user) Write(user);
+        if (!changedElsewhere && now != user) Write(user, wait);
         _s.WindowsModeBefore = -1;
         _wrote = null;
         Holding(null);
@@ -93,10 +95,10 @@ internal sealed class WindowsModeSync(AppSettings settings)
     public static void PutBackNow()
     {
         int mode = Interlocked.Exchange(ref _putBack, -1);
-        if (mode >= 0 && ColorUtil.WindowsTaskbarIsLight() != (mode == 1)) Write(mode == 1);
+        if (mode >= 0 && ColorUtil.WindowsTaskbarIsLight() != (mode == 1)) Write(mode == 1, wait: true);
     }
 
-    static void Write(bool light)
+    static void Write(bool light, bool wait)
     {
         try
         {
@@ -110,10 +112,16 @@ internal sealed class WindowsModeSync(AppSettings settings)
         }
         SystemSnapshot.Wrote(PersonalizeKey, "SystemUsesLightTheme", light ? 1 : 0);
         Log.Info($"Windows taskbar mode set to {Name(light)}");
-        // The same broadcast Settings sends: Explorer redraws the taskbar and its icons.
-        SendMessageTimeout(new IntPtr(0xFFFF), 0x001A /* WM_SETTINGCHANGE */, IntPtr.Zero, "ImmersiveColorSet",
-            0x0002 /* SMTO_ABORTIFHUNG */, 500, out _);
+        if (wait) Broadcast();
+        else Task.Run(Broadcast);
     }
+
+    /// <summary>
+    /// The same broadcast Settings sends: Explorer redraws the taskbar and its icons. Every window gets
+    /// it, each allowed half a second, so on the UI thread a PC full of windows froze MusicBar for seconds.
+    /// </summary>
+    static void Broadcast() => SendMessageTimeout(new IntPtr(0xFFFF), 0x001A /* WM_SETTINGCHANGE */, IntPtr.Zero,
+        "ImmersiveColorSet", 0x0002 /* SMTO_ABORTIFHUNG */, 500, out _);
 
     static string Name(bool light) => light ? "light" : "dark";
 }

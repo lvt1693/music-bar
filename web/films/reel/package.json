@@ -1,0 +1,23 @@
+{
+  "name": "musicbar-reel",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MusicBar gallery reel: the gallery list scrolling in the app's own Windows 11 look, one look put on the taskbar per bar. 1920x480, 32 beats at 118 BPM, seamless loop.",
+  "scripts": {
+    "check": "esbuild scripts/check-timing.ts --bundle --platform=node --format=cjs --outfile=out/check-timing.cjs --log-level=warning && node out/check-timing.cjs",
+    "stills": "node scripts/stills.mjs 0 30 49 53 56 61",
+    "render": "remotion render src/index.ts Reel out/reel-master.mov --codec=prores --prores-profile=hq --muted",
+    "encode": "node scripts/encode.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.538",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "remotion": "4.0.538"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.2",
+    "typescript": "5.9.3"
+  }
+}

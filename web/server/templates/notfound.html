@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}404 · MusicBar{% endblock %}
+{% block main %}
+<section class="panel release" style="margin-top: 20px; max-width: 640px">
+  <div class="top"><div class="facebox"><div class="face blink" aria-hidden="true"><i class="eye l"></i><i class="eye r"></i><i class="mouth"></i></div></div><div><b>{{ t("not_found") }}</b><span>{{ t("not_found_d") }}</span></div></div>
+  <p style="display:flex;gap:10px;flex-wrap:wrap"><a class="btn btn-accent" href="/gallery">{{ t("nav_gallery") }}</a><a class="btn btn-soft" href="/">{{ t("nav_home") }}</a></p>
+</section>
+{% endblock %}

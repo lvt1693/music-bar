@@ -4,15 +4,20 @@
 
 Thanh taskbar nằm im ba mươi năm rồi. Cho nó hát đi.
 
-**Tải về:** [bản cài đặt](https://github.com/lvt1693/music-bar/releases/latest/download/MusicBar-1.7.0-Setup.exe)
-hoặc [bản portable](https://github.com/lvt1693/music-bar/releases/latest/download/MusicBar-1.7.0-portable.zip)
+**Tải về:** [bản cài đặt](https://github.com/lvt1693/music-bar/releases/latest/download/MusicBar-1.8.0-Setup.exe)
+hoặc [bản portable](https://github.com/lvt1693/music-bar/releases/latest/download/MusicBar-1.8.0-portable.zip)
 (Windows 10 2004 trở lên hoặc Windows 11, 64-bit, không cần cài .NET).
 
 **Hướng dẫn dùng:** [wiki tiếng Việt](https://github.com/lvt1693/music-bar/wiki), có ảnh từng tab cài
 đặt và phần hỏi đáp.
 
-**Có gì mới:** bản 1.7 thêm **dải LED RGB** với 10 hiệu ứng kiểu dải LED gaming nhảy theo nhạc,
-thư viện kiểu gọn lại trong 4 tab, và gỡ cài đặt là trả Windows về như trước khi có MusicBar.
+**Trang web:** [musicbar.truclv.com](https://musicbar.truclv.com), có **kho giao diện** của cộng đồng
+(skin, visualizer, dải LED) để tải về hoặc đăng giao diện của bạn.
+
+**Có gì mới:** bản 1.8 có **kho giao diện trực tuyến** ngay trong app, **phần hướng dẫn lần đầu mở** (chọn gì thấy ngay trên taskbar), sửa vụ
+thanh tiến trình biến mất khi bật taskbar trong suốt, **nhẹ RAM hẳn** (không còn phình dần khi
+chạy lâu), chạy gọn với **taskbar tự ẩn**, đọc được
+**VLC**, thêm nút khôi phục cài đặt mặc định và chấm đỏ báo thông báo.
 Từng bản có gì xem ở [CHANGELOG](CHANGELOG.md).
 
 Thấy MusicBar hữu ích, muốn mời mình ly cà phê thì quét mã này nhé (VPBank · 178971468 · LE VAN TRUC).
@@ -27,7 +32,8 @@ bìa với nút ⏮ ⏯ ⏭ ngay cạnh khay hệ thống, và cho lời bài h�
 của taskbar. Taskbar vẫn bấm, vẫn kéo, vẫn ghim app như cũ. MusicBar chỉ ở dưới chân nó.
 
 Nó bắt mọi app đang phát nhạc qua Windows Media Session: Spotify, YouTube trong trình duyệt,
-Media Player, Apple Music… Không có nhạc thì nó lặn mất, taskbar về nguyên trạng.
+Media Player, Apple Music… VLC không báo cho Windows, nên bật **Đọc VLC** ở Cài đặt → Chung là
+MusicBar đọc thẳng VLC. Không có nhạc thì nó lặn mất, taskbar về nguyên trạng.
 
 ## Nó làm gì
 
@@ -52,10 +58,14 @@ Media Player, Apple Music… Không có nhạc thì nó lặn mất, taskbar v�
   cười khi bị chọc, giận khi bị chọc hoài, đội mũ Noel khi tới Noel, canh giờ Pomodoro cho bạn.
 - **Tổng kết năm âm nhạc** (chi tiết ở dưới): top bài, nghệ sĩ ruột, giờ vàng, bạn là kiểu người
   nghe nào, gói vào một tấm ảnh để khoe.
+- **Lần đầu mở có phần hướng dẫn:** đi qua kiểu thanh, nền taskbar, trình phát, lời, cái mặt và
+  vài thói quen; chọn gì taskbar đổi ngay cái đó (chưa có nhạc thì một bài mẫu phát để xem thử).
+  Bỏ qua bước nào cũng được, mỗi bước chỉ chỗ đổi lại trong cài đặt. Xem lại ở Cài đặt → Giới thiệu.
 - **Tự báo bản mới:** mở app (hay mở máy) là nó xem GitHub có bản mới chưa, có thì hỏi một câu ở
   góc màn hình.
-- **Nền sáng hay tối:** mặc định theo chế độ sáng / tối của Windows, đổi theo ngay khi Windows
-  đổi; thích pha màu bài hát thì chọn *Theo Windows, pha màu bài hát*. Nền sáng thì lời bài hát,
+- **Nền trong suốt, sáng hay tối:** mặc định taskbar trong suốt, thanh nằm ngay dưới icon. Muốn có
+  nền thì chọn tối, sáng, *Theo Windows* (đổi theo ngay khi Windows đổi chế độ) hay *Theo Windows,
+  pha màu bài hát*. Nền sáng thì lời bài hát,
   nút và cái mặt chuyển sang màu tối cho icon đen của Windows vẫn rõ. Taskbar trong suốt (hoặc
   nền rất mờ) thì MusicBar nhìn hình nền ngay sau taskbar: sáng thì chữ tối, tối thì chữ trắng,
   cả với hình nền động của Wallpaper Engine.
@@ -166,7 +176,7 @@ sẵn câu lệnh để dán.
 
 ## Cài
 
-- **Bản cài đặt** (`MusicBar-1.7.0-Setup.exe`): cài cho riêng tài khoản của bạn vào
+- **Bản cài đặt** (`MusicBar-1.8.0-Setup.exe`): cài cho riêng tài khoản của bạn vào
   `%LOCALAPPDATA%\Programs\MusicBar`, không hỏi quyền admin, có mục trong Start và gỡ được
   trong Cài đặt → Ứng dụng. Cài đè hay gỡ đi thì MusicBar được báo thoát trước, để trả taskbar
   và khay về đúng như Windows sắp xếp.
@@ -177,7 +187,7 @@ sẵn câu lệnh để dán.
   được giữ). Thoát app bình thường thì chỉ trả những gì MusicBar giữ lúc đang chạy (taskbar trong
   suốt, khay gộp, chế độ sáng / tối nó tự đổi); cỡ và kiểu căn taskbar bạn chọn trong MusicBar vẫn
   để nguyên vì đó là lựa chọn của bạn.
-- **Bản portable** (`MusicBar-1.7.0-portable.zip`): giải nén ra đâu cũng được, chạy
+- **Bản portable** (`MusicBar-1.8.0-portable.zip`): giải nén ra đâu cũng được, chạy
   `MusicBar.exe`.
 
 **Cập nhật:** từ bản 1.4, MusicBar tự xem GitHub mỗi lần chạy (và mỗi ngày một lần khi đang
@@ -190,9 +200,9 @@ Lên từ bản 1.1 trở về trước thì khởi động lại Explorer (ho�
 để module làm trong suốt taskbar bản mới thay bản cũ. Chưa làm thì MusicBar vẫn chạy, chỉ là
 có nhiều màn hình thì nó tạm phủ mờ thay vì làm trong suốt, và cài đặt sẽ nhắc.
 
-Hai bản là cùng một app, đã gói sẵn .NET 10 nên không cần cài gì thêm, và chạy tốn khoảng
-55–60 MB RAM (cột Memory của Task Manager, đo trên máy thử). Lần đầu chạy, cửa sổ
-cài đặt tự mở; sau đó nhấp biểu tượng ở khay để mở lại. Muốn nó chạy cùng Windows thì bật
+Hai bản là cùng một app, đã gói sẵn .NET 10 nên không cần cài gì thêm, và lúc phát nhạc tốn
+khoảng 50 MB RAM (cột Memory của Task Manager, đo trên máy thử), chạy lâu không tăng thêm. Lần đầu chạy, phần hướng dẫn
+tự mở; sau đó nhấp biểu tượng ở khay để mở cài đặt. Muốn nó chạy cùng Windows thì bật
 **Khởi động cùng Windows** trong cài đặt. Cài đặt, lời bài hát và nhật ký nằm ở `%LOCALAPPDATA%\MusicBar`
 cho cả hai bản.
 
@@ -203,6 +213,7 @@ Dòng lệnh, nếu bạn thích:
 ```powershell
 MusicBar.exe --demo       # bài hát mẫu có sẵn lời, không cần trình phát nào
 MusicBar.exe --settings   # mở cài đặt (cả khi app đang chạy)
+MusicBar.exe --welcome    # mở phần hướng dẫn lần đầu
 MusicBar.exe --recap      # hiện ngay banner tổng kết năm, không đợi tới 24/12
 MusicBar.exe --exit       # thoát, trả taskbar về như cũ
 ```
@@ -213,6 +224,10 @@ Windows không cho vẽ "vào trong" taskbar, nên thanh tiến trình là một
 dưới taskbar, và chỉ nhìn xuyên qua được khi taskbar trong suốt. Bật ở **Cài đặt → Taskbar →
 Làm taskbar trong suốt**. Đang chạy [TranslucentTB](https://github.com/TranslucentTB/TranslucentTB)
 thì MusicBar để nó lo.
+
+Taskbar đặt **tự ẩn** thì MusicBar giữ nền của Windows và phủ mờ thanh lên trên: lúc taskbar trồi
+lên, phía sau nó là cửa sổ ứng dụng chứ không phải hình nền, làm trong suốt thì chữ của ứng dụng sẽ
+đè vào icon và lời. Thanh, trình phát và cái mặt trượt lên xuống cùng taskbar.
 
 - **Taskbar kiểu Windows 10** (Windows 10, ExplorerPatcher): đặt thuộc tính DWM của cửa sổ
   taskbar, và đặt lại mỗi khi Explorer tự đổi nền (mở Start, đổi theme).
@@ -257,7 +272,8 @@ mở bảng của MusicBar, từ trên xuống:
 
 **Win + A** mở bảng của MusicBar (bấm lại để đóng), tắt được ở **Cài đặt → Taskbar**. Win + N vẫn
 là bảng thông báo của Windows. Tắt tính năng hoặc thoát MusicBar là khay về nguyên như Windows sắp
-xếp.
+xếp. Có thông báo mới thì nút trên khay hiện số; thích gọn thì bật **Chấm đỏ báo thông báo mới** ở
+**Cài đặt → Taskbar** để chỉ hiện một chấm đỏ nhỏ.
 
 ## Cái mặt
 
@@ -357,7 +373,7 @@ C++") cho module taskbar Windows 11.
 ```powershell
 dotnet build src/MusicBar/MusicBar.csproj
 dotnet run --project src/MusicBar -- --demo
-.\installer\build.ps1 -Version 1.7.0     # ra artifacts\: Setup.exe (Inno Setup 6) và portable.zip
+.\installer\build.ps1 -Version 1.8.0     # ra artifacts\: Setup.exe (Inno Setup 6) và portable.zip
 ```
 
 ## Bên trong
@@ -382,11 +398,17 @@ src/MusicBar/
   Services/NotificationFeed.cs  đọc / bỏ thông báo của Windows
   Services/WifiNetworks.cs      quét, kết nối, quên mạng Wi-Fi (wlanapi)
   Services/BluetoothDevices.cs  thiết bị Bluetooth, ghép đôi;  BluetoothAudioLink.cs nối tai nghe
-  Interop/TaskbarTracker.cs     vị trí taskbar (cả taskbar dọc), dò khoảng trống bằng UI Automation
+  Interop/TaskbarTracker.cs     vị trí taskbar (cả taskbar dọc, cả taskbar tự ẩn), dò khoảng trống
+  Interop/TaskbarAutomation.cs  đọc các nút trên taskbar qua UI Automation COM, không rò bộ nhớ
+  Services/Community.cs         kho trực tuyến: duyệt, tải (kiểm SHA-256), đăng; banner tài trợ
+  Services/LookPresets.cs       preset tải từ kho (kiểu thanh, ba màu, độ đậm, hướng; không có mã)
+  web/                          trang musicbar.truclv.com (FastAPI): giới thiệu, tải về, kho, trang duyệt,
+                                trình quét file gửi lên (không bao giờ chạy file), bản triển khai lên server
   Interop/XamlTaskbar.cs        nạp module làm trong suốt taskbar Windows 11
   Interop/TrayMerge.cs          ẩn icon âm lượng / chuông, dồn khay, khôi phục
   Views/SeekRenderer.cs         14 kiểu thanh tiến trình, các visualizer, 4 hướng chạy;
                                 SeekRenderer.Leds.cs dải LED RGB
+  Views/CpuRendering.cs         các cửa sổ trên taskbar vẽ bằng CPU (đỡ tới 200 MB bộ nhớ driver)
   Views/LyricsPresenter.cs      lời bài hát và các hiệu ứng;  WordStackPresenter.cs cho taskbar dọc
   Views/TaskbarOverlay.cs       điều phối: xếp lớp, màu, lời, menu
   Views/TaskbarOverlays.cs      một overlay cho mỗi taskbar được chọn
@@ -446,6 +468,10 @@ từ ElevenLabs. Muốn dựng lại: vào `promo/`, `npx hyperframes preview`.
 - Skin chạy trên card đồ họa (pixel shader 3.0). Máy chỉ có đồ họa phần mềm (máy ảo, Remote
   Desktop) chỉ chạy được shader đời cũ hơn, skin dài có thể không dịch nổi; khi đó MusicBar giữ
   nguyên kiểu thanh tiến trình đang chọn.
+- Đọc VLC dùng giao diện web có sẵn của VLC: MusicBar bật nó trong file cài đặt của VLC (`vlcrc`, có
+  giữ bản sao `vlcrc.musicbar-backup`), chỉ nghe trong máy (127.0.0.1), cổng 47328, mật khẩu ngẫu
+  nhiên; cổng hay mật khẩu bạn đặt sẵn thì giữ của bạn. VLC đọc file đó lúc khởi động nên phải mở lại
+  một lần. Đang có app khác phát nhạc thì MusicBar ưu tiên app đó, trừ khi bạn ghim VLC.
 - Rê chuột lên video trên YouTube làm trình duyệt phát thử: MusicBar đợi 2,5 giây xem có phải đổi
   bài thật không rồi mới đổi lời, nên bấm qua bài mới trong trình duyệt thì lời đổi theo chậm vài
   giây.

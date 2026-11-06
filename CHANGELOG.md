@@ -3,6 +3,81 @@
 Mới nhất ở trên. Bản cài và bản portable của từng bản có ở trang
 [Releases](https://github.com/lvt1693/music-bar/releases).
 
+## 1.8.0 · 06/11/2026
+
+**Mới**
+
+- **Kho giao diện trực tuyến** (Cài đặt → Kho trực tuyến, và trên web musicbar.truclv.com): skin,
+  visualizer, dải LED do mọi người làm, xem trước chạy thật ngay trong app. Mỗi món một nút
+  **Áp dụng**: chưa có thì MusicBar tự tải về rồi mặc lên taskbar, có rồi thì mặc luôn (mất mạng vẫn
+  mặc được món đã tải). Đăng giao diện của mình (kiểu thanh đang dùng hoặc một skin) dưới nickname tự
+  đặt. Mọi món được máy chủ quét tự động rồi duyệt tay; file tải về được kiểm tra SHA-256, skin phải
+  dịch được mới giữ. Kho mở màn với 24 món mới: Vapor Sunset, Code Rain, Lightstick Ocean, Gamer RGB…
+- **Trang web của MusicBar** (musicbar.truclv.com): giới thiệu, tải bản cài (từ máy chủ hoặc GitHub,
+  có SHA-256 và số lượt tải), kho giao diện xem nhanh từng món, đăng giao diện từ web. Bấm **Áp dụng**
+  trên web là MusicBar mở ra mặc món đó luôn (link musicbar://, MusicBar tự đăng ký khi chạy và gỡ đi
+  khi gỡ cài đặt). Web tự hiện tiếng Việt hay tiếng Anh theo nơi bạn ở, đổi được ở góc trái.
+- Cài đặt có một dải banner tài trợ nhỏ ở dưới, để nuôi app miễn phí. Không có quảng cáo nào trên
+  taskbar.
+- **Phần hướng dẫn lần đầu mở:** đi qua kiểu thanh, nền taskbar, trình phát, lời, cái mặt và vài
+  thói quen; chọn gì taskbar đổi ngay cái đó, chưa có nhạc thì một bài mẫu phát để xem thử. Bỏ qua
+  bước nào cũng được, mỗi bước chỉ chỗ đổi lại trong cài đặt. Xem lại ở Cài đặt → Giới thiệu.
+- **Chấm đỏ báo thông báo mới** (Cài đặt → Taskbar): nút trung tâm điều khiển trên khay hiện một
+  chấm đỏ nhỏ thay vì số.
+- Thiết lập sẵn mới cho người mới cài: taskbar trong suốt, thanh né các icon và đậm hơn, nút tối
+  giản, lời căn giữa to hơn, luôn hiện kể cả khi chưa có nhạc, khởi động cùng Windows, cái mặt tắt.
+  Người đang dùng giữ nguyên cài đặt của mình.
+- **Đọc VLC** (Cài đặt → Chung → Đọc VLC): VLC không báo cho Windows biết nó đang phát gì nên trước
+  giờ MusicBar không thấy (#13). Bật mục này, MusicBar bật giao diện web của chính VLC (chỉ trong
+  máy, mật khẩu riêng) rồi đọc bài, vị trí phát, ảnh bìa; nút phát, chuyển bài, tua điều khiển được
+  VLC. Bật xong mở lại VLC một lần.
+- **Khôi phục cài đặt mặc định** (Cài đặt → Giới thiệu): mọi tùy chọn về như lúc mới cài; ngôn ngữ,
+  proxy, thư mục lời và dữ liệu của bạn giữ nguyên (#16).
+- Live stream (YouTube live, radio) giờ thanh tiến trình hiện đầy thay vì trống trơn (#14).
+
+**Sửa lỗi**
+
+- **Ăn RAM, càng chạy lâu càng nhiều (#6):** lúc phát nhạc MusicBar giờ giữ quanh 80 MB (cột Memory
+  của Task Manager khoảng 50 MB), trước đây nhảy từ 150 tới hơn 300 MB và cứ thế tăng dần. Hai thủ
+  phạm:
+  - Vẽ thanh bằng card đồ hoạ thì WPF phải đọc ngược từng khung hình về, driver giữ cho việc đó từ 65
+    tới 225 MB. Giờ các cửa sổ trên taskbar vẽ bằng CPU (skin vẫn dùng card đồ hoạ), CPU gần như
+    không đổi.
+  - Dò vị trí icon taskbar (2,5 giây một lần) qua thư viện UI Automation của .NET bị rò bộ nhớ, mỗi
+    lần một ít, chạy cả ngày thành mấy trăm MB. Giờ gọi thẳng UI Automation của Windows, tự trả lại
+    hết, và chỉ đọc tên các nút khi taskbar đổi.
+- Skin chạy lâu ngày (app mở nhiều hôm liền) bị giật dần: đồng hồ đưa vào shader là số thực 32-bit,
+  càng lớn càng thô. Giờ nó quay vòng mỗi 68 phút nên luôn mịn.
+- Màn hình tần số cao (120, 144, 240 Hz): kiểu thanh nhảy theo nhạc vẽ khoảng 60 khung mỗi giây thay
+  vì theo từng khung của màn, đỡ 2 tới 4 lần CPU mà nhìn vẫn mượt.
+- **Thanh tiến trình biến mất khi bật taskbar trong suốt:** từ bản 1.6, lần đầu làm trong suốt thì
+  được, nhưng sau một lần trả nền lại (tạm dừng lâu, game toàn màn hình, tắt mở lại app, tắt bật
+  công tắc) thì module trong Explorer không làm trong suốt được nữa, taskbar đặc lại và che mất
+  thanh nằm bên dưới. Giờ lần nào cũng làm được; và nếu taskbar vẫn chưa trong suốt (kể cả khi
+  module bị công cụ khác chặn, như Taskbar Styler của Windhawk, #12) thì thanh tự lên nằm trên
+  taskbar thay vì trốn bên dưới.
+- **Bật tắt "Làm taskbar trong suốt" làm cửa sổ cài đặt treo vài giây, có lúc giật khi game vào
+  toàn màn hình (#6):** mỗi lần trả nền cho taskbar, MusicBar báo "đổi màu" cho mọi cửa sổ đang mở
+  rồi ngồi chờ từng cái (trên máy test mất gần 0,8 giây mỗi lần, máy nhiều cửa sổ còn lâu hơn). Giờ
+  chỉ báo cho taskbar, việc đổi chế độ sáng tối của Windows thì báo ngầm. Dòng "Đang dùng: …" trong
+  cài đặt cũng cập nhật liền thay vì giữ nguyên từ lúc mở.
+- **Taskbar tự ẩn:**
+  - Taskbar trồi lên giữ nền của Windows, thanh nhạc phủ mờ lên trên. Trước đây nền bị làm trong
+    suốt, mà cửa sổ ứng dụng tràn xuống tận đáy màn hình nên chữ của nó đè lẫn vào icon, đồng hồ và
+    lời.
+  - Thanh, trình phát và cái mặt trượt lên xuống cùng taskbar, không còn bật ra khi taskbar đã lên
+    hẳn hay tụt lại phía sau.
+  - Thẻ thông tin bài hát không còn biến mất khi đưa chuột lên nó.
+  - Mỗi lần taskbar trượt không còn ghi một loạt dòng vào log.
+- Mở máy đôi khi MusicBar không hiện: lúc vừa đăng nhập, dịch vụ media của Windows có thể chưa sẵn
+  sàng, MusicBar trước đây bỏ cuộc luôn; giờ hỏi lại tới khi được.
+- Thanh có lúc biến mất sau khi máy ngủ, khóa màn hình hay đổi màn hình: giờ MusicBar vẽ lại hết sau
+  những lúc đó. Log ghi rõ mỗi lần thanh ẩn đi và vì sao, để lần sau dò cho nhanh.
+- Màn hình có tỉ lệ khác (125 %, 150 %…) có lúc vẽ mờ: cửa sổ vẽ sai tỉ lệ thì MusicBar tự chỉnh lại.
+- Thoát app mà taskbar vẫn trong suốt (#15): module trong Explorer giờ trả nền lại cho tới khi được,
+  không bỏ qua sau một lần lỗi.
+- Chữ Bật / Tắt cạnh các công tắc trong cài đặt rõ hơn.
+
 ## 1.7.0 · 06/11/2026
 
 **Mới**

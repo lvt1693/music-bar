@@ -81,10 +81,12 @@ public sealed class TaskbarOverlay : IDisposable, ILyricsHost
     Color _currentPrimary = ColorUtil.Brand;
     Color _currentSecondary = ColorUtil.Brand;
     Native.RECT _lastWidgetRect;
+    Native.RECT _loggedWidgetPlace;
     Native.RECT? _bandRect;
     bool _usingBand;
     bool _lyricsShownLogged;
-    bool _dpiMismatchLogged;
+    // Each mismatch between a window's DPI and its screen's, corrected once (see EnsureDpi).
+    readonly System.Collections.Generic.HashSet<string> _dpiTried = [];
 
     // What the lyrics area shows, so it can be re-staged when it moves between band and widget.
     SyncedLyrics? _stagedLyrics;
@@ -200,17 +202,62 @@ public sealed class TaskbarOverlay : IDisposable, ILyricsHost
         {
             if (_s.LayerMode == LayerMode.Over) return true;
             if (_s.LayerMode == LayerMode.Under) return false;
-            return !TranslucentTaskbarDetected && !OwnsTransparency;
+            return !TranslucentTaskbarDetected && (!OwnsTransparency || _clearingFailed);
         }
     }
+
+    /// <summary>
+    /// Under the taskbar, the bar only shows while the taskbar really is see-through. Asked to
+    /// clear it, if the helper in Explorer still hasn't after a few seconds, the bar goes over the
+    /// taskbar (tinted) instead of sitting out of sight behind a solid one, and back under once
+    /// the helper says the taskbar is clear.
+    /// </summary>
+    void CheckClearing()
+    {
+        bool wanted = _s.LayerMode == LayerMode.Auto && _clearedTaskbar != IntPtr.Zero && CurrentTaskbarKind == TaskbarKind.Windows11;
+        // No answer at all means no helper in that Explorer: it failed to load, or another tool using the
+        // same XAML diagnostics (Windhawk's Taskbar Styler) blocked it. Loading takes a moment, so wait longer.
+        bool? cleared = wanted ? XamlTaskbar.Cleared(_clearedTaskbar) : null;
+        if (cleared == true)
+        {
+            _notClearedSince = DateTime.MinValue;
+            if (!_clearingFailed) return;
+            _clearingFailed = false;
+            Log.Info("The taskbar is see-through again: the bar goes back under its icons");
+        }
+        else if (wanted)
+        {
+            if (_notClearedSince == DateTime.MinValue) _notClearedSince = DateTime.Now;
+            else if (!_clearingFailed && DateTime.Now - _notClearedSince > TimeSpan.FromSeconds(cleared == false ? 3 : 10))
+            {
+                _clearingFailed = true;
+                Log.Info(cleared == false
+                    ? "The taskbar didn't go see-through: the bar goes over it instead of hiding behind it"
+                    : "No taskbar helper answers in Explorer (blocked, or it didn't load): the bar goes over the taskbar");
+            }
+        }
+        else
+        {
+            _notClearedSince = DateTime.MinValue;
+        }
+    }
+
+    bool _clearingFailed;
+    DateTime _notClearedSince = DateTime.MinValue;
 
     /// <summary>
     /// MusicBar clears the taskbar background itself: allowed by the user and
     /// TranslucentTB is not already doing it. Windows 10 style taskbars take a
     /// DWM accent; the Windows 11 taskbar needs the helper inside Explorer.
+    /// A taskbar that hides itself keeps its background (unless the bar was put under it on
+    /// purpose): windows reach under it, so cleared it would show them behind the icons and lyrics.
     /// </summary>
     public bool OwnsTransparency => _s.TransparentTaskbar && !TranslucentTaskbarDetected
-        && !(CurrentTaskbarKind == TaskbarKind.Windows11 && XamlTaskbar.Blocked);
+        && !(CurrentTaskbarKind == TaskbarKind.Windows11 && XamlTaskbar.Blocked)
+        && !(_tracker.AutoHides && _s.LayerMode == LayerMode.Auto);
+
+    /// <summary>The taskbar is set to hide itself.</summary>
+    public bool TaskbarAutoHides => _tracker.AutoHides;
 
     TaskbarKind CurrentTaskbarKind
     {
@@ -246,7 +293,8 @@ public sealed class TaskbarOverlay : IDisposable, ILyricsHost
     void RestoreTransparency()
     {
         XamlTaskbar.Restore(this);
-        TaskbarTransparency.Restore(_clearedTaskbar);
+        // The Windows 11 taskbar gets its background back from the helper; only the accent needs undoing.
+        if (CurrentTaskbarKind != TaskbarKind.Windows11) TaskbarTransparency.Restore(_clearedTaskbar);
     }
 
     /// <summary>A tool that makes the taskbar see-through (TranslucentTB) is running.</summary>
@@ -395,12 +443,13 @@ public sealed class TaskbarOverlay : IDisposable, ILyricsHost
     {
         if (_disposed) return;
         bool show = (_showsBar || _showsPlayer) && _tracker.Shown && !_fullscreen && !_idle;
+        LogVisibility(show);
         // With nothing playing MusicBar steps aside, but the face may stay and nap on the plain taskbar.
         bool faceAlone = !show && _idle && _showsPlayer && _tracker.Shown && !_fullscreen && _s.FaceEnabled && _s.FaceStaysWhenIdle;
         if (!show)
         {
             bool keepFace = faceAlone && _tracker.HasScanned;
-            HideAll(keepFace);
+            HideAll(keepFace, _tracker.SlidAway);
             if (keepFace) PlaceFace(FaceRect(_tracker.Rect, _tracker.Scale, null, true, FaceLength(), 0));
             return;
         }
@@ -436,13 +485,7 @@ public sealed class TaskbarOverlay : IDisposable, ILyricsHost
             }
             Native.SetWindowPos(_layer.Hwnd, Native.HWND_TOPMOST, rc.Left, rc.Top, rc.Width, rc.Height, Native.SWP_NOACTIVATE);
             if (!over) Native.SetWindowPos(_layer.Hwnd, _tracker.Handle, 0, 0, 0, 0, KeepPlace);
-            // A window drawn at another screen's DPI gets stretched by Windows and looks soft.
-            double drawn = VisualTreeHelper.GetDpi(_layer).DpiScaleX;
-            if (Math.Abs(drawn - scale) > 0.01 && !_dpiMismatchLogged)
-            {
-                _dpiMismatchLogged = true;
-                Log.Info($"Taskbar on {_tracker.Monitor?.DeviceName} is at {scale:0.##}x but MusicBar's layer draws at {drawn:0.##}x");
-            }
+            EnsureDpi(_layer, _layer.Hwnd, rc, scale, "layer");
         }
         else if (_layerShown)
         {
@@ -468,10 +511,17 @@ public sealed class TaskbarOverlay : IDisposable, ILyricsHost
                 _widgetShown = true;
             }
             Native.SetWindowPos(_widget.Hwnd, Native.HWND_TOPMOST, w.Left, w.Top, w.Width, w.Height, Native.SWP_NOACTIVATE);
+            EnsureDpi(_widget, _widget.Hwnd, w, scale, "player");
             if (!w.Same(_lastWidgetRect))
             {
                 _lastWidgetRect = w;
-                Log.Info($"Taskbar {rc}, occupied [{TaskbarTracker.Describe(_tracker.Occupied)}], widget {w}");
+                // Said when the player moves along the taskbar, not at every step of an auto-hiding taskbar's slide.
+                var place = new Native.RECT(w.Left - rc.Left, w.Top - rc.Top, w.Right - rc.Left, w.Bottom - rc.Top);
+                if (!place.Same(_loggedWidgetPlace))
+                {
+                    _loggedWidgetPlace = place;
+                    Log.Info($"Taskbar {rc}, occupied [{TaskbarTracker.Describe(_tracker.Occupied)}], widget {w}");
+                }
             }
         }
         else if (_widgetShown)
@@ -490,7 +540,78 @@ public sealed class TaskbarOverlay : IDisposable, ILyricsHost
         SetRendering(true);
     }
 
-    void HideAll(bool keepFace = false)
+    /// <summary>
+    /// Draws everything anew after sleep, unlocking or a change of displays. A see-through window
+    /// can come back from those with its surface lost, drawing nothing while it still counts as
+    /// shown: the bar would be gone until MusicBar restarts. A size change makes WPF give it a new
+    /// surface, and placing everything again (which puts the size back) follows straight away.
+    /// </summary>
+    public void Refresh()
+    {
+        if (_disposed) return;
+        _tracker.Rescan();
+        _dpiTried.Clear();
+        foreach (var (shown, hwnd) in new[] { (_layerShown, _layer.Hwnd), (_widgetShown, _widget.Hwnd), (_faceShown, _face.Hwnd) })
+        {
+            if (!shown || hwnd == IntPtr.Zero || !Native.GetWindowRect(hwnd, out var r)) continue;
+            Native.SetWindowPos(hwnd, IntPtr.Zero, 0, 0, r.Width + 1, r.Height,
+                Native.SWP_NOMOVE | Native.SWP_NOZORDER | Native.SWP_NOACTIVATE);
+        }
+        UpdateTransparency();
+        Reposition();
+        EnsureZOrder();
+    }
+
+    /// <summary>
+    /// Says in the log each time the bar goes away or comes back, and why, so a report of it
+    /// "disappearing" can be traced: no music, a full-screen window (which one), or no taskbar to sit on.
+    /// </summary>
+    void LogVisibility(bool show)
+    {
+        string why = show ? "shown"
+            : !_showsBar && !_showsPlayer ? "not on this screen"
+            // A taskbar that hides itself comes and goes all day: not a line each time.
+            : _tracker.SlidAway ? ""
+            : !_tracker.Shown ? "taskbar hidden or not found"
+            : _fullscreen ? $"a full-screen window covers the taskbar: {_coveredBy}"
+            : _idle ? "no music (Hide when no music is playing)"
+            : "hidden";
+        if (why.Length == 0 || why == _visibilityLogged) return;
+        _visibilityLogged = why;
+        Log.Info($"Bar on {_tracker.Monitor?.DeviceName ?? "?"}: {why}");
+    }
+
+    string? _visibilityLogged;
+
+    /// <summary>
+    /// A window should draw at its screen's DPI. Moved onto a screen of another scale, Windows tells
+    /// it so (WM_DPICHANGED); when that went missing, it keeps drawing at the old scale and Windows
+    /// stretches it, which looks soft. Told again here, with where it belongs, it redraws sharp.
+    /// </summary>
+    void EnsureDpi(Window window, IntPtr hwnd, Native.RECT rect, double scale, string name)
+    {
+        double drawn = VisualTreeHelper.GetDpi(window).DpiScaleX;
+        if (Math.Abs(drawn - scale) <= 0.01 || !_dpiTried.Add($"{name} {drawn:0.##} {scale:0.##}")) return;
+        int dpi = (int)Math.Round(96 * scale);
+        var at = System.Runtime.InteropServices.Marshal.AllocHGlobal(System.Runtime.InteropServices.Marshal.SizeOf<Native.RECT>());
+        try
+        {
+            System.Runtime.InteropServices.Marshal.StructureToPtr(rect, at, false);
+            Native.SendMessage(hwnd, 0x02E0 /* WM_DPICHANGED */, (IntPtr)(dpi | (dpi << 16)), at);
+        }
+        finally
+        {
+            System.Runtime.InteropServices.Marshal.FreeHGlobal(at);
+        }
+        double now = VisualTreeHelper.GetDpi(window).DpiScaleX;
+        Log.Info($"The {name} on {_tracker.Monitor?.DeviceName} drew at {drawn:0.##}x on a {scale:0.##}x screen: {(Math.Abs(now - scale) <= 0.01 ? "corrected" : $"still {now:0.##}x")}");
+    }
+    // What covered the taskbar last, for the log: the window's class and its program.
+    string _coveredBy = "";
+    IntPtr _coveredWindow;
+
+    /// <param name="slidAway">The taskbar hid itself: the pointer has just left it, maybe for the song card.</param>
+    void HideAll(bool keepFace = false, bool slidAway = false)
     {
         if (_layerShown) _layer.Hide();
         if (_widgetShown) _widget.Hide();
@@ -500,7 +621,8 @@ public sealed class TaskbarOverlay : IDisposable, ILyricsHost
             _faceShown = false;
         }
         _layerShown = _widgetShown = _playerOn = false;
-        _popup.Dismiss();
+        if (slidAway) _popup.LetGo();
+        else _popup.Dismiss();
         _band.Reveal(false, 0);
         SetRendering(false);
     }
@@ -823,6 +945,7 @@ public sealed class TaskbarOverlay : IDisposable, ILyricsHost
         else if (_noSessionSince == DateTime.MinValue) _noSessionSince = DateTime.Now;
 
         CheckTheme();
+        CheckClearing();
         bool idle = _s.HideWhenIdle && _noSessionSince != DateTime.MinValue
                     && (DateTime.Now - _noSessionSince).TotalSeconds > 2;
         bool fullscreen = TaskbarCovered();
@@ -864,7 +987,23 @@ public sealed class TaskbarOverlay : IDisposable, ILyricsHost
         if (r.Left > b.Left || r.Top > b.Top || r.Right < b.Right || r.Bottom < b.Bottom) return false;
         // Windows lowers the taskbar under a full-screen window; while the taskbar stays on top
         // (a screen-sized window that isn't full screen to Windows), it is still in sight.
-        return _tracker.Handle == IntPtr.Zero || !Native.IsAbove(_tracker.Handle, fg);
+        bool covered = _tracker.Handle == IntPtr.Zero || !Native.IsAbove(_tracker.Handle, fg);
+        if (covered && fg != _coveredWindow)
+        {
+            _coveredWindow = fg;
+            string program;
+            try
+            {
+                using var p = System.Diagnostics.Process.GetProcessById((int)pid);
+                program = p.ProcessName;
+            }
+            catch (Exception)
+            {
+                program = "?";
+            }
+            _coveredBy = $"{Native.ClassName(fg)} ({program})";
+        }
+        return covered;
     }
 
     // ------------------------------------------------------------------ frame loop
@@ -919,11 +1058,14 @@ public sealed class TaskbarOverlay : IDisposable, ILyricsHost
 
     void OnFrame(object? sender, EventArgs e)
     {
+        if (e is RenderingEventArgs frame && !FrameDue(frame.RenderingTime)) return;
         var pos = _media.GetPosition();
         var dur = _media.Duration;
         bool timeline = _media.HasSession && dur > TimeSpan.Zero;
         double progress = timeline ? Math.Clamp((double)pos.Ticks / dur.Ticks, 0, 1) : 0;
-        _layer.SetProgress(progress, timeline, _media.IsPlaying);
+        // A live stream (or radio) has no length to run along: the bar shows full instead of empty.
+        bool live = _media.HasSession && !timeline;
+        _layer.SetProgress(live ? 1 : progress, timeline || live, _media.IsPlaying);
         _widget.SetProgress(progress);
         if (_popup.IsOpen) _popup.SetProgress(pos, dur);
 
@@ -933,6 +1075,28 @@ public sealed class TaskbarOverlay : IDisposable, ILyricsHost
         if (!_s.LyricsExpanded) return;
         var lyricPos = pos + TimeSpan.FromMilliseconds(_s.LyricsOffsetMs) + (_lyricsResult?.Lyrics?.Offset ?? TimeSpan.Zero);
         ActiveLyrics.Update(lyricPos, _media.IsPlaying);
+    }
+
+    // The display's frame time as measured, the last frame seen, and frames since one was drawn.
+    double _displayFrameMs = 1000.0 / 60;
+    TimeSpan _lastDisplayFrame;
+    int _framesSkipped;
+
+    /// <summary>
+    /// Whether this display frame gets drawn. WPF sometimes raises Rendering twice for one frame, and
+    /// on a fast display (120, 144, 240 Hz) drawing every frame costs two to four times a 60 Hz one for
+    /// no smoother bars: every second, third or fourth frame is drawn instead, evenly, near 60 a second.
+    /// </summary>
+    bool FrameDue(TimeSpan at)
+    {
+        if (at == _lastDisplayFrame) return false;
+        double ms = (at - _lastDisplayFrame).TotalMilliseconds;
+        _lastDisplayFrame = at;
+        if (ms > 2 && ms < 40) _displayFrameMs += (ms - _displayFrameMs) * 0.05;
+        int every = Math.Max(1, (int)Math.Round(1000.0 / 60 / _displayFrameMs));
+        if (++_framesSkipped < every) return false;
+        _framesSkipped = 0;
+        return true;
     }
 
     /// <summary>
@@ -997,7 +1161,7 @@ public sealed class TaskbarOverlay : IDisposable, ILyricsHost
                 UpdateTransparency();
                 Reposition();
                 break;
-            case nameof(AppSettings.ControlCenter) or nameof(AppSettings.WinAOpensControlCenter):
+            case nameof(AppSettings.ControlCenter) or nameof(AppSettings.WinAOpensControlCenter) or nameof(AppSettings.NotificationDot):
                 _controlCenter?.Tick();
                 break;
             case nameof(AppSettings.LyricsExpanded) or nameof(AppSettings.LyricsPlacement):
@@ -1094,7 +1258,7 @@ public sealed class TaskbarOverlay : IDisposable, ILyricsHost
     void SyncWindowsMode()
     {
         if (_windowsMode == null) return;
-        if (_disposed || !_showsBar || !_s.MatchWindowsMode) _windowsMode.Release();
+        if (_disposed || !_showsBar || !_s.MatchWindowsMode) _windowsMode.Release(wait: _disposed);
         else _windowsMode.Want(LightBarFor(_windowsMode.UserLight));
         _windowsLight = ColorUtil.WindowsTaskbarIsLight();
     }

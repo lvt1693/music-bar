@@ -33,6 +33,7 @@ internal sealed class TaskbarTracker : IDisposable
     static readonly TimeSpan FastTick = TimeSpan.FromMilliseconds(30);
     static readonly TimeSpan ScanEvery = TimeSpan.FromSeconds(2.5);
     static readonly TimeSpan PartialRetry = TimeSpan.FromSeconds(0.5);
+    static readonly TimeSpan AutoHideCheckEvery = TimeSpan.FromSeconds(2);
 
     /// <summary>
     /// The notification area's container. Its visible children cover the same
@@ -43,10 +44,15 @@ internal sealed class TaskbarTracker : IDisposable
 
     readonly DispatcherTimer _poll = new() { Interval = SlowTick };
     readonly Native.WinEventProc _foregroundProc;
+    readonly Native.WinEventProc _moveProc;
     IntPtr _hook;
+    IntPtr _moveHook;
     DateTime _fastUntil;
     DateTime _lastScan = DateTime.MinValue;
+    DateTime _autoHideCheckedAt = DateTime.MinValue;
     bool _scanning;
+    bool _checkingAutoHide;
+    bool _ticking;
     int _partialScans;
 
     // The monitor (device name) whose secondary taskbar this follows; null follows the main taskbar.
@@ -56,6 +62,10 @@ internal sealed class TaskbarTracker : IDisposable
     {
         _monitorDevice = monitorDevice;
         _foregroundProc = (_, _, _, _, _, _, _) => ZOrderCheck?.Invoke();
+        _moveProc = (_, _, hwnd, idObject, idChild, _, _) =>
+        {
+            if (hwnd == Handle && idObject == 0 /* OBJID_WINDOW */ && idChild == 0) Tick();
+        };
         _poll.Tick += (_, _) => Tick();
     }
 
@@ -64,6 +74,12 @@ internal sealed class TaskbarTracker : IDisposable
     public MonitorInfo? Monitor { get; private set; }
     public bool Shown { get; private set; }
     public IReadOnlyList<Span> Occupied { get; private set; } = [];
+
+    /// <summary>The taskbar is set to hide itself, sliding off the screen's edge until the pointer comes.</summary>
+    public bool AutoHides { get; private set; }
+
+    /// <summary>Out of sight only because it hid itself: it slides back when the pointer reaches the edge.</summary>
+    public bool SlidAway => AutoHides && !Shown && Handle != IntPtr.Zero;
 
     /// <summary>
     /// Windows 11's tray buttons that open Quick Settings (network, volume,
@@ -123,9 +139,26 @@ internal sealed class TaskbarTracker : IDisposable
         _poll.Stop();
         if (_hook != IntPtr.Zero) Native.UnhookWinEvent(_hook);
         _hook = IntPtr.Zero;
+        if (_moveHook != IntPtr.Zero) Native.UnhookWinEvent(_moveHook);
+        _moveHook = IntPtr.Zero;
     }
 
     void Tick()
+    {
+        // Moves of the taskbar are heard as they happen, and could arrive while a tick is placing windows.
+        if (_ticking) return;
+        _ticking = true;
+        try
+        {
+            Follow();
+        }
+        finally
+        {
+            _ticking = false;
+        }
+    }
+
+    void Follow()
     {
         bool changed = false;
         // A secondary taskbar can end up on another monitor when screens are rearranged: find ours again.
@@ -138,6 +171,7 @@ internal sealed class TaskbarTracker : IDisposable
             Occupied = [];
             HasScanned = false;
             changed = true;
+            HearMoves();
         }
 
         if (Handle == IntPtr.Zero)
@@ -165,12 +199,54 @@ internal sealed class TaskbarTracker : IDisposable
             changed = true;
         }
 
-        // Poll fast while the taskbar is sliding (auto-hide) so the overlay follows it smoothly.
+        // Poll fast while the taskbar is sliding (auto-hide), in case its moves aren't heard.
         _poll.Interval = DateTime.Now < _fastUntil ? FastTick : SlowTick;
 
+        if (!_checkingAutoHide && DateTime.Now - _autoHideCheckedAt > AutoHideCheckEvery) CheckAutoHide();
         if (changed) LayoutChanged?.Invoke();
-        if (!_scanning && (changed || DateTime.Now - _lastScan > ScanEvery)) Scan();
+        // Slid off the screen, the taskbar's buttons all read as off screen: there is nothing to learn until it
+        // is back, and halfway there only some of them would be found.
+        bool whole = VisibleThickness() >= Thickness;
+        if (!_scanning && Shown && (changed && whole || DateTime.Now - _lastScan > ScanEvery)) Scan();
         ZOrderCheck?.Invoke();
+    }
+
+    /// <summary>
+    /// Hears the taskbar move as it moves. An auto-hiding taskbar slides in a fifth of a second:
+    /// polled, the bar would pop in once the taskbar is already up and trail it on the way down.
+    /// </summary>
+    void HearMoves()
+    {
+        if (_moveHook != IntPtr.Zero) Native.UnhookWinEvent(_moveHook);
+        _moveHook = IntPtr.Zero;
+        if (Handle == IntPtr.Zero) return;
+        uint thread = Native.GetWindowThreadProcessId(Handle, out uint pid);
+        _moveHook = Native.SetWinEventHook(Native.EVENT_OBJECT_LOCATIONCHANGE, Native.EVENT_OBJECT_LOCATIONCHANGE,
+            IntPtr.Zero, _moveProc, pid, thread, Native.WINEVENT_OUTOFCONTEXT);
+    }
+
+    /// <summary>Whether the taskbar hides itself. Asking Explorer could wait on it, so that happens off the UI thread.</summary>
+    async void CheckAutoHide()
+    {
+        _checkingAutoHide = true;
+        _autoHideCheckedAt = DateTime.Now;
+        try
+        {
+            bool autoHides = await Task.Run(Native.TaskbarAutoHides);
+            if (autoHides == AutoHides) return;
+            AutoHides = autoHides;
+            if (_monitorDevice == null)
+                Log.Info(autoHides ? "The taskbar hides itself: the bar comes and goes with it" : "The taskbar stays put (auto-hide off)");
+            LayoutChanged?.Invoke();
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Asking whether the taskbar hides itself failed", ex);
+        }
+        finally
+        {
+            _checkingAutoHide = false;
+        }
     }
 
     int VisibleThickness()
@@ -192,7 +268,12 @@ internal sealed class TaskbarTracker : IDisposable
         try
         {
             var (occupied, quickSettings) = await Task.Run(() => FindOccupied(hwnd, rc, horizontal));
-            if (hwnd != Handle || !rc.Same(Rect)) return;
+            // A taskbar sliding in or out moves across its length only: what was found along it still holds.
+            if (hwnd != Handle || !SameAlong(rc, Rect))
+            {
+                _lastScan = DateTime.MinValue;
+                return;
+            }
 
             // UI Automation on the taskbar sometimes answers with nothing, or with a fragment: at
             // startup, and for as long as Windows' Quick Settings is open. The notification area
@@ -239,6 +320,11 @@ internal sealed class TaskbarTracker : IDisposable
             _scanning = false;
         }
     }
+
+    static bool SameAlong(Native.RECT a, Native.RECT b) => a.Width >= a.Height == b.Width >= b.Height
+        && (a.Width >= a.Height
+            ? a.Left == b.Left && a.Right == b.Right && a.Height == b.Height
+            : a.Top == b.Top && a.Bottom == b.Bottom && a.Width == b.Width);
 
     /// <summary>The spans reach the far end of the taskbar, where the notification area is.</summary>
     bool Complete(IEnumerable<Span> spans) => spans.Any(s => s.End >= End - Length / 20);
@@ -358,27 +444,14 @@ internal sealed class TaskbarTracker : IDisposable
 
     static void CollectFromAutomation(IntPtr tray, Along bar, bool horizontal, List<Span> spans, List<Span> quick, List<Span> power, ref double? startAt)
     {
-        var root = AutomationElement.FromHandle(tray);
-        var all = root.FindAll(TreeScope.Descendants, Condition.TrueCondition);
+        // The managed UI Automation client only where Windows' COM one can't be had: it keeps memory from every scan.
+        var controls = TaskbarAutomation.Works ? TaskbarAutomation.Read(tray) : ReadManaged(tray);
 
-        foreach (AutomationElement e in all)
+        foreach (var c in controls)
         {
-            System.Windows.Rect b;
-            string cls, id, name;
-            try
-            {
-                var c = e.Current;
-                if (c.IsOffscreen) continue;
-                b = c.BoundingRectangle;
-                cls = c.ClassName ?? "";
-                id = c.AutomationId ?? "";
-                name = c.Name ?? "";
-            }
-            catch (Exception)
-            {
-                continue;
-            }
-            if (b.IsEmpty) continue;
+            if (c.Offscreen || c.Bounds.Width <= 0 || c.Bounds.Height <= 0) continue;
+            var b = new System.Windows.Rect(c.Bounds.Left, c.Bounds.Top, c.Bounds.Width, c.Bounds.Height);
+            string cls = c.ClassName, id = c.AutomationId, name = c.Name;
             var a = Along.Of(b, horizontal);
             if (IsQuickSettingsButton(cls, name)) quick.Add(a.ToSpan());
             else if (cls.StartsWith("SystemTray.", StringComparison.Ordinal) && PowerWords.IsMatch(name)) power.Add(a.ToSpan());
@@ -391,6 +464,26 @@ internal sealed class TaskbarTracker : IDisposable
                 startAt = startAt.HasValue ? Math.Min(startAt.Value, a.Start) : a.Start;
             spans.Add(a.ToSpan());
         }
+    }
+
+    static List<TaskbarAutomation.Control> ReadManaged(IntPtr tray)
+    {
+        var controls = new List<TaskbarAutomation.Control>();
+        foreach (AutomationElement e in AutomationElement.FromHandle(tray).FindAll(TreeScope.Descendants, Condition.TrueCondition))
+        {
+            try
+            {
+                var c = e.Current;
+                var b = c.BoundingRectangle;
+                var bounds = b.IsEmpty ? default : new Native.RECT((int)b.Left, (int)b.Top, (int)b.Right, (int)b.Bottom);
+                controls.Add(new TaskbarAutomation.Control(bounds, c.IsOffscreen, c.ClassName ?? "", c.AutomationId ?? "", c.Name ?? ""));
+            }
+            catch (Exception)
+            {
+                // The control went away while being read.
+            }
+        }
+        return controls;
     }
 
     static List<Span> Merge(List<Span> spans)

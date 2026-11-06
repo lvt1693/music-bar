@@ -1,0 +1,11 @@
+{
+  "format": "musicbar-look/1",
+  "name": "Gamer RGB",
+  "kind": "led",
+  "style": "LedRainbow",
+  "colors": ["#FF1F5A", "#1FFF8A", "#2F7BFF"],
+  "intensity": 0.9,
+  "direction": "FromStart",
+  "idleMotion": true,
+  "description": "The full rainbow rolls along the screen edge like a gaming rig, and rolls faster when the music gets loud."
+}

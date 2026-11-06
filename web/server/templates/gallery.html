@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% from "_card.html" import card with context %}
+{% block title %}{{ t("gallery_title") }} · MusicBar{% endblock %}
+{% block description %}{{ t("gallery_sub") }}{% endblock %}
+{% block lyric %}{{ t("gallery_sub") }}{% endblock %}
+{% block main %}
+<h1 class="page-title">{{ t("gallery_title") }}</h1>
+<p style="color: var(--text-2); margin: -10px 0 18px; max-width: 46em">{{ t("gallery_sub") }} {{ t("g_gallery_d", n=all_items, d=num(item_downloads)) }}</p>
+
+
+<div class="bar-tools">
+  <nav class="seg" aria-label="{{ t('gallery_title') }}">
+    <a href="/gallery?sort={{ sort }}" aria-current="{{ 'true' if not category else 'false' }}">{{ t("cat_all") }}</a>
+    {% for c in categories %}<a href="/gallery?category={{ c }}&sort={{ sort }}" aria-current="{{ 'true' if category == c else 'false' }}">{{ t("cat_" + c) }}</a>{% endfor %}
+  </nav>
+  <form class="search" method="get" action="/gallery" role="search">
+    {% if category %}<input type="hidden" name="category" value="{{ category }}">{% endif %}
+    <input class="input" type="search" name="q" value="{{ q }}" placeholder="{{ t('search') }}" aria-label="{{ t('search') }}">
+    <select class="input" name="sort" data-autosubmit aria-label="{{ t('sort_label') }}">
+      <option value="new" {% if sort == "new" %}selected{% endif %}>{{ t("sort_new") }}</option>
+      <option value="popular" {% if sort == "popular" %}selected{% endif %}>{{ t("sort_popular") }}</option>
+      <option value="name" {% if sort == "name" %}selected{% endif %}>{{ t("sort_name") }}</option>
+    </select>
+  </form>
+</div>
+{% if q %}<p class="muted" style="margin: 0 2px 10px">{{ t("found_n", n=total) }}: “{{ q }}”</p>{% endif %}
+
+{% if items %}
+<div class="looks">
+  {% for item in items %}{{ card(item, t, num) }}{% endfor %}
+</div>
+{% if pages > 1 %}
+<nav class="pager" aria-label="{{ t('pages') }}">
+  {% if p > 1 %}<a href="?{{ {'category': category, 'sort': sort, 'q': q, 'p': p - 1} | urlencode }}" aria-label="{{ t('page_prev') }}">{{ icon("arrow-left") }}</a>{% endif %}
+  {% for n in range(1, pages + 1) %}
+    {% if n == p %}<span aria-current="page">{{ n }}</span>{% else %}<a href="?{{ {'category': category, 'sort': sort, 'q': q, 'p': n} | urlencode }}">{{ n }}</a>{% endif %}
+  {% endfor %}
+  {% if p < pages %}<a href="?{{ {'category': category, 'sort': sort, 'q': q, 'p': p + 1} | urlencode }}" aria-label="{{ t('page_next') }}">{{ icon("arrow-right") }}</a>{% endif %}
+</nav>
+{% endif %}
+{% else %}
+<div class="card empty">{{ t("empty_gallery") }} <a class="btn-link" href="/submit">{{ t("nav_submit") }}</a></div>
+{% endif %}
+
+{# A look up close, over the gallery: no trip to another page, no scrolling back. #}
+<dialog class="dlg" id="quick" aria-labelledby="quick-name">
+  <div class="desk"><div class="strip"><img alt="" data-q="img"><video muted loop playsinline aria-hidden="true" data-q="video"></video></div></div>
+  <div class="dlg-body">
+    <div class="dlg-nav">
+      <button class="round" type="button" data-q="prev" aria-label="{{ t('quick_prev') }}" data-tip="{{ t('quick_prev') }}">{{ icon("arrow-left") }}</button>
+      <button class="round" type="button" data-q="next" aria-label="{{ t('quick_next') }}" data-tip="{{ t('quick_next') }}">{{ icon("arrow-right") }}</button>
+      <button class="round" type="button" data-q="close" aria-label="{{ t('toast_close') }}" data-tip="{{ t('toast_close') }}">{{ icon("x") }}</button>
+    </div>
+    <h2 id="quick-name" data-q="name"></h2>
+    <p class="dlg-by" data-q="by"></p>
+    <p class="dlg-about" data-q="about"></p>
+    <div class="dlg-facts">
+      <span class="look-dl">{{ icon("download-simple") }}<span><b class="num" data-q="downloads"></b> {{ t("dl_word") }}</span></span>
+      <span class="swatch" data-q="colors"></span>
+    </div>
+    <div class="dlg-acts">
+      <a class="btn btn-accent btn-lg" data-q="apply" data-open-app autofocus>{{ t("apply") }}</a>
+      <span class="more"><a class="btn-link" data-q="file">{{ t("download_file") }}</a><a class="btn-link" data-q="page">{{ t("quick_page") }}</a></span>
+    </div>
+  </div>
+</dialog>
+{% endblock %}

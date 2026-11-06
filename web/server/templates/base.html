@@ -1,0 +1,59 @@
+{% from "_icons.html" import icon %}<!doctype html>
+<html lang="{{ lang }}" class="nojs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}{{ t("title_home") }}{% endblock %}</title>
+<meta name="description" content="{% block description %}{{ t('meta_desc') }}{% endblock %}">
+<meta property="og:title" content="{{ self.title() }}">
+<meta property="og:description" content="{{ self.description() }}">
+<meta property="og:type" content="website">
+<meta property="og:image" content="/static/img/og.png">
+<meta name="theme-color" content="#1C1C20">
+<link rel="icon" href="/static/img/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/css/site.css?v=14">
+<link rel="alternate" hreflang="vi" href="{{ lang_url('vi') }}">
+<link rel="alternate" hreflang="en" href="{{ lang_url('en') }}">
+<meta property="og:locale" content="{{ 'vi_VN' if lang == 'vi' else 'en_US' }}">
+{% block head %}{% endblock %}
+</head>
+<body id="top" data-lyric="{% block lyric %}{{ t('tb_now') }}{% endblock %}">
+{% set version = release.version if release else "1.8.0" %}
+<div class="shell">
+  <aside class="side">
+    <a class="brand" href="/"><img src="/static/img/musicbar-icon.png" alt="" width="30" height="30"><span><b>MusicBar</b><small>{{ t("version_v", v=version) }}</small></span></a>
+    {# The language, where the app's Settings window has it: right under the name. #}
+    <div class="lang-pick">
+      {{ icon("translate") }}
+      <nav class="seg" aria-label="{{ t('lang_label') }}">
+        <a href="{{ lang_url('vi') }}" hreflang="vi" lang="vi" aria-current="{{ 'true' if lang == 'vi' else 'false' }}">Tiếng Việt</a>
+        <a href="{{ lang_url('en') }}" hreflang="en" lang="en" aria-current="{{ 'true' if lang == 'en' else 'false' }}">English</a>
+      </nav>
+    </div>
+    <nav class="nav" aria-label="MusicBar">
+      <a href="/" {% if path == "/" %}aria-current="page"{% endif %}>{{ icon("house-simple") }}{{ t("nav_home") }}</a>
+      <a href="/gallery" {% if path.startswith("/gallery") %}aria-current="page"{% endif %}>{{ icon("squares-four") }}{{ t("nav_gallery") }}</a>
+      <a href="/download" {% if path == "/download" %}aria-current="page"{% endif %}>{{ icon("download-simple") }}{{ t("nav_download") }}</a>
+      <a href="/submit" {% if path.startswith("/submit") %}aria-current="page"{% endif %}>{{ icon("upload-simple") }}{{ t("nav_submit") }}</a>
+      <a href="{{ github }}" rel="noopener">{{ icon("github-logo") }}GitHub</a>
+    </nav>
+    {% if admin %}<div class="side-foot nav"><a href="/admin">{{ icon("lock-key-fill") }}Admin</a></div>{% endif %}
+  </aside>
+  <main class="pane">
+    {% block main %}{% endblock %}
+    <footer class="foot">
+      <span class="grow">{{ t("foot_line") }}</span>
+      <a href="{{ github }}/blob/main/CHANGELOG.md" rel="noopener">{{ t("start_changelog") }}</a>
+      <a href="{{ github }}/issues" rel="noopener">{{ t("foot_issues") }}</a>
+      <a href="{{ github }}/blob/main/LICENSE" rel="noopener">{{ t("foot_license") }}</a>
+    </footer>
+  </main>
+</div>
+{% include "_donate.html" %}
+{% include "_taskbar.html" %}
+<script src="/static/js/bar.js?v=14" defer></script>
+<script src="/static/js/taskbar.js?v=14" defer></script>
+<script src="/static/js/site.js?v=14" defer></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

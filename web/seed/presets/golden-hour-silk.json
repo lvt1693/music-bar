@@ -1,0 +1,11 @@
+{
+  "format": "musicbar-look/1",
+  "name": "Golden Hour Silk",
+  "kind": "progress",
+  "style": "Silk",
+  "colors": ["#FFB547", "#FF7A59", "#FFE3A1"],
+  "intensity": 0.85,
+  "direction": "FromStart",
+  "idleMotion": true,
+  "description": "Warm amber and peach threads twist around each other and spin into a single strand at the playhead."
+}

@@ -68,6 +68,42 @@ public enum Romanization { Off, Below, Replace }
 /// </summary>
 public sealed class AppSettings : ObservableObject
 {
+    /// <summary>
+    /// What a reset leaves alone: the language, the proxy and the lyrics folder (how to reach things
+    /// and where they are, not how MusicBar looks), and MusicBar's own notes: the Windows mode it holds
+    /// aside, the face pictures' stamp, the update skipped, the recap already shown or asked about.
+    /// </summary>
+    static readonly System.Collections.Generic.HashSet<string> KeptOnReset =
+    [
+        nameof(Language), nameof(ProxyUrl), nameof(LyricsFolder),
+        nameof(WindowsModeBefore), nameof(FacePackStamp), nameof(SkippedVersion), nameof(RecapDoneYear), nameof(RecapAskedOn),
+        nameof(CommunityNickname), nameof(CommunityDevice),
+    ];
+
+    /// <summary>
+    /// Every other option back to how MusicBar comes. Each one changes through its setter, so
+    /// everything on screen (and the saved file) follows at once.
+    /// </summary>
+    public void ResetToDefaults()
+    {
+        var defaults = new AppSettings();
+        foreach (var p in typeof(AppSettings).GetProperties(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance))
+        {
+            if (p.GetSetMethod() == null || p.GetGetMethod() == null || KeptOnReset.Contains(p.Name)) continue;
+            // Views of another setting (the lyrics delay is the offset, read the other way round).
+            if (p.IsDefined(typeof(System.Text.Json.Serialization.JsonIgnoreAttribute), true)) continue;
+            p.SetValue(this, p.GetValue(defaults));
+        }
+    }
+
+    /// <summary>New notifications on the control center's button as a red dot rather than their number.</summary>
+    bool _notificationDot;
+    public bool NotificationDot { get => _notificationDot; set => Set(ref _notificationDot, value); }
+
+    /// <summary>Follow VLC through its web interface (VLC 3 publishes no Windows media session).</summary>
+    bool _readVlc;
+    public bool ReadVlc { get => _readVlc; set => Set(ref _readVlc, value); }
+
     // ---------- Taskbar ----------
     LayerMode _layerMode = LayerMode.Auto;
     public LayerMode LayerMode { get => _layerMode; set => Set(ref _layerMode, value); }
@@ -93,10 +129,10 @@ public sealed class AppSettings : ObservableObject
     }
 
     /// <summary>Widget width with lyrics expanded.</summary>
-    double _widgetMaxWidth = 560;
+    double _widgetMaxWidth = 620;
     public double WidgetMaxWidth { get => _widgetMaxWidth; set => Set(ref _widgetMaxWidth, Math.Clamp(Math.Round(value), 240, 1200)); }
 
-    bool _lyricsExpanded;
+    bool _lyricsExpanded = true;
     public bool LyricsExpanded { get => _lyricsExpanded; set => Set(ref _lyricsExpanded, value); }
 
     LyricsPlacement _lyricsPlacement = LyricsPlacement.BesideCover;
@@ -108,10 +144,10 @@ public sealed class AppSettings : ObservableObject
     bool _onlineTrackInfo = true;
     public bool OnlineTrackInfo { get => _onlineTrackInfo; set => Set(ref _onlineTrackInfo, value); }
 
-    bool _hideWhenIdle = true;
+    bool _hideWhenIdle;
     public bool HideWhenIdle { get => _hideWhenIdle; set => Set(ref _hideWhenIdle, value); }
 
-    bool _startWithWindows;
+    bool _startWithWindows = true;
     public bool StartWithWindows { get => _startWithWindows; set => Set(ref _startWithWindows, value); }
 
     /// <summary>Look for a newer MusicBar on GitHub when it starts (and once a day while it runs).</summary>
@@ -138,7 +174,7 @@ public sealed class AppSettings : ObservableObject
     public string PinnedAppId { get => _pinnedAppId; set => Set(ref _pinnedAppId, value ?? ""); }
 
     // ---------- Appearance ----------
-    BarBackground _background = BarBackground.Auto;
+    BarBackground _background = BarBackground.Transparent;
     public BarBackground Background { get => _background; set => Set(ref _background, value); }
 
     /// <summary>Windows' taskbar mode follows the bar, so the tray icons and the clock stay readable on it.</summary>
@@ -149,7 +185,7 @@ public sealed class AppSettings : ObservableObject
     int _windowsModeBefore = -1;
     public int WindowsModeBefore { get => _windowsModeBefore; set => Set(ref _windowsModeBefore, value); }
 
-    double _backgroundOpacity = 0.86;
+    double _backgroundOpacity;
     public double BackgroundOpacity { get => _backgroundOpacity; set => Set(ref _backgroundOpacity, Math.Clamp(value, 0, 1)); }
 
     AccentSource _accentSource = AccentSource.AlbumArt;
@@ -173,7 +209,7 @@ public sealed class AppSettings : ObservableObject
     public string Skin { get => _skin; set => Set(ref _skin, value ?? ""); }
 
     /// <summary>Colors each look keeps instead of the song's (see Services.StylePalettes), by style name or "skin:file".</summary>
-    System.Collections.Generic.Dictionary<string, string> _palettes = [];
+    System.Collections.Generic.Dictionary<string, string> _palettes = new() { ["Spectrum"] = "preset:neon" };
     public System.Collections.Generic.Dictionary<string, string> Palettes { get => _palettes; set => Set(ref _palettes, value ?? []); }
 
     SeekDirection _seekDirection = SeekDirection.FromStart;
@@ -188,10 +224,10 @@ public sealed class AppSettings : ObservableObject
     public bool SeekIdleMotion { get => _seekIdleMotion; set => Set(ref _seekIdleMotion, value); }
 
     /// <summary>The bar keeps clear of Windows' icons and runs on through the empty stretches between them.</summary>
-    bool _seekAvoidIcons;
+    bool _seekAvoidIcons = true;
     public bool SeekAvoidIcons { get => _seekAvoidIcons; set => Set(ref _seekAvoidIcons, value); }
 
-    double _fillOpacity = 0.34;
+    double _fillOpacity = 0.9;
     public double FillOpacity { get => _fillOpacity; set => Set(ref _fillOpacity, Math.Clamp(value, 0.05, 1)); }
 
     bool _showAlbumArt = true;
@@ -224,7 +260,7 @@ public sealed class AppSettings : ObservableObject
     AppLanguage _language = AppLanguage.English;
     public AppLanguage Language { get => _language; set => Set(ref _language, value); }
 
-    ControlStyle _controlStyle = ControlStyle.Glow;
+    ControlStyle _controlStyle = ControlStyle.Minimal;
     public ControlStyle ControlStyle { get => _controlStyle; set => Set(ref _controlStyle, value); }
 
     string _fontFamily = "Segoe UI Variable Text";
@@ -232,7 +268,7 @@ public sealed class AppSettings : ObservableObject
 
     // ---------- Face ----------
     /// <summary>The little face that lives on the taskbar, as in the promo film.</summary>
-    bool _faceEnabled = true;
+    bool _faceEnabled;
     public bool FaceEnabled { get => _faceEnabled; set => Set(ref _faceEnabled, value); }
 
     Views.Face.FaceStyle _faceStyle = Views.Face.FaceStyle.Classic;
@@ -242,7 +278,7 @@ public sealed class AppSettings : ObservableObject
     long _facePackStamp;
     public long FacePackStamp { get => _facePackStamp; set => Set(ref _facePackStamp, value); }
 
-    FacePlacement _facePlacement = FacePlacement.BesidePlayer;
+    FacePlacement _facePlacement = FacePlacement.BeforeIcons;
     public FacePlacement FacePlacement { get => _facePlacement; set => Set(ref _facePlacement, value); }
 
     /// <summary>The face's size against the taskbar's thickness.</summary>
@@ -307,17 +343,17 @@ public sealed class AppSettings : ObservableObject
     bool _karaoke = true;
     public bool Karaoke { get => _karaoke; set => Set(ref _karaoke, value); }
 
-    bool _showNextLine = true;
+    bool _showNextLine;
     public bool ShowNextLine { get => _showNextLine; set => Set(ref _showNextLine, value); }
 
-    double _lyricScale = 1.0;
+    double _lyricScale = 1.156;
     public double LyricScale { get => _lyricScale; set => Set(ref _lyricScale, Math.Clamp(value, 0.6, 2.0)); }
 
     string _lyricColor = "#FFFFFF";
     public string LyricColor { get => _lyricColor; set => SetColor(ref _lyricColor, value); }
 
     /// <summary>How solid the lyric text is; the next line and the unsung part follow it, fainter.</summary>
-    double _lyricOpacity = 0.96;
+    double _lyricOpacity = 1;
     public double LyricOpacity { get => _lyricOpacity; set => Set(ref _lyricOpacity, Math.Clamp(value, 0.2, 1)); }
 
     /// <summary>A halo around the lyric text, so it stands off whatever runs underneath.</summary>
@@ -331,10 +367,10 @@ public sealed class AppSettings : ObservableObject
     public double LyricStrokeOpacity { get => _lyricStrokeOpacity; set => Set(ref _lyricStrokeOpacity, Math.Clamp(value, 0, 1)); }
 
     /// <summary>Halo size in pixels: small is a tight outline, large a soft glow.</summary>
-    double _lyricStrokeRadius = 8;
+    double _lyricStrokeRadius = 12;
     public double LyricStrokeRadius { get => _lyricStrokeRadius; set => Set(ref _lyricStrokeRadius, Math.Clamp(value, 1, 24)); }
 
-    LyricsAlign _lyricsAlign = LyricsAlign.Left;
+    LyricsAlign _lyricsAlign = LyricsAlign.Center;
     public LyricsAlign LyricsAlign { get => _lyricsAlign; set => Set(ref _lyricsAlign, value); }
 
     /// <summary>Global timing in LRC's sense: positive shows lyrics earlier.</summary>
@@ -352,7 +388,7 @@ public sealed class AppSettings : ObservableObject
     [System.Text.Json.Serialization.JsonIgnore]
     public int LyricsDelayMs { get => -_lyricsOffsetMs; set => LyricsOffsetMs = -value; }
 
-    Romanization _romanization = Romanization.Off;
+    Romanization _romanization = Romanization.Replace;
     public Romanization Romanization { get => _romanization; set => Set(ref _romanization, value); }
 
     /// <summary>The lyrics panel shows the romanization under each line.</summary>
@@ -371,4 +407,12 @@ public sealed class AppSettings : ObservableObject
 
     string _lyricsFolder = "";
     public string LyricsFolder { get => _lyricsFolder; set => Set(ref _lyricsFolder, (value ?? "").Trim()); }
+
+    /// <summary>The name shown on the online gallery next to what this person shares.</summary>
+    string _communityNickname = "";
+    public string CommunityNickname { get => _communityNickname; set => Set(ref _communityNickname, (value ?? "").Trim()); }
+
+    /// <summary>A random id for this copy, sent with what it shares so the gallery can slow down floods.</summary>
+    string _communityDevice = "";
+    public string CommunityDevice { get => _communityDevice; set => Set(ref _communityDevice, value ?? ""); }
 }

@@ -77,6 +77,7 @@ public partial class LyricsPanelWindow : Window
 
     public LyricsPanelWindow(ILyricsHost host, AppSettings settings)
     {
+        CpuRendering.Use(this);
         _host = host;
         _s = settings;
         InitializeComponent();

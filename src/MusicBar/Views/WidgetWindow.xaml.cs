@@ -61,6 +61,7 @@ public partial class WidgetWindow : Window
 
     public WidgetWindow(MediaService media, SolidColorBrush accentBrush, SolidColorBrush playGlyphBrush)
     {
+        CpuRendering.Use(this);
         _media = media;
         _accentBrush = accentBrush;
         _playGlyphBrush = playGlyphBrush;

@@ -1,0 +1,11 @@
+{
+  "format": "musicbar-look/1",
+  "name": "Cyber Lime Chase",
+  "kind": "led",
+  "style": "LedChase",
+  "colors": ["#B4FF1F", "#E9FFF4", "#2BE3A8"],
+  "intensity": 0.8,
+  "direction": "FromStart",
+  "idleMotion": true,
+  "description": "Bands of acid lime, ice white and mint chase each other along the edge and surge on every beat."
+}

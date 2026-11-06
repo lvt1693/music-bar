@@ -1,0 +1,11 @@
+{
+  "format": "musicbar-look/1",
+  "name": "Siren Sweep",
+  "kind": "led",
+  "style": "LedScanner",
+  "colors": ["#FF2D3D", "#2E5BFF", "#FFFFFF"],
+  "intensity": 0.85,
+  "direction": "FromStart",
+  "idleMotion": false,
+  "description": "A red light races back and forth along the strip with a blue trail behind it, like a siren in the night."
+}
