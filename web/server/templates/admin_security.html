@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}An ninh · Admin · MusicBar{% endblock %}
+{% block main %}
+<header class="adm-head"><h1 class="page-title">An ninh</h1></header>
+{% include "_admin_nav.html" %}
+
+<section class="card adm-list">
+  <h2 class="group-title">24 giờ qua</h2>
+  <div class="chips">
+    {% for k, label in sec.kinds.items() if sec.last_day.get(k) %}
+    <a class="chip-stat{% if k in sec.danger %} danger{% endif %}" href="/admin/security?kind={{ k }}"><b class="num">{{ num(sec.last_day[k]) }}</b>{{ label }}</a>
+    {% else %}<p class="muted">Yên ả, không có gì.</p>{% endfor %}
+  </div>
+  <p class="adm-foot">Lá chắn tự khóa một địa chỉ 1 giờ khi nó gom đủ 5 điểm phạt trong 10 phút: dò file nhạy cảm 2 điểm, chèn mã tấn công 3, công cụ hack 5, đoán đường dẫn, gửi dồn dập hay đăng nhập sai 1. Khóa lại trong 24 giờ thì khóa cả ngày. Phía HAProxy còn chặn những địa chỉ gửi quá 150 request trong 10 giây hoặc hơn 60 lỗi một phút.</p>
+</section>
+
+<section class="card adm-list">
+  <header class="adm-list-head"><h2 class="group-title">Đang bị khóa ({{ sec.bans | length }})</h2>
+    <form class="adm-inline" method="post" action="/admin/security">
+      <input type="hidden" name="csrf" value="{{ session.csrf }}">
+      <input class="input" name="ip" placeholder="Địa chỉ IP" required maxlength="64" aria-label="Địa chỉ IP cần khóa">
+      <button class="btn btn-soft btn-sm" name="action" value="ban">Khóa 7 ngày</button>
+    </form></header>
+  {% if sec.bans %}
+  <table class="table adm-table">
+    <thead><tr><th>Địa chỉ</th><th>Từ</th><th>Đến</th><th>Lý do</th><th>Đã chặn</th><th></th></tr></thead>
+    <tbody>{% for b in sec.bans %}
+      <tr><td class="mono"><a href="/admin/security?ip={{ b.ip }}">{{ b.ip }}</a></td><td>{{ b.since | vt }}</td><td>{{ b.until | vt }}</td><td>{{ sec.kinds.get(b.reason, b.reason) }}</td><td class="num">{{ num(b.blocked) }}</td>
+        <td><form method="post" action="/admin/security"><input type="hidden" name="csrf" value="{{ session.csrf }}"><input type="hidden" name="ip" value="{{ b.ip }}"><button class="btn btn-soft btn-sm" name="action" value="unban">Mở khóa</button></form></td></tr>
+    {% endfor %}</tbody>
+  </table>
+  {% else %}<p class="muted">Không có địa chỉ nào đang bị khóa.</p>{% endif %}
+</section>
+
+<section class="card adm-list">
+  <h2 class="group-title">Địa chỉ khả nghi 7 ngày qua</h2>
+  {% if sec.offenders %}
+  <table class="table adm-table">
+    <thead><tr><th>Địa chỉ</th><th>Số lần</th><th>Đã làm gì</th><th>Dò những đường nào</th><th>Trình duyệt / công cụ</th><th>Khoảng thời gian</th><th></th></tr></thead>
+    <tbody>{% for o in sec.offenders %}
+      <tr><td class="mono"><a href="/admin/security?ip={{ o.ip }}">{{ o.ip }}</a></td><td class="num">{{ num(o.n) }}</td><td>{{ o.kinds | join(", ") }}</td>
+        <td class="mono small">{{ o.paths | join("  ") }}</td><td class="small muted">{{ o.ua[:70] or "không khai" }}</td>
+        <td class="small">{{ o.first | vt }} đến {{ o.last | vt }}</td>
+        <td>{% if o.banned %}<span class="tag tag-ban">Đang khóa</span>{% else %}<form method="post" action="/admin/security"><input type="hidden" name="csrf" value="{{ session.csrf }}"><input type="hidden" name="ip" value="{{ o.ip }}"><button class="btn btn-soft btn-sm" name="action" value="ban">Khóa</button></form>{% endif %}</td></tr>
+    {% endfor %}</tbody>
+  </table>
+  {% else %}<p class="muted">Không có.</p>{% endif %}
+</section>
+
+<section class="card adm-list">
+  <header class="adm-list-head"><h2 class="group-title">Nhật ký{% if ip %} của {{ ip }}{% endif %}{% if kind %}: {{ sec.kinds[kind] }}{% endif %}</h2>
+    {% if ip or kind %}<a class="btn btn-soft btn-sm" href="/admin/security">Bỏ lọc</a>{% endif %}</header>
+  <table class="table adm-table">
+    <thead><tr><th>Lúc</th><th>Địa chỉ</th><th>Loại</th><th>Đường dẫn</th><th>Chi tiết</th></tr></thead>
+    <tbody>{% for e in sec.events %}
+      <tr><td class="small">{{ e.at | vt }}</td><td class="mono"><a href="/admin/security?ip={{ e.ip }}">{{ e.ip }}</a></td>
+        <td><a class="{{ 'v-block' if e.kind in sec.danger else 'v-ok' if e.kind == 'login_ok' else '' }}" href="/admin/security?kind={{ e.kind }}">{{ sec.kinds.get(e.kind, e.kind) }}</a></td>
+        <td class="mono small">{{ e.path[:80] }}</td><td class="small muted" title="{{ e.ua }}">{{ e.detail[:60] }}{% if e.ua and not e.detail %}{{ e.ua[:60] }}{% endif %}</td></tr>
+    {% else %}<tr><td colspan="5" class="muted">Chưa có gì.</td></tr>{% endfor %}</tbody>
+  </table>
+</section>
+{% endblock %}

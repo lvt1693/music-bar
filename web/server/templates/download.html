@@ -2,6 +2,7 @@
 {% from "_icons.html" import icon %}
 {% block title %}{{ t("dl_title") }} · MusicBar{% endblock %}
 {% block lyric %}{{ t("band_sub") }}{% endblock %}
+{% block head %}{% include "_jsonld.html" %}{% endblock %}
 {% block main %}
 {% set rel = releases[0] if releases else None %}
 <h1 class="page-title">{{ t("dl_title") }}</h1>
@@ -45,9 +46,14 @@
 <div class="group">
   <h2 class="group-title">{{ t("dl_req") }}</h2>
   <div class="card set">{{ icon("cpu") }}<div><b>{{ t("dl_req_os") }}</b><span class="d">{{ t("dl_req_net") }}. {{ t("dl_req_account") }}.</span></div></div>
-  {% if releases | length > 1 %}{% set old = releases[1] %}
-  <div class="card set">{{ icon("clock-counter-clockwise") }}<div><b>{{ t("dl_older") }}: {{ old.version }}</b></div><div class="ctl">{% for a in old.assets | sort(attribute="name", reverse=True) %}<a class="btn btn-soft btn-sm" href="/download/{{ old.tag }}/{{ a.name }}">{{ t("dl_setup") if a.name.endswith("Setup.exe") else t("dl_portable") }}</a>{% endfor %}</div></div>
-  {% endif %}
+</div>
+
+<div class="group">
+  <h2 class="group-title">{{ t("dl_older_t") }}</h2>
+  <p class="muted" style="margin: -2px 2px 10px; max-width: 56em">{{ t("dl_older_d") }}</p>
+  {% for old in releases[1:4] %}
+  <div class="card set">{{ icon("clock-counter-clockwise") }}<div><b>{{ t("version_v", v=old.version) }}</b><span class="d">{{ t("dl_version", d=(old.published_at or "")[:10]) }}</span></div><div class="ctl">{% for a in old.assets | sort(attribute="name", reverse=True) %}<a class="btn btn-soft btn-sm" href="/download/{{ old.tag }}/{{ a.name }}">{{ t("dl_setup") if a.name.endswith("Setup.exe") else t("dl_portable") }}</a>{% endfor %}<a class="btn btn-soft btn-sm" href="{{ old.url }}" rel="noopener">GitHub</a></div></div>
+  {% endfor %}
   <div class="card set">{{ icon("github-logo") }}<div><b>{{ t("dl_all_releases") }}</b></div><div class="ctl"><a class="btn btn-soft btn-sm" href="{{ github }}/releases" rel="noopener">GitHub</a></div></div>
 </div>
 

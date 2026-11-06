@@ -2,6 +2,7 @@
 {% from "_icons.html" import icon %}
 {% from "_card.html" import card with context %}
 {% block lyric %}{{ t("tb_now") }}{% endblock %}
+{% block head %}{% include "_jsonld.html" %}{% endblock %}
 {% block main %}
 {% set version = release.version if release else "1.8.0" %}
 <section class="hero" data-lyric="{{ t('intro_title') }}">

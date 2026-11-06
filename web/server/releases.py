@@ -1,5 +1,6 @@
-"""A mirror of MusicBar's GitHub releases: the installer and the portable zip of the latest one (and
-the one before), each checked against the SHA-256 GitHub publishes before it is offered."""
+"""A mirror of MusicBar's GitHub releases: the installer and the portable zip of the latest one and
+the three before it (in case the newest one misbehaves), each checked against the SHA-256 GitHub
+publishes before it is offered."""
 
 from __future__ import annotations
 
@@ -14,7 +15,7 @@ from . import store
 
 REPO = "lvt1693/music-bar"
 API = f"https://api.github.com/repos/{REPO}/releases?per_page=100"
-KEEP = 2
+KEEP = 4  # the latest and the three before it, in case the newest one misbehaves
 WANTED = ("-Setup.exe", "-portable.zip")
 
 _lock = threading.Lock()

@@ -67,6 +67,12 @@ def main():
     text = "\n".join(lines).rstrip("\n") + "\n"
     text += (f"\n# >>> {TAG}: backend (MusicBar website, /opt/musicbar-web, uvicorn on 127.0.0.1:7490)\n"
              f"backend {TAG}\n"
+             # Edge limits, per address, before the app sees anything: a flood (over 150 requests in
+             # ten seconds) or a scanner's run of errors (over 60 a minute) gets 429 straight away.
+             "    stick-table type ip size 200k expire 10m store http_req_rate(10s),http_err_rate(60s)\n"
+             "    http-request track-sc0 src\n"
+             "    http-request deny deny_status 429 if { sc_http_req_rate(0) gt 150 }\n"
+             "    http-request deny deny_status 429 if { sc_http_err_rate(0) gt 60 }\n"
              "    http-request set-header X-Forwarded-Proto https if { ssl_fc }\n"
              "    compression algo gzip\n"
              "    compression type text/html text/css application/javascript text/javascript application/json image/svg+xml text/plain\n"

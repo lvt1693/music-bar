@@ -1,61 +1,44 @@
 {% extends "base.html" %}
-{% block title %}Admin · MusicBar{% endblock %}
+{% block title %}Duyệt bài · Admin · MusicBar{% endblock %}
+{% set names = {"pending": "Chờ duyệt", "approved": "Đã duyệt", "rejected": "Từ chối", "hidden": "Đã ẩn"} %}
+{% set verdicts = {"clean": "Sạch", "warn": "Cần xem", "block": "Chặn"} %}
 {% block main %}
-<section class="wrap page-head" style="padding-bottom: 20px">
-  <div class="eyebrow">Admin</div>
-  <h1 style="font-size: clamp(40px, 5vw, 64px)">Review queue</h1>
-</section>
-<section class="wrap">
-  <div class="admin-bar">
-    <nav class="seg">
-      {% for s in ["pending", "approved", "rejected", "hidden"] %}<a href="/admin?status={{ s }}" aria-current="{{ 'true' if status == s else 'false' }}">{{ s }}</a>{% endfor %}
-      <a href="/admin/ads">ads</a>
-    </nav>
-    <div class="admin-actions">
-      <form method="post" action="/admin/sync"><input type="hidden" name="csrf" value="{{ session.csrf }}"><button class="btn btn-ghost btn-sm" type="submit">Sync releases</button></form>
-      <form method="post" action="/admin/logout"><button class="btn btn-ghost btn-sm" type="submit">Sign out</button></form>
-    </div>
-  </div>
-  <div class="stat-row">
-    <div class="stat"><b>{{ stats.pending }}</b><span>pending</span></div>
-    <div class="stat"><b>{{ stats.approved }}</b><span>approved</span></div>
-    <div class="stat"><b>{{ stats.rejected }}</b><span>rejected</span></div>
-    <div class="stat"><b>{{ stats.downloads }}</b><span>downloads</span></div>
-    <div class="stat"><b>{{ stats.refused }}</b><span>blocked by the scanner</span></div>
-    <div class="stat"><b class="mono" style="font-size: 16px">{{ release.version if release else "none" }}</b><span>mirrored release{% if mirror_error %} · <span class="v-block">{{ mirror_error }}</span>{% endif %}</span></div>
-  </div>
+<header class="adm-head">
+  <h1 class="page-title">Duyệt bài</h1>
+  <nav class="seg" aria-label="Trạng thái">
+    {% for s in ["pending", "approved", "rejected", "hidden"] %}<a href="/admin/queue?status={{ s }}" aria-current="{{ 'true' if status == s else 'false' }}">{{ names[s] }}{% if s == "pending" and stats.pending %} ({{ stats.pending }}){% endif %}</a>{% endfor %}
+  </nav>
+</header>
+{% include "_admin_nav.html" %}
+
+<section class="card adm-list">
   {% if items %}
-  <table class="table">
-    <thead><tr><th>#</th><th>Name</th><th>Kind</th><th>By</th><th>Scan</th><th>When</th><th></th></tr></thead>
-    <tbody>
-    {% for i in items %}
+  <table class="table adm-table">
+    <thead><tr><th>#</th><th>Tên</th><th>Loại</th><th>Người gửi</th><th>Máy quét</th><th>Lúc gửi</th><th></th></tr></thead>
+    <tbody>{% for i in items %}
     <tr>
       <td class="mono">{{ i.id }}</td>
-      <td><a href="/admin/item/{{ i.id }}"><b>{{ i.name }}</b></a><br><span class="muted mono" style="font-size: 12px">{{ i.source }} · {{ i.slug }}</span></td>
-      <td><span class="chip chip-{{ i.category }}">{{ i.category }}</span> <span class="chip chip-plain">{{ i.type }}</span></td>
+      <td><a href="/admin/item/{{ i.id }}"><b>{{ i.name }}</b></a><br><span class="muted mono small">{{ "từ app" if i.source == "app" else "từ web" }}, {{ i.slug }}</span></td>
+      <td><span class="chip">{{ t("cat_" + i.category) }}</span> <span class="chip">{{ i.type }}</span></td>
       <td>{{ i.author }}</td>
-      <td class="v-{{ i.scan_verdict }}">{{ i.scan_verdict }}{% for f in i.scan_report.findings %}<br><span style="font-size: 12.5px">{{ f.level }}: {{ f.message }}</span>{% endfor %}</td>
-      <td class="mono muted" style="font-size: 12.5px">{{ i.created_at | int }}</td>
-      <td><a class="btn btn-ghost btn-sm" href="/admin/item/{{ i.id }}">Open</a></td>
-    </tr>
-    {% endfor %}
-    </tbody>
+      <td><span class="v-{{ i.scan_verdict }}">{{ verdicts.get(i.scan_verdict, i.scan_verdict) }}</span>{% for f in i.scan_report.findings %}<br><span class="small">{{ f.message }}</span>{% endfor %}</td>
+      <td class="small">{{ i.created_at | vt }}</td>
+      <td><a class="btn btn-soft btn-sm" href="/admin/item/{{ i.id }}">Mở</a></td>
+    </tr>{% endfor %}</tbody>
   </table>
-  {% else %}
-  <div class="empty">Nothing {{ status }}.</div>
-  {% endif %}
-
-  {% if refused %}
-  <h2 class="h2" style="font-size: 28px; margin-top: 60px">Blocked by the scanner</h2>
-  <table class="table" style="margin-top: 16px">
-    <thead><tr><th>When</th><th>Name</th><th>From</th><th>Why</th></tr></thead>
-    <tbody>
-    {% for r in refused %}
-    <tr><td class="mono muted" style="font-size: 12.5px">{{ r.at | int }}</td><td>{{ r.name }}</td><td class="mono" style="font-size: 12px">{{ r.source }} · {{ r.ip_hash[:8] }}</td>
-      <td class="v-block" style="font-size: 13px">{% for f in r.report.findings if f.level == "block" %}{{ f.message }} {% if f.where %}<code>{{ f.where }}</code>{% endif %}<br>{% endfor %}</td></tr>
-    {% endfor %}
-    </tbody>
-  </table>
-  {% endif %}
+  {% else %}<p class="muted">Không có bài nào {{ names[status] | lower }}.</p>{% endif %}
 </section>
+
+{% if refused %}
+<section class="card adm-list">
+  <h2 class="group-title">Máy quét chặn (30 lần gần nhất)</h2>
+  <table class="table adm-table">
+    <thead><tr><th>Lúc</th><th>Tên</th><th>Từ</th><th>Vì sao</th></tr></thead>
+    <tbody>{% for r in refused %}
+    <tr><td class="small">{{ r.at | vt }}</td><td>{{ r.name }}</td><td class="mono small">{{ r.source }}, {{ r.ip_hash[:8] }}</td>
+      <td class="v-block small">{% for f in r.report.findings if f.level == "block" %}{{ f.message }}{% if f.where %} <code class="code">{{ f.where }}</code>{% endif %}<br>{% endfor %}</td></tr>
+    {% endfor %}</tbody>
+  </table>
+</section>
+{% endif %}
 {% endblock %}

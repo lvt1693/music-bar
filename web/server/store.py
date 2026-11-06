@@ -91,6 +91,45 @@ create table if not exists counters (
     key text primary key,
     n integer not null default 0
 );
+-- What the admin's dashboard reads. Visitors are a daily hash (address + browser + day), never kept as is.
+create table if not exists views (
+    day text not null,
+    at real not null,
+    path text not null,
+    lang text not null default '',
+    vn integer not null default 0,
+    bot integer not null default 0,
+    ref text not null default '',
+    vh text not null default ''
+);
+create index if not exists views_day on views(day);
+create table if not exists dl_log (
+    day text not null,
+    at real not null,
+    kind text not null check (kind in ('app', 'item', 'apply')),
+    ref text not null,
+    vn integer not null default 0
+);
+create index if not exists dl_day on dl_log(day, kind);
+-- The shield's notes: suspicious requests, bans, sign-ins. These keep the address: the admin needs it.
+create table if not exists sec_events (
+    id integer primary key autoincrement,
+    at real not null,
+    ip text not null,
+    kind text not null,
+    path text not null default '',
+    ua text not null default '',
+    detail text not null default ''
+);
+create index if not exists sec_at on sec_events(at);
+create index if not exists sec_ip on sec_events(ip, at);
+create table if not exists bans (
+    ip text primary key,
+    since real not null,
+    until real not null,
+    reason text not null,
+    blocked integer not null default 0
+);
 """
 
 
@@ -280,6 +319,78 @@ def gallery_totals() -> tuple[int, int]:
     """How many approved items, and how many times they were downloaded."""
     row = db().execute("select count(*), coalesce(sum(downloads), 0) from items where status = 'approved'").fetchone()
     return row[0], row[1]
+
+
+# ------------------------------------------------------------------ the dashboard's numbers
+
+def day_of(at: float | None = None) -> str:
+    """The day in Vietnam's time (UTC+7), the admin's day."""
+    return time.strftime("%Y-%m-%d", time.gmtime((at or time.time()) + 7 * 3600))
+
+
+def _tidy(conn: sqlite3.Connection) -> None:
+    # Now and then, old rows go: page views after 120 days, the shield's notes after 60.
+    if secrets.randbelow(200) == 0:
+        conn.execute("delete from views where at < ?", (time.time() - 120 * 86400,))
+        conn.execute("delete from sec_events where at < ?", (time.time() - 60 * 86400,))
+        conn.execute("delete from bans where until < ?", (time.time() - 7 * 86400,))
+
+
+def log_view(path: str, lang: str, vn: bool, bot: bool, ref: str, visitor: str) -> None:
+    conn = db()
+    now = time.time()
+    conn.execute("insert into views values (?, ?, ?, ?, ?, ?, ?, ?)",
+                 (day_of(now), now, path[:120], lang, int(vn), int(bot), ref[:80], visitor))
+    _tidy(conn)
+    conn.commit()
+
+
+def log_download(kind: str, ref: str, vn: bool) -> None:
+    conn = db()
+    now = time.time()
+    conn.execute("insert into dl_log values (?, ?, ?, ?, ?)", (day_of(now), now, kind, ref[:80], int(vn)))
+    conn.commit()
+
+
+def sec_event(ip: str, kind: str, path: str = "", ua: str = "", detail: str = "") -> None:
+    conn = db()
+    conn.execute("insert into sec_events (at, ip, kind, path, ua, detail) values (?, ?, ?, ?, ?, ?)",
+                 (time.time(), ip[:64], kind, path[:200], ua[:200], detail[:200]))
+    _tidy(conn)
+    conn.commit()
+
+
+def save_ban(ip: str, seconds: float, reason: str) -> float:
+    now = time.time()
+    conn = db()
+    conn.execute("insert into bans (ip, since, until, reason) values (?, ?, ?, ?) on conflict(ip) do update set "
+                 "since = excluded.since, until = excluded.until, reason = excluded.reason, blocked = 0",
+                 (ip, now, now + seconds, reason[:200]))
+    conn.commit()
+    return now + seconds
+
+
+def lift_ban(ip: str) -> None:
+    conn = db()
+    conn.execute("update bans set until = ? where ip = ?", (time.time(), ip))
+    conn.commit()
+
+
+def ban_rows(active_only: bool = True) -> list[sqlite3.Row]:
+    where = "where until > ?" if active_only else "where until > ? - 86400"
+    return db().execute(f"select * from bans {where} order by since desc", (time.time(),)).fetchall()
+
+
+def was_banned_lately(ip: str) -> bool:
+    return db().execute("select 1 from bans where ip = ? and since > ?", (ip, time.time() - 86400)).fetchone() is not None
+
+
+def add_blocked(counts: dict[str, int]) -> None:
+    if not counts:
+        return
+    conn = db()
+    conn.executemany("update bans set blocked = blocked + ? where ip = ?", [(n, ip) for ip, n in counts.items()])
+    conn.commit()
 
 
 def log_refused(ip: str, device: str, source: str, name: str, report: dict) -> None:

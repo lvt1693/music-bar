@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}Tổng quan · Admin · MusicBar{% endblock %}
+{% macro delta(change) -%}
+{%- if change is not none %}<span class="kpi-delta">{{ "+" if change >= 0 else "" }}{{ change }}% so với kỳ trước</span>{% endif -%}
+{%- endmacro %}
+{% macro bar(n, top) -%}<span class="mini-bar" style="--w: {{ (n * 100 / top) | round(1) if top else 0 }}%"></span>{%- endmacro %}
+{% block main %}
+<header class="adm-head">
+  <h1 class="page-title">Tổng quan</h1>
+  <nav class="seg" aria-label="Khoảng thời gian">
+    {% for d in [7, 30, 90] %}<a href="/admin?days={{ d }}" aria-current="{{ 'true' if days == d else 'false' }}">{{ d }} ngày</a>{% endfor %}
+  </nav>
+</header>
+{% include "_admin_nav.html" %}
+
+<section class="kpis" aria-label="Các con số chính, {{ days }} ngày qua">
+  <div class="card kpi">
+    <span class="kpi-label">{{ icon("house-simple") }}Lượt xem trang</span>
+    <b class="kpi-num">{{ num(s.total_views) }}</b>{{ delta(s.views_change) }}
+    <span class="kpi-sub">{{ num(s.bots) }} lượt của bot, không tính</span>
+  </div>
+  <div class="card kpi">
+    <span class="kpi-label">{{ icon("user-circle-fill") }}Khách</span>
+    <b class="kpi-num">{{ num(s.total_visitors) }}</b>{{ delta(s.visitors_change) }}
+    <span class="kpi-sub">{{ s.vn_share }}% lượt xem từ Việt Nam</span>
+  </div>
+  <div class="card kpi">
+    <span class="kpi-label">{{ icon("download-simple") }}Tải app (máy chủ)</span>
+    <b class="kpi-num">{{ num(s.total_app_dl) }}</b>{{ delta(s.app_change) }}
+    <span class="kpi-sub">Mọi thời: {{ num(s.app_all_time) }} (GitHub và máy chủ)</span>
+  </div>
+  <div class="card kpi">
+    <span class="kpi-label">{{ icon("squares-four") }}Tải giao diện</span>
+    <b class="kpi-num">{{ num(s.total_item_dl) }}</b>{{ delta(s.item_change) }}
+    <span class="kpi-sub">{{ num(s.total_applies) }} lần bấm Áp dụng trên web</span>
+  </div>
+  <a class="card kpi kpi-link" href="/admin/queue">
+    <span class="kpi-label">{{ icon("check") }}Chờ duyệt</span>
+    <b class="kpi-num">{{ s.queue.pending or 0 }}</b>
+    <span class="kpi-sub">Trong kỳ: {{ s.queue.sent or 0 }} gửi, {{ s.queue.approved or 0 }} duyệt, {{ s.queue.rejected or 0 }} từ chối, {{ s.refused }} bị máy quét chặn</span>
+  </a>
+  <a class="card kpi kpi-link{% if s.threats %} kpi-alert{% endif %}" href="/admin/security">
+    <span class="kpi-label">{{ icon("shield-check") }}Kết nối khả nghi</span>
+    <b class="kpi-num">{{ num(s.threats) }}</b>
+    <span class="kpi-sub">{{ s.bans_now }} địa chỉ đang bị khóa, {{ num(s.blocked) }} request bị chặn</span>
+  </a>
+</section>
+
+<section class="card chart-card">
+  <header><h2 class="group-title">Lượt xem và khách mỗi ngày</h2>
+    <span class="legend"><i style="background: {{ charts.BLUE }}"></i>Lượt xem<i class="line" style="background: {{ charts.CORAL }}"></i>Khách</span></header>
+  {{ charts.bars_and_line(s.labels, s.views, s.visitors, "lượt xem", "khách") }}
+  <details class="table-view"><summary>Xem dạng bảng</summary>
+    <table class="table"><thead><tr><th>Ngày</th><th>Lượt xem</th><th>Khách</th></tr></thead><tbody>
+    {% for d in s.labels | reverse %}{% set i = s.labels.index(d) %}<tr><td>{{ charts.label(d) }}</td><td>{{ s.views[i] }}</td><td>{{ s.visitors[i] }}</td></tr>{% endfor %}
+    </tbody></table></details>
+</section>
+
+<section class="card chart-card">
+  <header><h2 class="group-title">Lượt tải mỗi ngày</h2>
+    <span class="legend"><i style="background: {{ charts.BLUE }}"></i>App từ máy chủ<i style="background: {{ charts.CORAL }}"></i>Giao diện trong kho</span></header>
+  {{ charts.stacked(s.labels, [("app", s.app_dl, charts.BLUE), ("giao diện", s.item_dl, charts.CORAL)], "Lượt tải mỗi ngày") }}
+  <details class="table-view"><summary>Xem dạng bảng</summary>
+    <table class="table"><thead><tr><th>Ngày</th><th>App</th><th>Giao diện</th><th>Bấm Áp dụng</th></tr></thead><tbody>
+    {% for d in s.labels | reverse %}{% set i = s.labels.index(d) %}<tr><td>{{ charts.label(d) }}</td><td>{{ s.app_dl[i] }}</td><td>{{ s.item_dl[i] }}</td><td>{{ s.applies[i] }}</td></tr>{% endfor %}
+    </tbody></table></details>
+</section>
+
+<div class="adm-grid">
+  <section class="card adm-list">
+    <h2 class="group-title">Trang được xem nhiều</h2>
+    {% set top = s.pages[0].n if s.pages else 0 %}
+    {% for p in s.pages %}<div class="adm-row"><span class="mono">{{ p.path }}</span><b class="num">{{ num(p.n) }}</b>{{ bar(p.n, top) }}</div>{% else %}<p class="muted">Chưa có.</p>{% endfor %}
+  </section>
+  <section class="card adm-list">
+    <h2 class="group-title">Nguồn giới thiệu</h2>
+    {% set top = s.refs[0].n if s.refs else 0 %}
+    {% for r in s.refs %}<div class="adm-row"><span>{{ r.ref }}</span><b class="num">{{ num(r.n) }}</b>{{ bar(r.n, top) }}</div>{% else %}<p class="muted">Chưa có ai đến từ trang khác.</p>{% endfor %}
+    <p class="adm-foot">Ngôn ngữ: {{ num(s.lang_vi) }} lượt tiếng Việt, {{ num(s.lang_en) }} lượt tiếng Anh.</p>
+  </section>
+  <section class="card adm-list">
+    <h2 class="group-title">Giao diện được tải nhiều</h2>
+    {% set top = s.top_items[0].n if s.top_items else 0 %}
+    {% for it in s.top_items %}<div class="adm-row"><a href="/gallery/{{ it.slug }}">{{ it.name }}</a><b class="num" title="mọi thời: {{ it.total }}">{{ num(it.n) }}</b>{{ bar(it.n, top) }}</div>{% else %}<p class="muted">Chưa có lượt tải trong kỳ.</p>{% endfor %}
+  </section>
+  <section class="card adm-list">
+    <h2 class="group-title">Bấm Áp dụng trên web</h2>
+    {% set top = s.top_applies[0].n if s.top_applies else 0 %}
+    {% for it in s.top_applies %}<div class="adm-row"><span>{{ it.name }}</span><b class="num">{{ num(it.n) }}</b>{{ bar(it.n, top) }}</div>{% else %}<p class="muted">Chưa có.</p>{% endfor %}
+    {% if s.app_tags %}<p class="adm-foot">Tải app theo bản: {% for t in s.app_tags %}{{ t.ref }} ({{ num(t.n) }}){% if not loop.last %}, {% endif %}{% endfor %}.</p>{% endif %}
+  </section>
+</div>
+
+<section class="card adm-list">
+  <header class="adm-list-head"><h2 class="group-title">Kết nối khả nghi trong kỳ</h2><a class="btn btn-soft btn-sm" href="/admin/security">Xem hết</a></header>
+  {% if s.offenders %}
+  <table class="table adm-table">
+    <thead><tr><th>Địa chỉ</th><th>Số lần</th><th>Đã làm gì</th><th>Lần cuối</th><th>Trạng thái</th></tr></thead>
+    <tbody>{% for o in s.offenders %}
+      <tr><td class="mono"><a href="/admin/security?ip={{ o.ip }}">{{ o.ip }}</a></td><td class="num">{{ num(o.n) }}</td><td>{{ o.kinds | join(", ") }}</td><td>{{ o.last | vt }}</td>
+        <td>{% if o.banned %}<span class="tag tag-ban">Đang khóa</span>{% else %}<span class="tag">Đã hết</span>{% endif %}{% if o.blocked %} <span class="muted">{{ num(o.blocked) }} bị chặn</span>{% endif %}</td></tr>
+    {% endfor %}</tbody>
+  </table>
+  {% else %}<p class="muted">Không có gì đáng ngờ.</p>{% endif %}
+</section>
+
+<div class="adm-grid">
+  <section class="card adm-list">
+    <h2 class="group-title">Đăng nhập gần đây</h2>
+    {% for l in s.logins %}<div class="adm-row adm-row-3"><span>{{ l.at | vt }}</span><span class="mono">{{ l.ip }}</span><span class="{{ 'v-ok' if l.kind == 'login_ok' else 'v-block' }}">{{ s.kinds[l.kind] }}</span></div>{% else %}<p class="muted">Chưa có.</p>{% endfor %}
+  </section>
+  <section class="card adm-list">
+    <h2 class="group-title">Quảng cáo</h2>
+    {% for a in s.ads %}<div class="adm-row adm-row-3"><span>{{ a.title }}</span><span class="num">{{ num(a.impressions) }} lượt thấy, {{ num(a.clicks) }} click</span><b class="num">{{ "%.1f" | format(a.ctr) }}%</b></div>{% else %}<p class="muted">Chưa có quảng cáo.</p>{% endfor %}
+    <p class="adm-foot">Bản phát hành trên máy chủ: {{ release.version if release else "chưa có" }}{% if mirror_error %}, <span class="v-block">lỗi: {{ mirror_error }}</span>{% endif %}.</p>
+  </section>
+</div>
+{% endblock %}

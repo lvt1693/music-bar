@@ -1,6 +1,8 @@
 """Server-side commands: python -m server.cli <command> ...
 
-  set-password                 asks for the admin password (or reads MUSICBAR_ADMIN_PASSWORD)
+  set-admin <name>             sets the admin's name and asks for the password (or reads MUSICBAR_ADMIN_PASSWORD)
+  has-admin                    exits 0 when the admin account has a name and a password
+  bans                         who is shut out right now; unban <address> lets one back in
   queue                        what waits for review, with the scan verdicts
   show <id>                    one item: its scan report and its file, as text
   approve <id> [note]          approve; reject <id> [note]; hide <id>; feature <id>
@@ -26,13 +28,24 @@ def main(argv: list[str]) -> int:
         print(__doc__)
         return 1
     cmd, args = argv[0], argv[1:]
-    if cmd == "set-password":
-        password = os.environ.get("MUSICBAR_ADMIN_PASSWORD") or getpass.getpass("Admin password: ")
-        if len(password) < 12:
-            print("At least 12 characters")
+    if cmd == "set-admin":
+        if not args or len(args[0].strip()) < 3:
+            print("set-admin <name>: a name of 3 characters or more")
             return 1
-        auth.set_password(password)
-        print("password set")
+        password = os.environ.get("MUSICBAR_ADMIN_PASSWORD") or getpass.getpass("Admin password: ")
+        if len(password) < 16:
+            print("At least 16 characters")
+            return 1
+        auth.set_admin(args[0], password)
+        print(f"admin {args[0].strip().lower()!r} set")
+    elif cmd == "has-admin":
+        return 0 if auth.has_admin() else 1
+    elif cmd == "bans":
+        for b in store.ban_rows():
+            print(f"{b['ip']:<40} until {time.strftime('%Y-%m-%d %H:%M', time.localtime(b['until']))}  {b['reason']}  ({b['blocked']} turned away)")
+    elif cmd == "unban":
+        store.lift_ban(args[0])
+        print(f"{args[0]} let back in (the site picks it up at its next restart)")
     elif cmd == "queue":
         rows, total = store.list_items(status="pending", sort="old", limit=200)
         print(f"{total} waiting")

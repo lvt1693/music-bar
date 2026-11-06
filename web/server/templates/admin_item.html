@@ -1,75 +1,69 @@
 {% extends "base.html" %}
 {% block title %}#{{ item.id }} · Admin · MusicBar{% endblock %}
+{% set names = {"pending": "Chờ duyệt", "approved": "Đã duyệt", "rejected": "Từ chối", "hidden": "Đã ẩn"} %}
+{% set verdicts = {"clean": "Sạch", "warn": "Cần xem", "block": "Chặn"} %}
 {% block main %}
-<section class="wrap item-hero">
-  <a class="back" href="/admin">← Review queue</a>
-  <div class="item-grid">
-    <div>
-      <div class="item-preview" style="aspect-ratio: 16 / 5">
-        <div class="wallpaper"></div>
-        <div class="strip" style="height: 30%">
-          {%- if item.video_url %}<video muted loop playsinline autoplay src="{{ item.video_url }}"></video>
-          {%- elif item.type == "preset" %}<canvas data-preset='{{ {"style": item.style, "colors": item.colors} | tojson }}'></canvas>
-          {%- elif item.preview_url %}<img src="{{ item.preview_url }}" alt="">{%- endif %}
-        </div>
-      </div>
-      <div class="source">
-        <h2>File ({{ item.type }}, {{ item.size }} bytes) · read as text, never run</h2>
-        <pre class="code">{{ source }}</pre>
-      </div>
-      <div class="source">
-        <h2>Scan: <span class="v-{{ item.scan_verdict }}">{{ item.scan_verdict }}</span></h2>
-        {% if item.scan_report.findings %}
-        <ul class="findings">{% for f in item.scan_report.findings %}<li class="{{ f.level }}">{{ f.message }} {% if f.where %}<code>{{ f.where }}</code>{% endif %}</li>{% endfor %}</ul>
-        {% else %}<p class="muted">No findings.</p>{% endif %}
-      </div>
+<header class="adm-head"><h1 class="page-title">{{ item.name }}</h1><a class="btn btn-soft btn-sm" href="/admin/queue">Về danh sách</a></header>
+{% include "_admin_nav.html" %}
+<div class="item-grid">
+  <div>
+    <div class="item-preview">
+      {%- if item.video_url %}<video muted loop playsinline autoplay src="{{ item.video_url }}"></video>
+      {%- elif item.type == "preset" %}<canvas data-preset='{{ {"style": item.style, "colors": item.colors} | tojson }}'></canvas>
+      {%- elif item.preview_url %}<img src="{{ item.preview_url }}" alt="">{%- endif %}
     </div>
-    <aside class="side">
-      <div class="panel">
-        <div class="card-meta"><span class="chip chip-{{ item.category }}">{{ item.category }}</span><span class="chip chip-plain">{{ item.status }}</span>{% if item.featured %}<span class="chip chip-plain">featured</span>{% endif %}</div>
-        <h1 style="font-size: 34px">{{ item.name }}</h1>
-        <div class="by">by <b>{{ item.author }}</b> · {{ item.source }}{% if item.device %} · <span class="mono" style="font-size: 12px">{{ item.device[:12] }}</span>{% endif %}</div>
-        {% if item.note %}<p class="muted">Note: {{ item.note }}</p>{% endif %}
-        <form class="form" method="post" action="/admin/item/{{ item.id }}" style="margin-top: 18px">
-          <input type="hidden" name="csrf" value="{{ session.csrf }}">
-          <label>Note to keep (optional)<input class="field" name="note" maxlength="300" value="{{ item.note }}"></label>
-          <div class="admin-actions">
-            <button class="btn btn-sm btn-ok" name="action" value="approve">Approve</button>
-            <button class="btn btn-sm btn-no" name="action" value="reject">Reject</button>
-            <button class="btn btn-sm btn-ghost" name="action" value="hide">Hide</button>
-            <button class="btn btn-sm btn-ghost" name="action" value="{{ 'unfeature' if item.featured else 'feature' }}">{{ "Unfeature" if item.featured else "Feature" }}</button>
-          </div>
-        </form>
-      </div>
-      <div class="panel">
-        <h3>Edit</h3>
-        <form class="form" method="post" action="/admin/item/{{ item.id }}">
-          <input type="hidden" name="csrf" value="{{ session.csrf }}">
-          <label>Name<input class="field" name="name" value="{{ item.name }}" maxlength="40"></label>
-          <label>Description<input class="field" name="description" value="{{ item.description }}" maxlength="300"></label>
-          <div class="row2">
-            <label>Category<select class="field" name="category">{% for c in categories %}<option {% if c == item.category %}selected{% endif %}>{{ c }}</option>{% endfor %}</select></label>
-            <label>Accent<input class="field mono" name="accent" value="{{ item.accent }}" pattern="#[0-9A-Fa-f]{6}"></label>
-          </div>
-          <label>Tags (comma separated)<input class="field" name="tags" value="{{ item.tags | join(', ') }}"></label>
-          <div><button class="btn btn-sm btn-ghost" name="action" value="edit">Save</button></div>
-        </form>
-      </div>
-      <div class="panel">
-        <h3>Preview image or clip</h3>
-        <form class="form" method="post" action="/admin/item/{{ item.id }}" enctype="multipart/form-data">
-          <input type="hidden" name="csrf" value="{{ session.csrf }}">
-          <input class="field" type="file" name="media" accept="image/png,image/jpeg,image/webp,video/mp4,video/webm">
-          <div><button class="btn btn-sm btn-ghost" name="action" value="media">Upload</button></div>
-        </form>
-      </div>
-      <div class="panel">
-        <form method="post" action="/admin/item/{{ item.id }}">
-          <input type="hidden" name="csrf" value="{{ session.csrf }}">
-          <button class="btn btn-sm btn-no" name="action" value="delete">Delete for good</button>
-        </form>
-      </div>
-    </aside>
+    <section class="card adm-list" style="margin-top: 12px">
+      <h2 class="group-title">File ({{ item.type }}, {{ item.size }} byte): chỉ đọc như chữ, không bao giờ chạy</h2>
+      <pre class="source"><code>{{ source }}</code></pre>
+    </section>
+    <section class="card adm-list">
+      <h2 class="group-title">Máy quét: <span class="v-{{ item.scan_verdict }}">{{ verdicts.get(item.scan_verdict, item.scan_verdict) }}</span></h2>
+      {% if item.scan_report.findings %}
+      <ul class="findings">{% for f in item.scan_report.findings %}<li><span class="v-{{ f.level }}">{{ f.level }}</span> {{ f.message }}{% if f.where %} <code class="code">{{ f.where }}</code>{% endif %}</li>{% endfor %}</ul>
+      {% else %}<p class="muted">Không thấy gì.</p>{% endif %}
+    </section>
   </div>
-</section>
+  <aside>
+    <section class="panel washed">
+      <div class="card-meta"><span class="chip">{{ t("cat_" + item.category) }}</span><span class="chip">{{ names.get(item.status, item.status) }}</span>{% if item.featured %}<span class="chip">Nổi bật</span>{% endif %}</div>
+      <p class="by" style="margin: 10px 0">của <b>{{ item.author }}</b>, {{ "gửi từ app" if item.source == "app" else "gửi từ web" }}{% if item.device %}, máy <span class="mono small">{{ item.device[:12] }}</span>{% endif %}</p>
+      <form class="form" method="post" action="/admin/item/{{ item.id }}">
+        <input type="hidden" name="csrf" value="{{ session.csrf }}">
+        <label>Ghi chú (không bắt buộc)<input class="field" name="note" maxlength="300" value="{{ item.note }}"></label>
+        <div class="admin-actions" style="flex-wrap: wrap">
+          <button class="btn btn-sm btn-ok" name="action" value="approve">Duyệt</button>
+          <button class="btn btn-sm btn-no" name="action" value="reject">Từ chối</button>
+          <button class="btn btn-sm btn-ghost" name="action" value="hide">Ẩn</button>
+          <button class="btn btn-sm btn-ghost" name="action" value="{{ 'unfeature' if item.featured else 'feature' }}">{{ "Bỏ nổi bật" if item.featured else "Cho nổi bật" }}</button>
+        </div>
+      </form>
+    </section>
+    <section class="panel">
+      <h3 style="font-size: 15px">Sửa</h3>
+      <form class="form" method="post" action="/admin/item/{{ item.id }}">
+        <input type="hidden" name="csrf" value="{{ session.csrf }}">
+        <label>Tên<input class="field" name="name" value="{{ item.name }}" maxlength="40"></label>
+        <label>Mô tả<input class="field" name="description" value="{{ item.description }}" maxlength="300"></label>
+        <label>Nhóm<select class="field" name="category">{% for c in categories %}<option value="{{ c }}" {% if c == item.category %}selected{% endif %}>{{ t("cat_" + c) }}</option>{% endfor %}</select></label>
+        <label>Màu nhấn<input class="field mono" name="accent" value="{{ item.accent }}" pattern="#[0-9A-Fa-f]{6}"></label>
+        <label>Thẻ (cách nhau bằng dấu phẩy)<input class="field" name="tags" value="{{ item.tags | join(', ') }}"></label>
+        <div><button class="btn btn-sm btn-ghost" name="action" value="edit">Lưu</button></div>
+      </form>
+    </section>
+    <section class="panel">
+      <h3 style="font-size: 15px">Ảnh hoặc clip xem trước</h3>
+      <form class="form" method="post" action="/admin/item/{{ item.id }}" enctype="multipart/form-data">
+        <input type="hidden" name="csrf" value="{{ session.csrf }}">
+        <input class="field" type="file" name="media" accept="image/png,image/jpeg,image/webp,video/mp4,video/webm">
+        <div><button class="btn btn-sm btn-ghost" name="action" value="media">Tải lên</button></div>
+      </form>
+    </section>
+    <section class="panel">
+      <form method="post" action="/admin/item/{{ item.id }}">
+        <input type="hidden" name="csrf" value="{{ session.csrf }}">
+        <button class="btn btn-sm btn-no" name="action" value="delete">Xóa hẳn</button>
+      </form>
+    </section>
+  </aside>
+</div>
 {% endblock %}

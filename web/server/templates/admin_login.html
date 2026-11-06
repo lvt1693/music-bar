@@ -1,13 +1,15 @@
 {% extends "base.html" %}
-{% block title %}Admin · MusicBar{% endblock %}
+{% from "_icons.html" import icon %}
+{% block title %}Đăng nhập · Admin · MusicBar{% endblock %}
 {% block main %}
-<section class="wrap page-head" style="max-width: 460px">
-  <div class="eyebrow">Admin</div>
-  <h1 style="font-size: 54px">MusicBar</h1>
-  <form class="panel form" method="post" action="/admin/login" style="margin-top: 26px">
-    {% if error %}<ul class="findings"><li class="block">{{ error }}</li></ul>{% endif %}
-    <label>Password<input class="field" type="password" name="password" autocomplete="current-password" required autofocus></label>
-    <div><button class="btn btn-sig" type="submit">Sign in</button></div>
+<section class="panel washed adm-login">
+  <div class="top">{{ icon("lock-key-fill") }}<div><b>Quản trị MusicBar</b><span>Chỉ dành cho người duyệt kho.</span></div></div>
+  <form class="adm-login-form" method="post" action="/admin/login">
+    {% if error %}<p class="adm-error" role="alert">{{ icon("warning") }}{{ error }}</p>{% endif %}
+    <label class="fld-plain">Tên đăng nhập<input type="text" name="username" autocomplete="username" required autofocus maxlength="40"></label>
+    <label class="fld-plain">Mật khẩu<input type="password" name="password" autocomplete="current-password" required></label>
+    <button class="btn btn-accent btn-lg" type="submit">Đăng nhập</button>
+    <p class="muted" style="font-size: 12.5px">Sai 5 lần trong 15 phút là địa chỉ của bạn bị tạm khóa. Mọi lần đăng nhập, đúng hay sai, đều được ghi lại.</p>
   </form>
 </section>
 {% endblock %}

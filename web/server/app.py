@@ -3,6 +3,7 @@ its review queue, the app's API (gallery, submissions, ads) and an admin area.""
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import os
@@ -17,7 +18,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from markupsafe import Markup, escape
 
-from . import auth, geo, releases, scanner, store
+from . import auth, charts, geo, releases, scanner, stats, store
+from .shield import BOT, shield
 from .i18n import t as translate
 
 HERE = Path(__file__).resolve().parent
@@ -55,9 +57,12 @@ def markdown(text: str) -> Markup:
 
 
 templates.env.filters["md"] = markdown
+# Times on the admin pages, in Vietnam (UTC+7).
+templates.env.filters["vt"] = lambda at: time.strftime("%d/%m %H:%M", time.gmtime((at or 0) + 7 * 3600))
 
 GITHUB = "https://github.com/lvt1693/music-bar"
 MEDIA_DIR = HERE / "static" / "media"
+SITE = "https://musicbar.truclv.com"  # absolute addresses for search engines and link previews
 CATEGORIES = ("visualizer", "progress", "led")
 ACCENTS = {"visualizer": "#47A9FF", "progress": "#FF5F6D", "led": "#4CFFB0"}
 PAGE_SIZE = 24
@@ -84,8 +89,41 @@ async def _headers(request: Request, call_next):
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(), interest-cohort=()"
     response.headers.setdefault("Content-Security-Policy", CSP)
+    if request.headers.get("x-forwarded-proto") == "https":
+        response.headers["Strict-Transport-Security"] = "max-age=31536000"
     if request.url.path.startswith("/static/"):
         response.headers["Cache-Control"] = "public, max-age=86400"
+    return response
+
+
+PAGES = re.compile(r"^/($|gallery$|gallery/[a-z0-9-]+$|download$|submit$)")
+
+
+@app.middleware("http")
+async def _shield(request: Request, call_next):
+    """The shield first (shield.py), then the page; then the visit is counted for the dashboard."""
+    ip = client_ip(request)
+    path = request.url.path
+    agent = request.headers.get("user-agent", "")
+    admin = is_admin(request) is not None
+    verdict = shield.check(ip, path, request.url.query, agent, admin)
+    if verdict:
+        status, _ = verdict
+        text = {403: "forbidden", 400: "bad request", 404: "not found", 429: "too many requests"}.get(status, "no")
+        return PlainTextResponse(text, status_code=status, headers={"Cache-Control": "no-store", "Retry-After": "600"})
+    response = await call_next(request)
+    shield.after(ip, path, response.status_code, agent)
+    if request.method == "GET" and response.status_code == 200 and not admin and PAGES.match(path):
+        try:
+            referrer = urlparse(request.headers.get("referer", "")).hostname or ""
+            if referrer.endswith("musicbar.truclv.com"):
+                referrer = ""
+            day = store.day_of()
+            visitor = hashlib.sha256(f"{store.ip_hash(ip)}|{agent}|{day}".encode()).hexdigest()[:16]
+            store.log_view(path if not path.startswith("/gallery/") else "/gallery/*", lang_of(request),
+                           geo.is_vietnam(ip), bool(BOT.search(agent)) or not agent, referrer, visitor)
+        except Exception as error:  # noqa: BLE001 - a missed count never breaks a page
+            print("[views]", error, flush=True)
     return response
 
 
@@ -119,13 +157,16 @@ def lang_of(request: Request) -> str:
 
 
 def is_admin(request: Request) -> dict | None:
-    return auth.read_session(request.cookies.get(auth.COOKIE))
+    return auth.read_session(request.cookies.get(auth.COOKIE), request.headers.get("user-agent", ""))
 
 
 def page(request: Request, name: str, http_status: int = 200, **context) -> HTMLResponse:
     lang = lang_of(request)
     query = dict(request.query_params)
     lang_url = lambda code: request.url.path + "?" + urlencode(dict(query, lang=code))
+    # For search engines: one address per page and language (filters and pages collapse into it), and the
+    # bare address as the one that picks the language by itself.
+    page_url = lambda code: SITE + request.url.path + "?lang=" + code
     context.update(
         request=request, lang=lang, github=GITHUB, release=releases.latest(),
         t=lambda key, **v: translate(key, lang, **v), lang_url=lang_url, other_lang_url=lang_url("en" if lang == "vi" else "vi"),
@@ -135,6 +176,8 @@ def page(request: Request, name: str, http_status: int = 200, **context) -> HTML
         recent=[item_urls(store.item_dict(r)) for r in store.list_items(sort="new", limit=3)[0]],
         film=lambda name: (MEDIA_DIR / name).is_file(),
         sponsor=releases.sponsor_url(),
+        site=SITE, canonical=page_url(lang), page_url=page_url, default_url=SITE + request.url.path,
+        noindex=name in ("notfound.html", "submitted.html") or name.startswith("admin"),
         # A film's address carries its date, so a new render isn't hidden behind a day of browser cache.
         media=lambda name: f"/static/media/{name}?v={int((MEDIA_DIR / name).stat().st_mtime) if (MEDIA_DIR / name).is_file() else 0}",
     )
@@ -203,6 +246,7 @@ def download_file(request: Request, tag: str, name: str):
     if store.count_hits(ip, f"app{tag}", 600) < 1:
         store.add_hit(ip, f"app{tag}")
         store.bump(f"app:{tag}")
+        store.log_download("app", tag, geo.is_vietnam(client_ip(request)))
     return FileResponse(path, media_type="application/octet-stream", filename=name,
                         headers={"Cache-Control": "public, max-age=86400"})
 
@@ -235,13 +279,27 @@ def item_page(request: Request, key: str):
 
 @app.get("/submit", response_class=HTMLResponse)
 def submit_page(request: Request):
-    return page(request, "submit.html")
+    # The form carries the time it was handed out, signed: a bot posts in under a second, people don't.
+    now = str(int(time.time()))
+    return page(request, "submit.html", clock=f"{now}.{auth.sign(now)}")
 
 
 @app.post("/submit", response_class=HTMLResponse)
 async def submit_form(request: Request, name: str = Form(""), nickname: str = Form(""), description: str = Form(""),
-                      category: str = Form(""), agree: str = Form(""), file: UploadFile = File(...),
-                      preview: UploadFile | None = File(None)):
+                      category: str = Form(""), agree: str = Form(""), website: str = Form(""), clock: str = Form(""),
+                      file: UploadFile = File(...), preview: UploadFile | None = File(None)):
+    ip = client_ip(request)
+    agent = request.headers.get("user-agent", "")
+    # A field people never see: only a bot fills it in. It gets a thank-you and nothing is kept.
+    if website.strip():
+        shield.strike(ip, 2, "honeypot", "/submit", agent, website[:60])
+        return page(request, "submitted.html", result={"ok": True, "id": 0, "name": scanner.clean_text(name, 40) or "?", "findings": []})
+    stamp, _, signature = clock.partition(".")
+    age = time.time() - int(stamp) if stamp.isdigit() else -1
+    if signature != auth.sign(stamp) or not 3 <= age <= 7200:
+        store.sec_event(ip, "form", "/submit", agent, "too fast" if 0 <= age < 3 else "no clock or expired")
+        result = {"ok": False, "findings": [{"level": "block", "where": "", "message": translate("sub_clock", lang_of(request))}]}
+        return page(request, "submitted.html", http_status=422, result=result)
     data = await file.read(scanner.SKIN_MAX + 1)
     picture = await preview.read(scanner.PREVIEW_MAX + 1) if preview is not None and preview.filename else b""
     result = submit(request, source="web", name=name, nickname=nickname, description=description, category=category,
@@ -271,6 +329,7 @@ def item_file(request: Request, item_id: int, what: str):
             if store.count_hits(ip, f"dl{row['id']}", 600) < 1:
                 store.add_hit(ip, f"dl{row['id']}")
                 store.count_downloads(row["id"])
+                store.log_download("item", str(row["id"]), geo.is_vietnam(client_ip(request)))
         name = row["slug"] + (".hlsl" if row["type"] == "skin" else ".json")
         media = "text/plain; charset=utf-8" if row["type"] == "skin" else "application/json"
         return blob_response(row["file_sha"], media, name)
@@ -300,6 +359,48 @@ def ad_click(request: Request, ad_id: int):
 @app.get("/healthz")
 def healthz():
     return {"ok": True}
+
+
+@app.get("/robots.txt", response_class=PlainTextResponse)
+def robots():
+    return ("User-agent: *\nDisallow: /admin\nDisallow: /api/\nDisallow: /files/\nDisallow: /go/\n\n"
+            f"Sitemap: {SITE}/sitemap.xml\n")
+
+
+@app.get("/sitemap.xml")
+def sitemap():
+    """Every page in both languages, each pointing at its other language (hreflang), for search engines."""
+    pages = [("/", None), ("/gallery", None), ("/download", None), ("/submit", None)]
+    rows, _ = store.list_items(sort="new", limit=500)
+    pages += [(f"/gallery/{r['slug']}", r["reviewed_at"] or r["created_at"]) for r in rows]
+    release = releases.latest() or {}
+    fallback = (release.get("published_at") or "")[:10] or time.strftime("%Y-%m-%d")
+    out = ['<?xml version="1.0" encoding="UTF-8"?>',
+           '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">']
+    for path, at in pages:
+        lastmod = time.strftime("%Y-%m-%d", time.gmtime(at)) if at else fallback
+        links = "".join(f'<xhtml:link rel="alternate" hreflang="{code}" href="{SITE}{path}?lang={code}"/>' for code in ("vi", "en"))
+        links += f'<xhtml:link rel="alternate" hreflang="x-default" href="{SITE}{path}"/>'
+        for code in ("vi", "en"):
+            out.append(f"<url><loc>{SITE}{path}?lang={code}</loc><lastmod>{lastmod}</lastmod>{links}</url>")
+    out.append("</urlset>")
+    return Response("\n".join(out), media_type="application/xml", headers={"Cache-Control": "public, max-age=3600"})
+
+
+@app.get("/favicon.ico")
+def favicon():
+    return FileResponse(HERE / "static" / "img" / "musicbar-icon.png", media_type="image/png",
+                        headers={"Cache-Control": "public, max-age=604800"})
+
+
+@app.post("/api/v1/apply/{slug}")
+def api_apply(request: Request, slug: str):
+    """The website's Apply button, counted for the dashboard (whether the app opened, the page can't know)."""
+    ip = store.ip_hash(client_ip(request))
+    if re.fullmatch(r"[a-z0-9-]{1,60}", slug) and store.count_hits(ip, "apply", 3600) < 30:
+        store.add_hit(ip, "apply")
+        store.log_download("apply", slug, geo.is_vietnam(client_ip(request)))
+    return Response(status_code=204)
 
 
 # ------------------------------------------------------------------ submissions (web and app)
@@ -423,31 +524,74 @@ def admin_guard(request: Request, csrf: str | None = None) -> dict | None:
 
 
 @app.get("/admin", response_class=HTMLResponse)
-def admin_home(request: Request, status: str = "pending"):
+def admin_home(request: Request, days: int = 30):
     session = is_admin(request)
     if session is None:
         return page(request, "admin_login.html")
+    days = 7 if days <= 7 else 90 if days >= 90 else 30
+    return page(request, "admin_dashboard.html", session=session, tab="home", days=days,
+                s=stats.dashboard(days), charts=charts, mirror_error=releases.last_error())
+
+
+@app.get("/admin/queue", response_class=HTMLResponse)
+def admin_queue(request: Request, status: str = "pending"):
+    session = is_admin(request)
+    if session is None:
+        return RedirectResponse("/admin", status_code=303)
     if status not in ("pending", "approved", "rejected", "hidden"):
         status = "pending"
     rows, total = store.list_items(status=status, sort="old" if status == "pending" else "new", limit=200)
     refused = store.db().execute("select * from refused order by id desc limit 30").fetchall()
-    return page(request, "admin.html", session=session, status=status, total=total, stats=store.stats(),
+    return page(request, "admin.html", session=session, tab="queue", status=status, total=total, stats=store.stats(),
                 items=[item_urls(store.item_dict(r, admin=True)) for r in rows],
                 refused=[dict(r, report=json.loads(r["report"])) for r in refused], mirror_error=releases.last_error())
 
 
+@app.get("/admin/security", response_class=HTMLResponse)
+def admin_security(request: Request, kind: str = "", ip: str = ""):
+    session = is_admin(request)
+    if session is None:
+        return RedirectResponse("/admin", status_code=303)
+    return page(request, "admin_security.html", session=session, tab="security",
+                sec=stats.security(kind=kind, ip=ip), kind=kind, ip=ip)
+
+
+@app.post("/admin/security")
+def admin_security_post(request: Request, csrf: str = Form(""), action: str = Form(""), ip: str = Form("")):
+    if admin_guard(request, csrf) is None:
+        return RedirectResponse("/admin", status_code=303)
+    ip = ip.strip()[:64]
+    if action == "unban" and ip:
+        shield.lift(ip)
+    elif action == "ban" and ip and ip != client_ip(request):
+        shield.ban(ip, "by the admin", seconds=7 * 86400)
+    return RedirectResponse("/admin/security", status_code=303)
+
+
 @app.post("/admin/login")
-def admin_login(request: Request, password: str = Form("")):
-    ip = store.ip_hash(client_ip(request))
-    if store.count_hits(ip, "login", 900) >= 8:
-        return page(request, "admin_login.html", http_status=429, error="Too many attempts, wait 15 minutes")
-    store.add_hit(ip, "login")
-    if not auth.check_password(password):
+def admin_login(request: Request, username: str = Form(""), password: str = Form("")):
+    """A name and a password. Five wrong tries from one address in fifteen minutes and it waits (and the
+    shield shuts it out of the whole site); many wrong tries on one name from anywhere slow every try down."""
+    ip = client_ip(request)
+    agent = request.headers.get("user-agent", "")
+    key = store.ip_hash(ip)
+    name = username.strip().lower()[:40]
+    if store.count_hits(key, "loginfail", 900) >= 5:
+        store.sec_event(ip, "login_locked", "/admin/login", agent, f"name: {name}")
+        return page(request, "admin_login.html", http_status=429, error="Sai quá nhiều lần. Đợi 15 phút rồi thử lại.")
+    if store.count_hits("name:" + name, "loginfail", 3600) >= 20:
+        time.sleep(3)
+    if not auth.check_login(name, password):
+        store.add_hit(key, "loginfail")
+        store.add_hit("name:" + name, "loginfail")
+        store.sec_event(ip, "login_fail", "/admin/login", agent, f"name: {name}")
+        shield.strike(ip, 1, "login_fail_strike", "/admin/login", agent, once_a_minute=True)
         time.sleep(1)
-        return page(request, "admin_login.html", http_status=401, error="Wrong password")
+        return page(request, "admin_login.html", http_status=401, error="Sai tên đăng nhập hoặc mật khẩu.")
+    store.sec_event(ip, "login_ok", "/admin/login", agent, f"name: {name}")
     response = RedirectResponse("/admin", status_code=303)
     secure = request.headers.get("x-forwarded-proto") == "https"
-    response.set_cookie(auth.COOKIE, auth.new_session(), max_age=auth.SESSION_SECONDS, httponly=True,
+    response.set_cookie(auth.COOKIE, auth.new_session(name, agent), max_age=auth.SESSION_SECONDS, httponly=True,
                         samesite="strict", secure=secure, path="/")
     return response
 
@@ -469,7 +613,7 @@ def admin_item(request: Request, item_id: int):
         return page(request, "notfound.html", http_status=404)
     path = store.blob_path(row["file_sha"])
     source = path.read_text(encoding="utf-8", errors="replace") if path else ""
-    return page(request, "admin_item.html", session=session, item=item_urls(store.item_dict(row, admin=True)), source=source)
+    return page(request, "admin_item.html", session=session, tab="queue", item=item_urls(store.item_dict(row, admin=True)), source=source)
 
 
 @app.post("/admin/item/{item_id}")
@@ -493,7 +637,7 @@ async def admin_item_post(request: Request, item_id: int, csrf: str = Form(""), 
         store.update_item(item_id, featured=1 if action == "feature" else 0)
     elif action == "delete":
         store.delete_item(item_id)
-        return RedirectResponse("/admin", status_code=303)
+        return RedirectResponse("/admin/queue", status_code=303)
     elif action == "edit":
         fields = {}
         if name:
@@ -522,7 +666,7 @@ def admin_ads(request: Request):
     session = is_admin(request)
     if session is None:
         return RedirectResponse("/admin", status_code=303)
-    return page(request, "admin_ads.html", session=session, ads=[dict(a) for a in store.all_ads()])
+    return page(request, "admin_ads.html", session=session, tab="ads", ads=[dict(a) for a in store.all_ads()])
 
 
 @app.post("/admin/ads")

@@ -377,6 +377,9 @@
   document.addEventListener("click", (e) => {
     const a = e.target.closest("[data-open-app]");
     if (!a) return;
+    // Counted for the admin's dashboard (whether the app opened, the page can't tell).
+    const slug = /^musicbar:\/\/(?:apply|install)\/([a-z0-9-]+)/.exec(a.getAttribute("href") || "");
+    if (slug && navigator.sendBeacon) navigator.sendBeacon(`/api/v1/apply/${slug[1]}`);
     let left = false;
     const away = () => { left = true; };
     window.addEventListener("blur", away, { once: true });

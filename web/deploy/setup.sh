@@ -30,12 +30,17 @@ chmod 750 "$DATA"
 
 as_app() { (cd "$APP" && runuser -u musicbar -- env MUSICBAR_WEB_DATA="$DATA" "$APP/venv/bin/python" -m server.cli "$@"); }
 
-if [ ! -f "$DATA/admin.json" ]; then
-    PW=$(python3 -c 'import secrets; print(secrets.token_urlsafe(18))')
-    (cd "$APP" && runuser -u musicbar -- env MUSICBAR_WEB_DATA="$DATA" MUSICBAR_ADMIN_PASSWORD="$PW" "$APP/venv/bin/python" -m server.cli set-password)
+# The admin signs in with a name and a long random password; both are kept for root only. An older
+# password-only account is replaced the same way.
+if ! as_app has-admin >/dev/null 2>&1; then
+    # The name isn't written here (this file is public): MUSICBAR_ADMIN_USER, or a random one.
+    ADMIN_USER="${MUSICBAR_ADMIN_USER:-admin-$(python3 -c 'import secrets; print(secrets.token_hex(3))')}"
+    PW=$(python3 -c 'import secrets; print(secrets.token_urlsafe(24))')
+    (cd "$APP" && runuser -u musicbar -- env MUSICBAR_WEB_DATA="$DATA" MUSICBAR_ADMIN_PASSWORD="$PW" "$APP/venv/bin/python" -m server.cli set-admin "$ADMIN_USER")
     umask 077
-    echo "$PW" > /root/musicbar-admin-password.txt
-    echo "admin password set (kept in /root/musicbar-admin-password.txt)"
+    printf 'user: %s\npassword: %s\n' "$ADMIN_USER" "$PW" > /root/musicbar-admin.txt
+    rm -f /root/musicbar-admin-password.txt
+    echo "admin account set (kept in /root/musicbar-admin.txt)"
 fi
 
 [ -f "$SRC/seed/manifest.json" ] && as_app seed "$SRC/seed"

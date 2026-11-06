@@ -7,6 +7,9 @@
 <p style="color: var(--text-2); margin: -10px 0 18px; max-width: 46em">{{ t("sub_sub") }}</p>
 
 <form class="form" method="post" action="/submit" enctype="multipart/form-data">
+  <input type="hidden" name="clock" value="{{ clock }}">
+  {# For bots only: people never see this field, a bot that fills it in gets a thank-you and nothing more. #}
+  <label class="trap" aria-hidden="true">Website<input type="text" name="website" tabindex="-1" autocomplete="off"></label>
   <label class="drop">
     {{ icon("upload-simple") }}
     <b>{{ t("f_file") }}</b>

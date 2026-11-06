@@ -1,0 +1,14 @@
+{# The admin's tabs, and the account's own buttons on the right. #}
+<div class="adm-bar">
+  <nav class="seg" aria-label="Admin">
+    <a href="/admin" aria-current="{{ 'true' if tab == 'home' else 'false' }}">Tổng quan</a>
+    <a href="/admin/queue" aria-current="{{ 'true' if tab == 'queue' else 'false' }}">Duyệt bài</a>
+    <a href="/admin/security" aria-current="{{ 'true' if tab == 'security' else 'false' }}">An ninh</a>
+    <a href="/admin/ads" aria-current="{{ 'true' if tab == 'ads' else 'false' }}">Quảng cáo</a>
+  </nav>
+  <div class="adm-me">
+    <span class="muted">{{ session.user }}</span>
+    <form method="post" action="/admin/sync"><input type="hidden" name="csrf" value="{{ session.csrf }}"><button class="btn btn-soft btn-sm" type="submit">Đồng bộ bản phát hành</button></form>
+    <form method="post" action="/admin/logout"><button class="btn btn-soft btn-sm" type="submit">Đăng xuất</button></form>
+  </div>
+</div>
