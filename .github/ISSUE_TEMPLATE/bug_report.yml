@@ -1,0 +1,47 @@
+name: Báo lỗi / Bug report
+description: MusicBar chạy sai, crash, hoặc taskbar bị lạ / Something is wrong, crashes, or the taskbar misbehaves
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Cảm ơn bạn đã báo lỗi! Gửi kèm **file log** là mình sửa được nhanh hơn nhiều: cách lấy ở [docs/logs.md](https://github.com/lvt1693/music-bar/blob/main/docs/logs.md).
+        Thanks for reporting! Attaching the **log file** helps a lot: see [docs/logs.md](https://github.com/lvt1693/music-bar/blob/main/docs/logs.md#in-english).
+  - type: textarea
+    id: what
+    attributes:
+      label: Lỗi gì? / What happens?
+      description: Mô tả ngắn, có ảnh hoặc video càng tốt. / A short description; screenshots or a video help.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Làm sao để bị lại? / How to make it happen again?
+      placeholder: |
+        1. ...
+        2. ...
+  - type: input
+    id: version
+    attributes:
+      label: Phiên bản MusicBar / MusicBar version
+      description: Cài đặt → Giới thiệu / Settings → About
+      placeholder: "1.8.0"
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows
+      description: Bấm Win + R, gõ winver / Press Win + R, type winver
+      placeholder: "Windows 11 24H2 (26100.xxxx)"
+  - type: input
+    id: player
+    attributes:
+      label: Trình phát nhạc / Music player
+      placeholder: "Spotify, YouTube trên Chrome, VLC..."
+  - type: textarea
+    id: log
+    attributes:
+      label: File log / Log file
+      description: Kéo thả musicbar.log vào đây (nén .zip nếu GitHub không nhận). Bị crash thì xem mục 2 trong docs/logs.md. / Drag musicbar.log here (zip it if GitHub refuses it). For crashes see section 2 of docs/logs.md.

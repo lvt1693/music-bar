@@ -26,3 +26,7 @@ promo/.hyperframes/
 promo/.capture/
 promo/.thumbnails/
 promo/renders/
+
+# web/seed: the gallery content (skins, presets, previews, manifest, upcoming.json) stays private: it is
+# deployed from this folder by web/deploy/deploy.ps1 and never goes to the repo
+web/seed/
