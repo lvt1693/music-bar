@@ -3,6 +3,7 @@ its review queue, the app's API (gallery, submissions, ads) and an admin area.""
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import math
@@ -23,7 +24,17 @@ from .shield import BOT, shield
 from .i18n import t as translate
 
 HERE = Path(__file__).resolve().parent
-app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
+@contextlib.asynccontextmanager
+async def _lifespan(_app: FastAPI):
+    store.db()
+    # MUSICBAR_NO_SYNC=1 when trying the site out locally: no mirror of the releases.
+    if os.environ.get("MUSICBAR_NO_SYNC") != "1":
+        releases.start_background()
+        geo.start_background()
+    yield
+
+
+app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None, lifespan=_lifespan)
 app.mount("/static", StaticFiles(directory=HERE / "static"), name="static")
 templates = Jinja2Templates(directory=HERE / "templates")
 
@@ -70,15 +81,6 @@ PAGE_SIZE = 24
 # Inline style attributes carry the cards' accent colors (always a checked #RRGGBB); scripts stay 'self' only.
 CSP = ("default-src 'self'; img-src 'self' data: blob:; media-src 'self'; font-src 'self'; style-src 'self' 'unsafe-inline'; "
        "script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'")
-
-
-@app.on_event("startup")
-def _startup() -> None:
-    store.db()
-    # MUSICBAR_NO_SYNC=1 when trying the site out locally: no mirror of the releases.
-    if os.environ.get("MUSICBAR_NO_SYNC") != "1":
-        releases.start_background()
-        geo.start_background()
 
 
 @app.middleware("http")

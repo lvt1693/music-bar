@@ -24,6 +24,7 @@
   </div>
   <div class="look-body">
     <a class="look-name" href="{{ item.page_url }}" data-quick>{{ item.name }}</a>
+    {%- if item.fresh %}<span class="fresh-badge">{{ t("fresh_badge") }}</span>{% endif %}
     <span class="look-by">{{ t("by") }} {{ item.author }}, {{ t("kind_" + item.category) }}</span>
     <div class="look-foot">
       <span class="look-dl" title="{{ t('item_dl_d') }}">{{ icon("download-simple") }}<span class="num">{{ num(item.downloads) }}</span></span>

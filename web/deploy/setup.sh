@@ -22,6 +22,8 @@ cp "$SRC/requirements.txt" "$APP/requirements.txt"
 if [ ! -x "$APP/venv/bin/python" ]; then
     python3 -m venv "$APP/venv" || { apt-get install -y -q python3-venv >/dev/null && python3 -m venv "$APP/venv"; }
 fi
+# pip itself first: older ones have path traversal bugs when installing packages.
+"$APP/venv/bin/python" -m pip install -q --disable-pip-version-check --upgrade "pip>=26.2"
 "$APP/venv/bin/pip" install -q --disable-pip-version-check -r "$APP/requirements.txt"
 chown -R root:root "$APP"
 chmod -R a+rX,go-w "$APP"

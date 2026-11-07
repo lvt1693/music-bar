@@ -27,8 +27,20 @@
 {% if q %}<p class="muted" style="margin: 0 2px 10px">{{ t("found_n", n=total) }}: “{{ q }}”</p>{% endif %}
 
 {% if items %}
+{# Page one of the plain view opens with the community's newly approved looks, under their own heading. #}
+{% set fresh = items | selectattr("fresh") | list if p == 1 and not q and sort == "new" else [] %}
+{% if fresh %}
+<section class="fresh" aria-labelledby="fresh-t">
+  <h2 class="group-title" id="fresh-t">{{ t("g_fresh") }}</h2>
+  <p class="muted fresh-d">{{ t("g_fresh_d") }}</p>
+  <div class="looks">
+    {% for item in fresh %}{{ card(item, t, num) }}{% endfor %}
+  </div>
+</section>
+<h2 class="group-title">{{ t("g_all_looks") }}</h2>
+{% endif %}
 <div class="looks">
-  {% for item in items %}{{ card(item, t, num) }}{% endfor %}
+  {% for item in items if item not in fresh %}{{ card(item, t, num) }}{% endfor %}
 </div>
 {% if pages > 1 %}
 <nav class="pager" aria-label="{{ t('pages') }}">

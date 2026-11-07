@@ -216,6 +216,15 @@ def add_hit(ip: str, kind: str) -> None:
 
 # ------------------------------------------------------------------ items
 
+FRESH_DAYS = 30
+
+
+def is_fresh(row: sqlite3.Row) -> bool:
+    """A community look approved in the last FRESH_DAYS: the gallery shows it under "Newly added"."""
+    return (row["source"] != "seed" and row["status"] == "approved"
+            and (row["reviewed_at"] or 0) > time.time() - FRESH_DAYS * 86400)
+
+
 def item_dict(row: sqlite3.Row, admin: bool = False) -> dict:
     d = {
         "id": row["id"], "slug": row["slug"], "type": row["type"], "category": row["category"],
@@ -226,6 +235,7 @@ def item_dict(row: sqlite3.Row, admin: bool = False) -> dict:
         "created_at": row["created_at"], "size": row["file_size"], "sha256": row["file_sha"],
         "has_preview": bool(row["preview_sha"]), "has_video": bool(row["video_sha"]),
         "file_name": row["slug"] + (".hlsl" if row["type"] == "skin" else ".json"),
+        "fresh": is_fresh(row),
     }
     if admin:
         d.update({"status": row["status"], "source": row["source"], "device": row["device"],
@@ -247,8 +257,12 @@ def list_items(status: str = "approved", type_: str | None = None, category: str
         where.append("(name like ? or author like ? or tags like ? or description like ?)")
         like = f"%{query[:40]}%"
         args += [like, like, like, like]
+    # Newest first opens with what the community sent lately (newest approval first), ahead of our own
+    # featured looks: seeing your look at the top of the gallery, on the site and in the app, is the thanks.
+    fresh = f"(source != 'seed' and coalesce(reviewed_at, 0) > strftime('%s', 'now') - {FRESH_DAYS * 86400})"
     order = {"popular": "featured desc, downloads desc, created_at desc", "name": "name collate nocase",
-             "old": "created_at asc"}.get(sort, "featured desc, created_at desc")
+             "old": "created_at asc"}.get(sort, f"{fresh} desc, case when {fresh} then reviewed_at end desc, "
+                                                "featured desc, created_at desc")
     clause = " and ".join(where)
     conn = db()
     total = conn.execute(f"select count(*) from items where {clause}", args).fetchone()[0]

@@ -228,6 +228,11 @@ html.story .shelf-view { overflow: hidden; }
 .look-dl { display: inline-flex; gap: 6px; align-items: center; font-size: 13px; color: var(--text-2); }
 .look-dl .i { width: 14px; height: 14px; }
 .look-foot .btn { position: relative; z-index: 1; }
+/* Newly added: the community's freshly approved looks open the gallery, each with a small badge. */
+.fresh { margin-bottom: 22px; }
+.fresh-d { margin: -4px 2px 10px; font-size: 13px; }
+.fresh-badge { position: absolute; top: 8px; left: 8px; z-index: 1; padding: 1px 8px; border-radius: 7px;
+  background: var(--accent); color: var(--on-accent); font: 600 11.5px/18px var(--f-text); pointer-events: none; }
 
 /* a look up close, over the gallery: the strip on its desk, a few words, Apply */
 .dlg { position: fixed; width: min(620px, calc(100vw - 32px)); max-height: calc(100dvh - var(--tb-h) - 32px); padding: 0; border: 1px solid var(--panel-edge); border-radius: 14px; background: #17171B; color: var(--text); overflow: auto; }
