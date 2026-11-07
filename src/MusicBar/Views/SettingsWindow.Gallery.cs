@@ -499,16 +499,30 @@ public partial class SettingsWindow
             await Task.Delay(150);
             var hwnd = new System.Windows.Interop.WindowInteropHelper(stage).Handle;
             if (!Interop.Native.GetWindowRect(hwnd, out var r) || r.Width <= 0 || r.Height <= 0) return null;
-            var screen = GetDC(IntPtr.Zero);
-            var memory = CreateCompatibleDC(screen);
-            var bitmap = CreateCompatibleBitmap(screen, r.Width, r.Height);
-            var old = SelectObject(memory, bitmap);
-            PrintWindow(hwnd, memory, 2 /* PW_RENDERFULLCONTENT */);
-            SelectObject(memory, old);
-            var source = System.Windows.Interop.Imaging.CreateBitmapSourceFromHBitmap(bitmap, IntPtr.Zero, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
-            Interop.Native.DeleteObject(bitmap);
-            DeleteDC(memory);
-            ReleaseDC(IntPtr.Zero, screen);
+            // A heavy skin may not have drawn its first frame yet: the picture then comes back black, without
+            // even the window's dark ground. Keep it running and look again; a black picture is never sent.
+            BitmapSource? source = null;
+            for (int attempt = 0; attempt < 6; attempt++)
+            {
+                var shot = GrabWindow(hwnd, r.Width, r.Height);
+                if (!IsBlack(shot))
+                {
+                    source = shot;
+                    break;
+                }
+                for (int i = 0; i < 12; i++)
+                {
+                    time += 1 / 30.0;
+                    engine.Tick();
+                    shader.Update(engine);
+                    await Task.Delay(16);
+                }
+            }
+            if (source == null)
+            {
+                Log.Info($"The preview of {skin.File} stayed black: shared without a picture");
+                return null;
+            }
             var encoder = new PngBitmapEncoder();
             encoder.Frames.Add(BitmapFrame.Create(source));
             using var stream = new MemoryStream();
@@ -524,6 +538,34 @@ public partial class SettingsWindow
         {
             stage.Close();
         }
+    }
+
+    /// <summary>A window's picture as Windows composed it (works off screen, and for what the graphics card draws).</summary>
+    static BitmapSource GrabWindow(IntPtr hwnd, int width, int height)
+    {
+        var screen = GetDC(IntPtr.Zero);
+        var memory = CreateCompatibleDC(screen);
+        var bitmap = CreateCompatibleBitmap(screen, width, height);
+        var old = SelectObject(memory, bitmap);
+        PrintWindow(hwnd, memory, 2 /* PW_RENDERFULLCONTENT */);
+        SelectObject(memory, old);
+        var source = System.Windows.Interop.Imaging.CreateBitmapSourceFromHBitmap(bitmap, IntPtr.Zero, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
+        Interop.Native.DeleteObject(bitmap);
+        DeleteDC(memory);
+        ReleaseDC(IntPtr.Zero, screen);
+        return source;
+    }
+
+    /// <summary>Nothing drawn at all: every pixel black (the stage's ground alone is a dark grey, not black).</summary>
+    static bool IsBlack(BitmapSource source)
+    {
+        var bgra = new FormatConvertedBitmap(source, PixelFormats.Bgra32, null, 0);
+        int stride = bgra.PixelWidth * 4;
+        var pixels = new byte[stride * bgra.PixelHeight];
+        bgra.CopyPixels(pixels, stride, 0);
+        for (int i = 0; i < pixels.Length; i += 4)
+            if (pixels[i] > 4 || pixels[i + 1] > 4 || pixels[i + 2] > 4) return false;
+        return true;
     }
 
     [System.Runtime.InteropServices.DllImport("user32.dll")] static extern bool PrintWindow(IntPtr hwnd, IntPtr dc, uint flags);

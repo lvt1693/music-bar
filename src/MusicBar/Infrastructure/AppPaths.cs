@@ -10,6 +10,7 @@ public static class AppPaths
 
     public static string SettingsFile => Path.Combine(DataDir, "settings.json");
     public static string LogFile => Path.Combine(DataDir, "musicbar.log");
+    public static string OldLogFile => Path.Combine(DataDir, "musicbar.old.log");
     public static string DefaultLyricsDir => Path.Combine(DataDir, "Lyrics");
 
     static string Ensure(string path)

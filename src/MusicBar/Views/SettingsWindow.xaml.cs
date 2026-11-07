@@ -533,10 +533,22 @@ public partial class SettingsWindow : Window
 
     void OpenDataFolder_Click(object sender, RoutedEventArgs e) => Open(AppPaths.DataDir);
 
+    /// <summary>The log file picked out in Explorer, ready to drag into a GitHub issue or a chat.</summary>
     void OpenLog_Click(object sender, RoutedEventArgs e)
     {
-        if (File.Exists(AppPaths.LogFile)) Open(AppPaths.LogFile);
-        else Open(AppPaths.DataDir);
+        if (!File.Exists(AppPaths.LogFile))
+        {
+            Open(AppPaths.DataDir);
+            return;
+        }
+        try
+        {
+            Process.Start("explorer.exe", $"/select,\"{AppPaths.LogFile}\"");
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Showing the log file failed", ex);
+        }
     }
 
     void Tour_Click(object sender, RoutedEventArgs e) => (Application.Current as App)?.ShowWelcome();

@@ -36,11 +36,13 @@ internal sealed class TaskbarTracker : IDisposable
     static readonly TimeSpan AutoHideCheckEvery = TimeSpan.FromSeconds(2);
 
     /// <summary>
-    /// The notification area's container. Its visible children cover the same
-    /// ground, and when the control center folds tray items away its left part
-    /// is actually empty.
+    /// Containers, never icons themselves. The notification area's (TrayNotifyWnd): its visible children
+    /// cover the same ground, and when the control center folds tray items away its left part is actually
+    /// empty. The old task band's (ReBarWindow32, MSTaskSwWClass): their buttons are listed on their own,
+    /// and Windows 11 leaves an invisible MSTaskSwWClass at the taskbar's left end, about 90 px wide, which
+    /// kept the bar off the screen's edge when nothing is shown there.
     /// </summary>
-    const string TrayContainer = "TrayNotifyWnd";
+    static readonly HashSet<string> Containers = ["TrayNotifyWnd", "ReBarWindow32", "MSTaskSwWClass"];
 
     readonly DispatcherTimer _poll = new() { Interval = SlowTick };
     readonly Native.WinEventProc _foregroundProc;
@@ -54,6 +56,8 @@ internal sealed class TaskbarTracker : IDisposable
     bool _checkingAutoHide;
     bool _ticking;
     int _partialScans;
+    // A scan of this taskbar has found its Start button: from then on, a scan without it is a fragment.
+    bool _startSeen;
 
     // The monitor (device name) whose secondary taskbar this follows; null follows the main taskbar.
     readonly string? _monitorDevice;
@@ -166,10 +170,13 @@ internal sealed class TaskbarTracker : IDisposable
                     || (_monitorDevice != null && Monitor != null && Monitor.DeviceName != _monitorDevice);
         if (lost)
         {
+            // The main taskbar's window died: Explorer restarted, perhaps after crashing.
+            if (_monitorDevice == null && Handle != IntPtr.Zero && !Native.IsWindow(Handle)) CrashReport.TaskbarRestarted();
             Handle = _monitorDevice == null ? Native.FindWindow("Shell_TrayWnd", null) : Monitors.SecondaryTaskbarOn(_monitorDevice);
             Rect = default;
             Occupied = [];
             HasScanned = false;
+            _startSeen = false;
             changed = true;
             HearMoves();
         }
@@ -267,7 +274,7 @@ internal sealed class TaskbarTracker : IDisposable
         bool horizontal = IsHorizontal;
         try
         {
-            var (occupied, quickSettings) = await Task.Run(() => FindOccupied(hwnd, rc, horizontal));
+            var (occupied, quickSettings, hasStart) = await Task.Run(() => FindOccupied(hwnd, rc, horizontal));
             // A taskbar sliding in or out moves across its length only: what was found along it still holds.
             if (hwnd != Handle || !SameAlong(rc, Rect))
             {
@@ -281,11 +288,16 @@ internal sealed class TaskbarTracker : IDisposable
             // is not the taskbar's layout. Once a layout with it is known, keep that one until a scan
             // finds the tray again; before that (startup, Explorer restarting), look again every half
             // second and settle for what there is after about five (a secondary taskbar may have no
-            // clock at its end).
-            if (!Complete(occupied))
+            // clock at its end). The same goes for a scan that lost the Start button once it has been seen:
+            // while Windows' Search opens from hovering the search box, or UI Automation times out and only
+            // the old-style child windows answer, the Start and Search buttons drop out, and laying out on
+            // that put the lyrics over them (#17).
+            if (hasStart) _startSeen = true;
+            bool lostStart = _startSeen && !hasStart;
+            if (!Complete(occupied) || lostStart)
             {
                 if (++_partialScans == 1)
-                    Log.Info($"Taskbar scan without the tray ignored: [{Describe(occupied)}]");
+                    Log.Info($"Taskbar scan without the {(lostStart ? "Start button" : "tray")} ignored: [{Describe(occupied)}]");
                 if (HasScanned && Complete(Occupied)) return;
                 if (_partialScans < 10)
                 {
@@ -353,7 +365,7 @@ internal sealed class TaskbarTracker : IDisposable
     /// ignored. When icons are centered, the group is assumed symmetric around
     /// the middle, starting at the Start button.
     /// </summary>
-    static (List<Span> Occupied, Span? QuickSettings) FindOccupied(IntPtr tray, Native.RECT rc, bool horizontal)
+    static (List<Span> Occupied, Span? QuickSettings, bool HasStart) FindOccupied(IntPtr tray, Native.RECT rc, bool horizontal)
     {
         var bar = Along.Of(rc, horizontal);
         var spans = new List<Span>();
@@ -373,7 +385,7 @@ internal sealed class TaskbarTracker : IDisposable
         if (startAt is double start && start - bar.Start > bar.Length * 0.1)
             spans.Add(new Span((int)start, (int)(bar.Start + bar.End - start)));
 
-        return (Merge(spans), QuickSettingsSpan(quick, power));
+        return (Merge(spans), QuickSettingsSpan(quick, power), startAt.HasValue);
     }
 
     /// <summary>
@@ -433,7 +445,7 @@ internal sealed class TaskbarTracker : IDisposable
 
         foreach (var (cls, r) in found)
         {
-            if (cls == TrayContainer) continue;
+            if (Containers.Contains(cls)) continue;
             var a = Along.Of(r, horizontal);
             if (r.Width < 2 || r.Height < 2 || a.Length > bar.Length * 0.3) continue;
             if (a.CrossEnd <= bar.CrossStart || a.CrossStart >= bar.CrossEnd) continue;
@@ -457,7 +469,7 @@ internal sealed class TaskbarTracker : IDisposable
             else if (cls.StartsWith("SystemTray.", StringComparison.Ordinal) && PowerWords.IsMatch(name)) power.Add(a.ToSpan());
 
             if (b.Width < 2 || b.Height < 2) continue;
-            if (a.Length > bar.Length * 0.3 || cls == TrayContainer) continue;
+            if (a.Length > bar.Length * 0.3 || Containers.Contains(cls)) continue;
             if (a.CrossEnd <= bar.CrossStart || a.CrossStart >= bar.CrossEnd) continue;
 
             if (cls == "Start" || id == "StartButton")

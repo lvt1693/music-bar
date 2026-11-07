@@ -379,6 +379,6 @@ public static partial class Strings
         d.Add("Set_DataFolder", ("Data folder", "Thư mục dữ liệu"));
         d.Add("Set_DataFolder_Desc", ("Settings, logs and, by default, lyrics.", "Cài đặt, nhật ký và lời bài hát mặc định."));
         d.Add("Set_OpenFolder", ("Open folder", "Mở thư mục"));
-        d.Add("Set_ViewLog", ("View log", "Xem log"));
+        d.Add("Set_ViewLog", ("Show log file", "Hiện file log"));
     }
 }

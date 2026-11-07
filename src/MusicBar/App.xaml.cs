@@ -118,6 +118,7 @@ public partial class App : Application
         };
 
         Log.Info($"MusicBar starting ({string.Join(" ", e.Args)})");
+        CrashReport.Started();
         // For measuring: MUSICBAR_RENDER=software draws every window on the CPU instead of the graphics card.
         if (Environment.GetEnvironmentVariable("MUSICBAR_RENDER") == "software")
             System.Windows.Media.RenderOptions.ProcessRenderMode = System.Windows.Interop.RenderMode.SoftwareOnly;
@@ -451,6 +452,8 @@ public partial class App : Application
         _stats?.Dispose();
         _tray?.Dispose();
         _settings?.SaveNow();
+        if (_ownsMutex) Log.Info("MusicBar closing");
+        CrashReport.Closed();
         if (_ownsMutex)
         {
             try { _mutex?.ReleaseMutex(); }

@@ -18,8 +18,9 @@ public static class Log
         {
             lock (Gate)
             {
+                // A full log moves aside instead of going: the lines before a crash are often the ones wanted.
                 var file = new FileInfo(AppPaths.LogFile);
-                if (file.Exists && file.Length > 1_000_000) file.Delete();
+                if (file.Exists && file.Length > 1_000_000) file.MoveTo(AppPaths.OldLogFile, overwrite: true);
                 File.AppendAllText(AppPaths.LogFile,
                     $"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} [{level}] {message}{Environment.NewLine}");
             }
