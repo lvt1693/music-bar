@@ -83,8 +83,10 @@ public partial class TaskbarLayerWindow : Window
         Seek.IdleMotion = s.SeekIdleMotion;
         Seek.Intensity = over ? Math.Min(s.FillOpacity, OverFillCap) : s.FillOpacity;
 
-        // A skin that compiled paints instead of the style; one that didn't leaves the style on.
-        var skin = s.Skin.Length > 0 ? SkinLibrary.Load(s.Skin) : null;
+        // A skin that compiled paints instead of the style; one that didn't leaves the style on. Drawing on the
+        // CPU only (hardware acceleration off), a skin's pixel shader can't run: the style stands in.
+        bool cpuOnly = RenderOptions.ProcessRenderMode == System.Windows.Interop.RenderMode.SoftwareOnly;
+        var skin = s.Skin.Length > 0 && !cpuOnly ? SkinLibrary.Load(s.Skin) : null;
         bool skinned = skin is { Works: true };
         SkinHost.SetSkin(skinned ? skin : null);
         SkinHost.Visibility = skinned ? Visibility.Visible : Visibility.Collapsed;

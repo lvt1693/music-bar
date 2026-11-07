@@ -58,6 +58,25 @@ public static class TaskbarTweaks
         }
     }
 
+    /// <summary>
+    /// The Windows 11 taskbar paints its background in XAML (the rectangles the helper in Explorer hides) since
+    /// 22H2's March 2023 update (22621.1413). Before that, on 21H2 (22000) and early 22H2, the window's accent
+    /// paints it as on Windows 10, and the accent is what makes it see-through: the helper finds nothing to
+    /// hide there (#17).
+    /// </summary>
+    public static bool XamlBackground
+    {
+        get
+        {
+            if (Kind != TaskbarKind.Windows11) return false;
+            int build = Environment.OSVersion.Version.Build;
+            if (build < 22621) return false;
+            if (build > 22623) return true;
+            using var key = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion");
+            return (key?.GetValue("UBR") is int ubr ? ubr : 0) >= 1413;
+        }
+    }
+
     /// <summary>Windows 11 builds with the "Taskbar size" setting (Small makes the bar thinner too).</summary>
     public static bool HasTaskbarSizeSetting
     {

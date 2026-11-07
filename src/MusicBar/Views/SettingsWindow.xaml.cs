@@ -214,7 +214,10 @@ public partial class SettingsWindow : Window
     {
         TransparentCard.Description = Loc.T(Overlay?.TranslucentTaskbarDetected == true
             ? "Set_Transparent_DescTranslucentTB"
-            : Interop.XamlTaskbar.Blocked ? "Set_Transparent_DescRestartExplorer"
+            : TaskbarTweaks.XamlBackground && SafeStart.On ? "Set_Transparent_DescSafeStart"
+            : TaskbarTweaks.XamlBackground && RemoteFlags.HelperOff ? "Set_Transparent_DescRemoteOff"
+            : TaskbarTweaks.XamlBackground && _s.HelperQuarantined ? "Set_Transparent_DescQuarantined"
+            : TaskbarTweaks.XamlBackground && Interop.XamlTaskbar.Blocked ? "Set_Transparent_DescRestartExplorer"
             : Overlay?.TaskbarAutoHides == true && _s.LayerMode == LayerMode.Auto ? "Set_Transparent_DescAutoHide"
             : "Set_Transparent_Desc");
     }
@@ -368,7 +371,7 @@ public partial class SettingsWindow : Window
     void OnSettingChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(AppSettings.LyricsFolder)) RefreshLyricsInfo();
-        if (e.PropertyName == nameof(AppSettings.LayerMode))
+        if (e.PropertyName is nameof(AppSettings.LayerMode) or nameof(AppSettings.HelperQuarantined))
         {
             RefreshLayerStatus();
             RefreshTransparentNote();
@@ -533,7 +536,7 @@ public partial class SettingsWindow : Window
 
     void OpenDataFolder_Click(object sender, RoutedEventArgs e) => Open(AppPaths.DataDir);
 
-    /// <summary>The log file picked out in Explorer, ready to drag into a GitHub issue or a chat.</summary>
+    /// <summary>The log to send picked out in Explorer, ready to drag into a GitHub issue or a chat.</summary>
     void OpenLog_Click(object sender, RoutedEventArgs e)
     {
         if (!File.Exists(AppPaths.LogFile))
@@ -543,9 +546,10 @@ public partial class SettingsWindow : Window
         }
         try
         {
-            Process.Start("explorer.exe", $"/select,\"{AppPaths.LogFile}\"");
+            // The copy for sending, song titles and the user name masked; the full log sits beside it.
+            Process.Start("explorer.exe", $"/select,\"{Log.ShareCopy()}\"");
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception)
         {
             Log.Error("Showing the log file failed", ex);
         }

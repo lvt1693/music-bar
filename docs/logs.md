@@ -11,12 +11,11 @@ biết ngay chuyện gì xảy ra, khỏi phải đoán.
 
 1. Bấm icon MusicBar ở khay hệ thống (góc phải taskbar) để mở **Cài đặt**.
 2. Vào trang **Giới thiệu**, mục **Dữ liệu**.
-3. Bấm **Hiện file log**. Thư mục mở ra, file `musicbar.log` được chọn sẵn.
+3. Bấm **Lấy log để gửi**. Thư mục mở ra, file `musicbar-share.log` được chọn sẵn: một file gom đủ các log,
+   đã che hết tên bài hát và tên tài khoản Windows. Gửi đúng file này là đủ.
    (Bản 1.8.0 nút này tên là **Xem log** và mở file bằng Notepad: bấm **Mở thư mục** bên cạnh để thấy file.)
 
-**Không mở được app?** Bấm `Win + R`, gõ `%LOCALAPPDATA%\MusicBar` rồi Enter.
-
-Cần gửi:
+**Không mở được app, hoặc đang dùng 1.8.0?** Bấm `Win + R`, gõ `%LOCALAPPDATA%\MusicBar` rồi Enter, rồi gửi:
 - `musicbar.log`
 - `musicbar.old.log` nếu có (log đầy thì phần cũ chuyển sang đây)
 - `taskbar-helper.log` nếu lỗi liên quan tới taskbar trong suốt
@@ -45,17 +44,18 @@ Kèm vài dòng: lỗi gì, lúc nào, đang làm gì, dùng trình phát nhạc
 ## Trong log có gì
 
 Tên bài hát và trình phát đang mở, vị trí taskbar, thông số màn hình, các lỗi của app, và đường dẫn thư mục
-(có tên tài khoản Windows của bạn). Không có mật khẩu, tài khoản hay file cá nhân. Ngại thì cứ mở bằng
-Notepad xóa bớt tên bài hát trước khi gửi.
+(có tên tài khoản Windows của bạn). Không có mật khẩu, tài khoản hay file cá nhân. File `musicbar-share.log`
+(từ bản 1.8.1) đã che tên bài hát và tên tài khoản; với log gốc thì cứ mở bằng Notepad xóa bớt trước khi gửi.
 
 ---
 
 ## In English
 
 1. Click the MusicBar icon in the notification area to open **Settings**, go to **About**, section **Data**,
-   and click **Show log file** (1.8.0: **View log**, then **Open folder**). Or press `Win + R` and open
-   `%LOCALAPPDATA%\MusicBar`.
-2. Send `musicbar.log`, plus `musicbar.old.log` and `taskbar-helper.log` if they are there.
+   and click **Log to send**: it picks `musicbar-share.log`, every log in one file with song titles and your
+   Windows user name masked. On 1.8.0 (**View log**, then **Open folder**), or without the app, press
+   `Win + R` and open `%LOCALAPPDATA%\MusicBar`.
+2. Send `musicbar-share.log`; on 1.8.0, `musicbar.log` plus `musicbar.old.log` and `taskbar-helper.log` if there.
 3. After a crash: from 1.8.1 just start MusicBar again, it copies Windows' crash report into the log. On older
    versions, run `perfmon /rel`, open the red **MusicBar** or **Windows Explorer** entry for that day and copy
    its technical details.

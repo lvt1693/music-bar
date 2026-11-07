@@ -411,6 +411,7 @@ public partial class SettingsWindow
         var dialog = new Microsoft.Win32.OpenFileDialog { Filter = Loc.T("Set_Skin_Filter") + " (*.hlsl)|*.hlsl|*.*|*.*", Multiselect = true };
         if (dialog.ShowDialog(this) != true) return;
         var lines = new List<string>();
+        var errors = new List<string>();
         SkinInfo? last = null;
         foreach (var path in dialog.FileNames)
         {
@@ -418,11 +419,13 @@ public partial class SettingsWindow
             {
                 var skin = SkinLibrary.Import(path);
                 if (skin.Works) last = skin;
+                else errors.Add($"{Path.GetFileName(path)}: {skin.Error}");
                 lines.Add(skin.Works ? Loc.T("Set_Skin_Imported", skin.Name) : Loc.T("Set_Skin_ImportFailed", Path.GetFileName(path), skin.Error ?? ""));
             }
             catch (Exception ex)
             {
                 Log.Error("Importing a skin failed", ex);
+                errors.Add($"{Path.GetFileName(path)}: {ex.Message}");
                 lines.Add(Loc.T("Set_Skin_ImportFailed", Path.GetFileName(path), ex.Message));
             }
         }
@@ -431,6 +434,24 @@ public partial class SettingsWindow
         if (last != null && dialog.FileNames.Length == 1) _s.Skin = last.File;
         RefreshLooks();
         ShowSkinStatus(string.Join("\n", lines));
+        // The compiler's words, ready to paste to an AI or into an issue instead of a screenshot.
+        _skinErrors = string.Join("\n", errors);
+        SkinCopyError.Visibility = errors.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    string _skinErrors = "";
+
+    void SkinCopyError_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            Clipboard.SetText(_skinErrors);
+            ShowSkinStatus(Loc.T("Set_Skin_CopiedError"));
+        }
+        catch (System.Runtime.InteropServices.COMException ex)
+        {
+            Log.Error("Copying the skin error failed", ex);
+        }
     }
 
     void SkinSamples_Click(object sender, RoutedEventArgs e)
@@ -470,5 +491,6 @@ public partial class SettingsWindow
     {
         SkinStatus.Text = text;
         SkinStatus.Visibility = text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+        SkinCopyError.Visibility = Visibility.Collapsed;
     }
 }

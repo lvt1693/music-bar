@@ -90,6 +90,11 @@ public static partial class Strings
         d.Add("Set_Transparent", ("Make the taskbar transparent", "Làm taskbar trong suốt"));
         d.Add("Set_Transparent_Desc", ("Built into MusicBar, no need to install TranslucentTB. When you exit MusicBar, the taskbar gets its background back.", "Có sẵn trong MusicBar, không cần cài TranslucentTB. Thoát MusicBar là taskbar có lại nền như cũ."));
         d.Add("Set_Transparent_DescAutoHide", ("Your taskbar hides itself, so when it slides up there are apps right behind it, not the wallpaper. MusicBar keeps Windows' own background then and tints the bar over it, so icons and lyrics stay readable.", "Taskbar của bạn đang tự ẩn, nên lúc nó trồi lên thì phía sau là cửa sổ ứng dụng chứ không phải hình nền. Khi đó MusicBar giữ nền của Windows và phủ mờ thanh nhạc lên trên, để icon và lời vẫn dễ đọc."));
+        d.Add("Set_Transparent_DescSafeStart", ("MusicBar started in safe mode (Shift held while it started), so it stays out of Explorer and tints over the taskbar this time. Start it normally to have the see-through taskbar back.", "MusicBar đang chạy chế độ an toàn (giữ Shift lúc mở), nên lần này nó không chèn vào Explorer mà phủ mờ lên taskbar. Mở lại bình thường là có taskbar trong suốt."));
+        d.Add("Set_Transparent_DescRemoteOff", ("This Windows build has a known problem with MusicBar's taskbar helper, so for safety MusicBar tints over the taskbar until a fix is out. Nothing to do on your side.", "Bản Windows này đang có lỗi với bộ phận làm trong suốt của MusicBar, nên để an toàn MusicBar tạm phủ mờ lên taskbar cho tới khi có bản sửa. Bạn không cần làm gì."));
+        d.Add("Set_Transparent_DescQuarantined", ("Explorer crashed while MusicBar's taskbar helper was loaded in it, so to be safe MusicBar no longer loads it and tints over the taskbar instead. Turn this off and on again to try once more.", "Explorer bị crash khi bộ phận làm trong suốt của MusicBar đang nằm trong nó, nên để an toàn MusicBar thôi nạp bộ phận đó và phủ mờ lên taskbar thay vào. Tắt rồi bật lại mục này để thử lại."));
+        d.Add("Set_HardwareAccel", ("Hardware acceleration", "Tăng tốc phần cứng"));
+        d.Add("Set_HardwareAccel_Desc", ("Draws with the graphics card. Turn it off if MusicBar crashes or flickers because of the graphics driver: everything is drawn on the CPU, and skins (which need the card) give way to the built-in styles. Takes effect the next time MusicBar starts.", "Vẽ bằng card đồ họa. Tắt nếu MusicBar hay crash hoặc nhấp nháy do driver card đồ họa: mọi thứ vẽ bằng CPU, còn skin (cần card đồ họa) tạm nhường cho các kiểu có sẵn. Có hiệu lực từ lần mở MusicBar sau."));
         d.Add("Set_Transparent_DescTranslucentTB", ("TranslucentTB is running, so MusicBar leaves this to it.", "TranslucentTB đang chạy nên MusicBar để nó lo phần này."));
         d.Add("Set_Transparent_DescRestartExplorer", ("The taskbar helper from an older MusicBar is still loaded in Explorer and would clear every monitor's taskbar, so MusicBar is tinting over the taskbar for now. Restart Explorer (button below) to finish the update.", "Bộ phận làm trong suốt của bản MusicBar cũ vẫn đang nạp trong Explorer và sẽ xoá nền taskbar của mọi màn hình, nên tạm thời MusicBar phủ mờ lên taskbar. Bấm Khởi động lại Explorer (bên dưới) để hoàn tất cập nhật."));
         d.Add("Set_Background", ("Background under the progress bar", "Nền dưới thanh tiến trình"));
@@ -266,6 +271,8 @@ public static partial class Strings
         d.Add("Set_Skin_Filter", ("MusicBar skins", "Skin MusicBar"));
         d.Add("Set_Skin_Imported", ("Added \"{0}\".", "Đã thêm \"{0}\"."));
         d.Add("Set_Skin_ImportFailed", ("{0} doesn't compile, so it wasn't added: {1}", "{0} chưa chạy được nên chưa thêm: {1}"));
+        d.Add("Set_Skin_CopyError", ("Copy the error", "Sao chép lỗi"));
+        d.Add("Set_Skin_CopiedError", ("Copied: paste it to whoever fixes the skin, or to an AI.", "Đã chép: dán cho người sửa skin hoặc cho AI là được."));
         d.Add("Set_Skin_SamplesAdded", ("Added {0} sample skins.", "Đã thêm {0} skin mẫu."));
         d.Add("Set_Skin_SamplesThere", ("The sample skins are already here.", "Các skin mẫu đã có sẵn rồi."));
         d.Add("Pal_Song", ("The song's", "Theo bài hát"));
@@ -377,8 +384,8 @@ public static partial class Strings
         d.Add("Set_RecapButton", ("Show it", "Xem ngay"));
         d.Add("Set_About_GroupData", ("Data", "Dữ liệu"));
         d.Add("Set_DataFolder", ("Data folder", "Thư mục dữ liệu"));
-        d.Add("Set_DataFolder_Desc", ("Settings, logs and, by default, lyrics.", "Cài đặt, nhật ký và lời bài hát mặc định."));
+        d.Add("Set_DataFolder_Desc", ("Settings, logs and, by default, lyrics. The log to send has song titles and your user name masked.", "Cài đặt, nhật ký và lời bài hát mặc định. Log để gửi đã che tên bài hát và tên tài khoản."));
         d.Add("Set_OpenFolder", ("Open folder", "Mở thư mục"));
-        d.Add("Set_ViewLog", ("Show log file", "Hiện file log"));
+        d.Add("Set_ViewLog", ("Log to send", "Lấy log để gửi"));
     }
 }

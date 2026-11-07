@@ -14,7 +14,8 @@ hoặc [bản portable](https://github.com/lvt1693/music-bar/releases/latest/dow
 **Trang web:** [musicbar.truclv.com](https://musicbar.truclv.com), có **kho giao diện** của cộng đồng
 (skin, visualizer, dải LED) để tải về hoặc đăng giao diện của bạn.
 
-**Có gì mới:** bản 1.8 có **kho giao diện trực tuyến** ngay trong app, **phần hướng dẫn lần đầu mở** (chọn gì thấy ngay trên taskbar), sửa vụ
+**Có gì mới:** bản 1.8.1 thêm **log để gửi** đã che tên bài hát, **chế độ an toàn** cho Explorer, nút tắt
+tăng tốc phần cứng và sửa lỗi đổi loa làm thanh đứng nhịp. Bản 1.8 có **kho giao diện trực tuyến** ngay trong app, **phần hướng dẫn lần đầu mở** (chọn gì thấy ngay trên taskbar), sửa vụ
 thanh tiến trình biến mất khi bật taskbar trong suốt, **nhẹ RAM hẳn** (không còn phình dần khi
 chạy lâu), chạy gọn với **taskbar tự ẩn**, đọc được
 **VLC**, thêm nút khôi phục cài đặt mặc định và chấm đỏ báo thông báo.

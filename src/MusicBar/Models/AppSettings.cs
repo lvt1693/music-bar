@@ -112,6 +112,17 @@ public sealed class AppSettings : ObservableObject
     bool _transparentTaskbar = true;
     public bool TransparentTaskbar { get => _transparentTaskbar; set => Set(ref _transparentTaskbar, value); }
 
+    /// <summary>
+    /// Explorer crashed with the taskbar helper loaded, so MusicBar no longer loads it and tints over the taskbar
+    /// instead. Turning the see-through taskbar off and on again allows it again.
+    /// </summary>
+    bool _helperQuarantined;
+    public bool HelperQuarantined { get => _helperQuarantined; set => Set(ref _helperQuarantined, value); }
+
+    /// <summary>Draw on the graphics card (from the next start). Off draws everything on the CPU, for drivers that crash.</summary>
+    bool _hardwareAcceleration = true;
+    public bool HardwareAcceleration { get => _hardwareAcceleration; set => Set(ref _hardwareAcceleration, value); }
+
     /// <summary>Win + A opens MusicBar's control center (while it is on) instead of Windows' Quick Settings.</summary>
     bool _winAOpensControlCenter = true;
     public bool WinAOpensControlCenter { get => _winAOpensControlCenter; set => Set(ref _winAOpensControlCenter, value); }

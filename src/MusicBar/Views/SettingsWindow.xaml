@@ -368,6 +368,9 @@
                         <ComboBox x:Name="PlayerScreenCombo" MinWidth="260" DisplayMemberPath="Label"
                                   SelectionChanged="PlayerScreenCombo_Changed" DropDownOpened="DisplayCombo_DropDownOpened" />
                     </v:SettingCard>
+                    <v:SettingCard Glyph="&#xE945;" Header="{l:Tr Set_HardwareAccel}" Description="{l:Tr Set_HardwareAccel_Desc}">
+                        <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding HardwareAcceleration}" />
+                    </v:SettingCard>
                 </StackPanel>
 
                 <!-- Taskbar -->
@@ -613,6 +616,7 @@
                             <Button Content="{l:Tr Set_Skin_Guide}" Padding="14,5" Margin="0,0,8,6" Click="SkinGuide_Click" />
                         </WrapPanel>
                         <TextBlock x:Name="SkinStatus" FontSize="12" Opacity="0.8" TextWrapping="Wrap" Margin="2,0,0,8" Visibility="Collapsed" />
+                        <Button x:Name="SkinCopyError" Content="{l:Tr Set_Skin_CopyError}" HorizontalAlignment="Left" Padding="14,5" Margin="0,0,0,8" Visibility="Collapsed" Click="SkinCopyError_Click" />
                     </StackPanel>
                     <Border CornerRadius="8" Padding="12,8" Margin="0,0,0,12" Background="#0AFFFFFF">
                         <TextBlock x:Name="LookDetail" FontSize="12" TextWrapping="Wrap" />

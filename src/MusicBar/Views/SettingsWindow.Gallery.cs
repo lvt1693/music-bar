@@ -164,8 +164,25 @@ public partial class SettingsWindow
         }
     }
 
-    bool Installed(GalleryItem item) => File.Exists(Path.Combine(item.IsSkin ? SkinLibrary.Folder : LookPresets.Folder,
-        LookPresets.SafeName(item.Slug) + (item.IsSkin ? ".hlsl" : ".json")));
+    /// <summary>
+    /// The item is on disk as the gallery has it now. A look fixed on the gallery after it was downloaded has
+    /// another checksum, so Apply brings the new one down instead of keeping the old copy for good.
+    /// </summary>
+    bool UpToDate(GalleryItem item)
+    {
+        var path = Path.Combine(item.IsSkin ? SkinLibrary.Folder : LookPresets.Folder,
+            LookPresets.SafeName(item.Slug) + (item.IsSkin ? ".hlsl" : ".json"));
+        if (!File.Exists(path)) return false;
+        if (item.Sha256.Length == 0) return true;
+        try
+        {
+            return Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(path))).ToLowerInvariant() == item.Sha256;
+        }
+        catch (IOException)
+        {
+            return false;
+        }
+    }
 
     /// <summary>The item is the look on the taskbar right now.</summary>
     bool InUse(GalleryItem item)
@@ -198,9 +215,10 @@ public partial class SettingsWindow
                 GalleryStatus.Text = Loc.T("Set_Gal_NoSuchItem");
                 return;
             }
-            var get = new Button();
-            var entry = _galleryTiles.FirstOrDefault(t => t.Item.Slug == slug)
-                        ?? new GalleryTile(item, new Border(), new SeekRenderer(), null, get);
+            // The item as the gallery has it this moment: a tile loaded earlier may carry an older checksum.
+            var entry = _galleryTiles.FirstOrDefault(t => t.Item.Slug == slug) is { } tile
+                ? tile with { Item = item }
+                : new GalleryTile(item, new Border(), new SeekRenderer(), null, new Button());
             await InstallAsync(entry);
         }
         catch (Exception ex) when (ex is System.Net.Http.HttpRequestException or TaskCanceledException or System.Text.Json.JsonException)
@@ -239,10 +257,13 @@ public partial class SettingsWindow
         try
         {
             t.Get.IsEnabled = false;
-            if (!Installed(t.Item)) await Hub.InstallAsync(t.Item, CancellationToken.None);
+            bool fetched = !UpToDate(t.Item);
+            if (fetched) await Hub.InstallAsync(t.Item, CancellationToken.None);
             var name = LookPresets.SafeName(t.Item.Slug);
             if (t.Item.IsSkin)
             {
+                // A new copy of the skin that is already on: let go of it for a moment so the bar loads the new file.
+                if (fetched && _s.Skin == name + ".hlsl") _s.Skin = "";
                 _s.Skin = name + ".hlsl";
                 BuildSkinTiles();
             }

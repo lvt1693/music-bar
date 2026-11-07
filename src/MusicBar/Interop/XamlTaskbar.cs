@@ -58,6 +58,9 @@ internal static class XamlTaskbar
     /// </summary>
     public static bool Blocked { get; private set; }
 
+    /// <summary>When the helper was last found or loaded in an Explorer (MinValue: never this run), for the failsafe.</summary>
+    public static DateTime LoadedAt { get; private set; } = DateTime.MinValue;
+
     /// <summary>
     /// Whether the helper in this taskbar's Explorer has a background hidden right now; null when
     /// it can't say (no helper of this version there yet, still loading).
@@ -120,6 +123,7 @@ internal static class XamlTaskbar
         if (IsLoaded(pid))
         {
             _loadedIn = pid;
+            LoadedAt = DateTime.Now;
             return;
         }
         if (DateTime.Now - _lastAttempt < RetryEvery || Interlocked.CompareExchange(ref _loading, 1, 0) != 0) return;
@@ -222,6 +226,7 @@ internal static class XamlTaskbar
             if (IsLoaded(pid))
             {
                 _loadedIn = pid;
+                LoadedAt = DateTime.Now;
                 Log.Info($"Taskbar helper attached to Explorer ({pid}) in {waited.ElapsedMilliseconds} ms");
             }
             else

@@ -19,6 +19,7 @@ internal static class Native
     public const uint SWP_NOACTIVATE = 0x0010;
 
     public const uint GW_HWNDNEXT = 2;
+    public const uint GW_OWNER = 4;
     public const uint GW_HWNDPREV = 3;
     public const uint GW_CHILD = 5;
 
@@ -31,7 +32,10 @@ internal static class Native
     public const int MA_NOACTIVATE = 3;
 
     public const uint EVENT_SYSTEM_FOREGROUND = 0x0003;
+    public const uint EVENT_OBJECT_SHOW = 0x8002;
+    public const uint EVENT_OBJECT_HIDE = 0x8003;
     public const uint EVENT_OBJECT_LOCATIONCHANGE = 0x800B;
+    public const uint GA_ROOT = 2;
     public const uint WINEVENT_OUTOFCONTEXT = 0;
 
     public const uint MONITOR_DEFAULTTONULL = 0;
@@ -147,6 +151,9 @@ internal static class Native
 
     [DllImport("user32.dll")]
     public static extern bool IsWindowVisible(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    public static extern IntPtr GetAncestor(IntPtr hWnd, uint flags);
 
     [DllImport("user32.dll")]
     public static extern IntPtr GetWindow(IntPtr hWnd, uint cmd);

@@ -137,7 +137,8 @@ public sealed class TaskbarOverlay : IDisposable, ILyricsHost
             _controlCenter.TrayRearranged += _tracker.Rescan;
             // A new playback device: start listening to it instead of the old one.
             _controlCenter.OutputChanged += _audio.Restart;
-            _windowsMode = new WindowsModeSync(settings);
+            // A safe start leaves Windows' own light or dark mode alone.
+            if (!SafeStart.On) _windowsMode = new WindowsModeSync(settings);
         }
 
         _tracker.LayoutChanged += Reposition;
@@ -214,7 +215,7 @@ public sealed class TaskbarOverlay : IDisposable, ILyricsHost
     /// </summary>
     void CheckClearing()
     {
-        bool wanted = _s.LayerMode == LayerMode.Auto && _clearedTaskbar != IntPtr.Zero && CurrentTaskbarKind == TaskbarKind.Windows11;
+        bool wanted = _s.LayerMode == LayerMode.Auto && _clearedTaskbar != IntPtr.Zero && XamlBackground;
         // No answer at all means no helper in that Explorer: it failed to load, or another tool using the
         // same XAML diagnostics (Windhawk's Taskbar Styler) blocked it. Loading takes a moment, so wait longer.
         bool? cleared = wanted ? XamlTaskbar.Cleared(_clearedTaskbar) : null;
@@ -253,7 +254,9 @@ public sealed class TaskbarOverlay : IDisposable, ILyricsHost
     /// purpose): windows reach under it, so cleared it would show them behind the icons and lyrics.
     /// </summary>
     public bool OwnsTransparency => _s.TransparentTaskbar && !TranslucentTaskbarDetected
-        && !(CurrentTaskbarKind == TaskbarKind.Windows11 && XamlTaskbar.Blocked)
+        // The helper stays out of Explorer after it crashed there, when the website says so for this Windows
+        // build, and for a safe start.
+        && !(XamlBackground && (XamlTaskbar.Blocked || _s.HelperQuarantined || RemoteFlags.HelperOff || SafeStart.On))
         && !(_tracker.AutoHides && _s.LayerMode == LayerMode.Auto);
 
     /// <summary>The taskbar is set to hide itself.</summary>
@@ -266,11 +269,24 @@ public sealed class TaskbarOverlay : IDisposable, ILyricsHost
             if (DateTime.Now - _kindCheckedAt > TimeSpan.FromSeconds(5))
             {
                 _kind = TaskbarTweaks.Kind;
+                _xamlBackground = TaskbarTweaks.XamlBackground;
                 _kindCheckedAt = DateTime.Now;
             }
             return _kind;
         }
     }
+
+    /// <summary>The taskbar paints its background in XAML, so the helper in Explorer clears it (else the accent does).</summary>
+    bool XamlBackground
+    {
+        get
+        {
+            _ = CurrentTaskbarKind;
+            return _xamlBackground;
+        }
+    }
+
+    bool _xamlBackground;
 
     /// <summary>
     /// Only this overlay's taskbar goes see-through, and only while the layer is behind it: a
@@ -281,12 +297,12 @@ public sealed class TaskbarOverlay : IDisposable, ILyricsHost
     void UpdateTransparency()
     {
         if (_disposed) return;
-        if (_s.TransparentTaskbar && CurrentTaskbarKind == TaskbarKind.Windows11) XamlTaskbar.CheckHelper(_tracker.Handle);
+        if (_s.TransparentTaskbar && XamlBackground) XamlTaskbar.CheckHelper(_tracker.Handle);
         var want = OwnsTransparency && _layerShown ? _tracker.Handle : IntPtr.Zero;
         if (_clearedTaskbar != IntPtr.Zero && _clearedTaskbar != want) RestoreTransparency();
         _clearedTaskbar = want;
         if (want == IntPtr.Zero) return;
-        if (CurrentTaskbarKind == TaskbarKind.Windows11) XamlTaskbar.Clear(this, want);
+        if (XamlBackground) XamlTaskbar.Clear(this, want);
         else TaskbarTransparency.Apply(want);
     }
 
@@ -294,7 +310,7 @@ public sealed class TaskbarOverlay : IDisposable, ILyricsHost
     {
         XamlTaskbar.Restore(this);
         // The Windows 11 taskbar gets its background back from the helper; only the accent needs undoing.
-        if (CurrentTaskbarKind != TaskbarKind.Windows11) TaskbarTransparency.Restore(_clearedTaskbar);
+        if (!XamlBackground) TaskbarTransparency.Restore(_clearedTaskbar);
     }
 
     /// <summary>A tool that makes the taskbar see-through (TranslucentTB) is running.</summary>

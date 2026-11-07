@@ -119,11 +119,18 @@ public partial class App : Application
 
         Log.Info($"MusicBar starting ({string.Join(" ", e.Args)})");
         CrashReport.Started();
-        // For measuring: MUSICBAR_RENDER=software draws every window on the CPU instead of the graphics card.
-        if (Environment.GetEnvironmentVariable("MUSICBAR_RENDER") == "software")
-            System.Windows.Media.RenderOptions.ProcessRenderMode = System.Windows.Interop.RenderMode.SoftwareOnly;
+        SafeStart.Detect(e.Args);
+        // The website's switches as last read, before anything reaches into Explorer.
+        RemoteFlags.LoadCached();
         _settings = new SettingsService();
         var settings = _settings.Current;
+        // Hardware acceleration off (or MUSICBAR_RENDER=software, for measuring): every window draws on the CPU,
+        // for graphics drivers that crash or flicker under MusicBar. Skins need the card, so they rest meanwhile.
+        if (!settings.HardwareAcceleration || Environment.GetEnvironmentVariable("MUSICBAR_RENDER") == "software")
+        {
+            System.Windows.Media.RenderOptions.ProcessRenderMode = System.Windows.Interop.RenderMode.SoftwareOnly;
+            Log.Info("Drawing on the CPU: hardware acceleration is off");
+        }
         // The very first time, before anything is touched: how Windows looked, to give back on uninstall.
         SystemSnapshot.TakeOnce(settings.WindowsModeBefore);
         Loc.Instance.Language = settings.Language;
@@ -136,7 +143,10 @@ public partial class App : Application
         {
             if (ev.PropertyName == nameof(AppSettings.StartWithWindows)) StartupService.Apply(settings.StartWithWindows);
             else if (ev.PropertyName == nameof(AppSettings.Language)) SwitchLanguage(settings.Language);
+            // The see-through taskbar turned on again: the helper may be tried again.
+            else if (ev.PropertyName == nameof(AppSettings.TransparentTaskbar) && settings.TransparentTaskbar) settings.HelperQuarantined = false;
         };
+        CrashReport.ExplorerCrashed += report => Dispatcher.BeginInvoke(() => OnExplorerCrashed(report));
 
         _media = new MediaService(settings);
         _lyrics = new LyricsService(settings);
@@ -229,10 +239,15 @@ public partial class App : Application
         {
             first.Stop();
             _ = CheckForUpdatesAsync(manual: false);
+            _ = RemoteFlags.RefreshAsync(settings);
         };
         first.Start();
         _updateTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromHours(24) };
-        _updateTimer.Tick += (_, _) => _ = CheckForUpdatesAsync(manual: false);
+        _updateTimer.Tick += (_, _) =>
+        {
+            _ = CheckForUpdatesAsync(manual: false);
+            _ = RemoteFlags.RefreshAsync(settings);
+        };
         _updateTimer.Start();
     }
 
@@ -296,6 +311,29 @@ public partial class App : Application
     }
 
     /// <summary>musicbar://install/&lt;slug&gt;: the online gallery page opens and puts that item on the taskbar.</summary>
+    // Explorer crashes seen while the taskbar helper was in it, for the failsafe below.
+    readonly System.Collections.Generic.List<DateTime> _explorerCrashes = [];
+
+    /// <summary>
+    /// The failsafe for the helper MusicBar loads into Explorer, as tools like StartAllBack have one: when Windows'
+    /// crash report names the helper, or Explorer crashes twice in ten minutes while it was loaded, MusicBar stops
+    /// loading it and tints over the taskbar instead (the crashed Explorer comes back without it). Turning the
+    /// see-through taskbar off and on again allows it again.
+    /// </summary>
+    void OnExplorerCrashed(string report)
+    {
+        var s = _settings?.Current;
+        if (s == null || s.HelperQuarantined || XamlTaskbar.LoadedAt == DateTime.MinValue) return;
+        bool ours = report.Contains("MusicBar.TaskbarTap", StringComparison.OrdinalIgnoreCase);
+        _explorerCrashes.RemoveAll(at => DateTime.Now - at > TimeSpan.FromMinutes(10));
+        _explorerCrashes.Add(DateTime.Now);
+        if (!ours && _explorerCrashes.Count < 2) return;
+        s.HelperQuarantined = true;
+        Log.Info(ours
+            ? "Explorer crashed in MusicBar's taskbar helper: the helper is no longer loaded, the bar tints over the taskbar"
+            : "Explorer crashed twice in ten minutes with the taskbar helper loaded: the helper is no longer loaded, the bar tints over the taskbar");
+    }
+
     void OpenLink(string link)
     {
         if (GalleryLinks.SlugOf(link) is not { } slug)
@@ -394,7 +432,8 @@ public partial class App : Application
                 .Select(w => w.Title).ToList();
             Log.Info($"Memory: private {me.PrivateMemorySize64 >> 20} MB, .NET heap {GC.GetTotalMemory(false) >> 20} MB "
                      + $"(committed {gc.TotalCommittedBytes >> 20} MB), handles {me.HandleCount}, GCs {GC.CollectionCount(0)}/{GC.CollectionCount(1)}/{GC.CollectionCount(2)}"
-                     + $", on the graphics card: {(card.Count == 0 ? "none" : string.Join(", ", card))}");
+                     + $", on the graphics card: {(card.Count == 0 ? "none" : string.Join(", ", card))}"
+                     + $", taskbar scans {TaskbarTracker.TakeScanCount()}");
         };
         _memoryTimer.Start();
     }

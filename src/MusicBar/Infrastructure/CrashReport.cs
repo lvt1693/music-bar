@@ -29,7 +29,7 @@ public static class CrashReport
                 Log.Info($"The last run (started {since:yyyy-MM-dd HH:mm:ss}) ended without closing: a crash, a forced quit or a power cut");
                 Task.Run(() =>
                 {
-                    if (CopyWindowsReports(since, "MusicBar") == 0)
+                    if (CopyWindowsReports(since, "MusicBar").Count == 0)
                         Log.Info("Windows has no crash report for MusicBar since then (closed from Task Manager, or the PC went off)");
                 });
             }
@@ -67,41 +67,43 @@ public static class CrashReport
         Task.Run(async () =>
         {
             await Task.Delay(8000);
-            CopyWindowsReports(since, "explorer.exe", 1);
+            if (CopyWindowsReports(since, "explorer.exe", 1) is [var report, ..]) ExplorerCrashed?.Invoke(report);
         });
     }
 
+    /// <summary>Explorer crashed (Windows' report as text): raised on a pool thread, for the taskbar helper's failsafe.</summary>
+    public static event Action<string>? ExplorerCrashed;
+
     /// <summary>
     /// Windows' own reports (Application Error, .NET Runtime, Application Hang) naming a program since a moment,
-    /// newest first, into the log. Returns how many were copied.
+    /// newest first, into the log. Returns the ones copied.
     /// </summary>
-    static int CopyWindowsReports(DateTime since, string program, int most = 3)
+    static System.Collections.Generic.List<string> CopyWindowsReports(DateTime since, string program, int most = 3)
     {
+        var reports = new System.Collections.Generic.List<string>();
         try
         {
             long ms = (long)Math.Max(60_000, (DateTime.Now - since).TotalMilliseconds + 60_000);
             var query = new EventLogQuery("Application", PathType.LogName,
                 "*[System[Provider[@Name='Application Error' or @Name='.NET Runtime' or @Name='Application Hang']" +
                 $" and TimeCreated[timediff(@SystemTime) <= {ms}]]]");
-            int found = 0;
             using var reader = new EventLogReader(query);
-            for (var record = reader.ReadEvent(); record != null && found < most; record = reader.ReadEvent())
+            for (var record = reader.ReadEvent(); record != null && reports.Count < most; record = reader.ReadEvent())
             {
                 using (record)
                 {
                     var text = record.FormatDescription() ?? "";
                     if (!text.Contains(program, StringComparison.OrdinalIgnoreCase)) continue;
-                    found++;
                     if (text.Length > 4000) text = text[..4000] + " ...";
+                    reports.Add(text);
                     Log.Info($"Windows report ({record.ProviderName} {record.Id}, {record.TimeCreated:yyyy-MM-dd HH:mm:ss}): {text.Trim()}");
                 }
             }
-            return found;
         }
         catch (Exception ex) when (ex is EventLogException or UnauthorizedAccessException or InvalidOperationException)
         {
             Log.Error("Reading Windows' crash reports failed", ex);
-            return 0;
         }
+        return reports;
     }
 }

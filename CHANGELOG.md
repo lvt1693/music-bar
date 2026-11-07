@@ -3,6 +3,27 @@
 Mới nhất ở trên. Bản cài và bản portable của từng bản có ở trang
 [Releases](https://github.com/lvt1693/music-bar/releases).
 
+## 1.8.1 · 07/11/2026
+
+**Mới**
+
+- **Lấy log để gửi** (Cài đặt → Giới thiệu): một file đã che tên bài hát, kéo thả vào báo lỗi là xong.
+  MusicBar tự ghi lại khi bị tắt ngang hay khi taskbar sập. Cách gửi ở [docs/logs.md](docs/logs.md).
+- **An toàn cho Explorer:** Explorer crash vì MusicBar thì MusicBar tự thôi chèn vào Explorer; giữ Shift
+  lúc mở để chạy chế độ an toàn.
+- **Tăng tốc phần cứng** (Cài đặt → Chung): tắt nếu driver card đồ họa hay gây lỗi.
+- Nút **Sao chép lỗi** khi nhập skin hỏng (#17). Món trong kho được sửa trên web thì Áp dụng lại là
+  có bản mới.
+
+**Sửa lỗi**
+
+- Đổi loa hay tai nghe thì thanh đứng nhịp tới khi mở lại app (#18).
+- Lời, trình phát đè lên Start và Search khi rê chuột lên ô Search (#17); Windows 11 21H2 không trong
+  suốt được (#17).
+- Thanh không chạy từ sát mép trái trên Windows 11.
+- Đóng một tab đang phát nhạc đôi khi làm đứng thông tin bài; ảnh xem trước của skin nặng bị đen.
+- Đọc vị trí icon taskbar thưa hơn, nhẹ hơn cho cả MusicBar lẫn Explorer.
+
 ## 1.8.0 · 06/11/2026
 
 **Mới**

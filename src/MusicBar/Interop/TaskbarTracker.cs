@@ -31,7 +31,13 @@ internal sealed class TaskbarTracker : IDisposable
 {
     static readonly TimeSpan SlowTick = TimeSpan.FromMilliseconds(250);
     static readonly TimeSpan FastTick = TimeSpan.FromMilliseconds(30);
-    static readonly TimeSpan ScanEvery = TimeSpan.FromSeconds(2.5);
+    // The taskbar's layout is read when something changed it: an app window shown or hidden (its button comes or
+    // goes), the foreground changing, the taskbar moving. Each such read waits for the burst to settle; a slow scan
+    // still catches what no event announces (a tray icon added, icons dragged). UI Automation reads Explorer across
+    // processes, so fewer reads keep both lighter.
+    static readonly TimeSpan ScanEvery = TimeSpan.FromSeconds(10);
+    static readonly TimeSpan SettleAfterChange = TimeSpan.FromMilliseconds(500);
+    static readonly TimeSpan HeardGap = TimeSpan.FromSeconds(1);
     static readonly TimeSpan PartialRetry = TimeSpan.FromSeconds(0.5);
     static readonly TimeSpan AutoHideCheckEvery = TimeSpan.FromSeconds(2);
 
@@ -49,6 +55,10 @@ internal sealed class TaskbarTracker : IDisposable
     readonly Native.WinEventProc _moveProc;
     IntPtr _hook;
     IntPtr _moveHook;
+    IntPtr _showHook;
+    readonly Native.WinEventProc _showProc;
+    // When a change was heard and the layout should be read again (MaxValue: nothing pending).
+    DateTime _scanAt = DateTime.MaxValue;
     DateTime _fastUntil;
     DateTime _lastScan = DateTime.MinValue;
     DateTime _autoHideCheckedAt = DateTime.MinValue;
@@ -65,7 +75,21 @@ internal sealed class TaskbarTracker : IDisposable
     public TaskbarTracker(string? monitorDevice = null)
     {
         _monitorDevice = monitorDevice;
-        _foregroundProc = (_, _, _, _, _, _, _) => ZOrderCheck?.Invoke();
+        _foregroundProc = (_, _, _, _, _, _, _) =>
+        {
+            ScanSoon();
+            ZOrderCheck?.Invoke();
+        };
+        // A window that gets a taskbar button (top level, not a tool window, not owned unless it asks for one)
+        // shown or hidden: an app opened or closed. Tooltips and menus, shown all the time, are tool windows.
+        _showProc = (_, _, hwnd, idObject, idChild, _, _) =>
+        {
+            if (idObject != 0 /* OBJID_WINDOW */ || idChild != 0 || hwnd == IntPtr.Zero || Native.GetAncestor(hwnd, Native.GA_ROOT) != hwnd) return;
+            long ex = Native.GetWindowLongPtr(hwnd, Native.GWL_EXSTYLE).ToInt64();
+            if ((ex & Native.WS_EX_TOOLWINDOW) != 0) return;
+            if ((ex & Native.WS_EX_APPWINDOW) == 0 && Native.GetWindow(hwnd, Native.GW_OWNER) != IntPtr.Zero) return;
+            ScanSoon();
+        };
         _moveProc = (_, _, hwnd, idObject, idChild, _, _) =>
         {
             if (hwnd == Handle && idObject == 0 /* OBJID_WINDOW */ && idChild == 0) Tick();
@@ -131,6 +155,8 @@ internal sealed class TaskbarTracker : IDisposable
     {
         _hook = Native.SetWinEventHook(Native.EVENT_SYSTEM_FOREGROUND, Native.EVENT_SYSTEM_FOREGROUND,
             IntPtr.Zero, _foregroundProc, 0, 0, Native.WINEVENT_OUTOFCONTEXT);
+        _showHook = Native.SetWinEventHook(Native.EVENT_OBJECT_SHOW, Native.EVENT_OBJECT_HIDE,
+            IntPtr.Zero, _showProc, 0, 0, Native.WINEVENT_OUTOFCONTEXT);
         _poll.Start();
         Tick();
     }
@@ -138,11 +164,21 @@ internal sealed class TaskbarTracker : IDisposable
     /// <summary>Something rearranged the taskbar's items: look again on the next tick.</summary>
     public void Rescan() => _lastScan = DateTime.MinValue;
 
+    // Layout reads since the last count was taken (every tracker), for the memory line in the log.
+    static int _scans;
+
+    public static int TakeScanCount() => System.Threading.Interlocked.Exchange(ref _scans, 0);
+
+    /// <summary>A change was heard: read the layout once things settle (each new change waits a little more).</summary>
+    void ScanSoon() => _scanAt = DateTime.Now + SettleAfterChange;
+
     public void Dispose()
     {
         _poll.Stop();
         if (_hook != IntPtr.Zero) Native.UnhookWinEvent(_hook);
         _hook = IntPtr.Zero;
+        if (_showHook != IntPtr.Zero) Native.UnhookWinEvent(_showHook);
+        _showHook = IntPtr.Zero;
         if (_moveHook != IntPtr.Zero) Native.UnhookWinEvent(_moveHook);
         _moveHook = IntPtr.Zero;
     }
@@ -214,7 +250,9 @@ internal sealed class TaskbarTracker : IDisposable
         // Slid off the screen, the taskbar's buttons all read as off screen: there is nothing to learn until it
         // is back, and halfway there only some of them would be found.
         bool whole = VisibleThickness() >= Thickness;
-        if (!_scanning && Shown && (changed && whole || DateTime.Now - _lastScan > ScanEvery)) Scan();
+        var now = DateTime.Now;
+        bool heard = now >= _scanAt && now - _lastScan > HeardGap;
+        if (!_scanning && Shown && (changed && whole || heard || now - _lastScan > ScanEvery)) Scan();
         ZOrderCheck?.Invoke();
     }
 
@@ -269,6 +307,8 @@ internal sealed class TaskbarTracker : IDisposable
     {
         _scanning = true;
         _lastScan = DateTime.Now;
+        _scanAt = DateTime.MaxValue;
+        System.Threading.Interlocked.Increment(ref _scans);
         var hwnd = Handle;
         var rc = Rect;
         bool horizontal = IsHorizontal;

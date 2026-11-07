@@ -441,20 +441,29 @@ public sealed class MediaService : ObservableObject
     {
         var s = _session;
         if (s == null) return;
-        GlobalSystemMediaTransportControlsSessionPlaybackInfo? info;
-        try { info = s.GetPlaybackInfo(); }
-        catch (Exception) { return; }
-        // A session going away answers null rather than failing.
-        if (info?.Controls is not { } c) return;
+        // A session going away answers null, or fails part way through being read: everything is read at once.
+        bool canPlayPause, canNext, canPrevious, canSeek, playing;
+        double rate;
+        try
+        {
+            var info = s.GetPlaybackInfo();
+            if (info?.Controls is not { } c) return;
+            canPlayPause = c.IsPlayPauseToggleEnabled || c.IsPlayEnabled || c.IsPauseEnabled;
+            (canNext, canPrevious, canSeek) = (c.IsNextEnabled, c.IsPreviousEnabled, c.IsPlaybackPositionEnabled);
+            rate = info.PlaybackRate ?? 1.0;
+            playing = info.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing;
+        }
+        catch (Exception)
+        {
+            return;
+        }
 
-        CanPlayPause = c.IsPlayPauseToggleEnabled || c.IsPlayEnabled || c.IsPauseEnabled;
-        CanNext = c.IsNextEnabled;
-        CanPrevious = c.IsPreviousEnabled;
-        CanSeek = c.IsPlaybackPositionEnabled;
-        var rate = info.PlaybackRate ?? 1.0;
+        CanPlayPause = canPlayPause;
+        CanNext = canNext;
+        CanPrevious = canPrevious;
+        CanSeek = canSeek;
         _rate = rate > 0 ? rate : 1.0;
 
-        bool playing = info.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing;
         if (playing != IsPlaying)
         {
             // Freeze/resume from where we visually are, so pause/play never jumps.
@@ -470,18 +479,28 @@ public sealed class MediaService : ObservableObject
         if (s == null) return;
         // A browser preview's timeline would move the song's playhead.
         if (_pendingKey.Length > 0 && !force) return;
-        GlobalSystemMediaTransportControlsSessionTimelineProperties? t;
-        try { t = s.GetTimelineProperties(); }
-        catch (Exception) { return; }
-        if (t == null) return;
+        // Every value is read at once and guarded: when an app closes its media session (a browser tab, a
+        // player quitting), Windows announces the change while the session is going, and reading its timeline
+        // then threw a NullReferenceException out of the session refresh.
+        TimeSpan start, end, minSeek, maxSeek, position;
+        DateTimeOffset updated;
+        try
+        {
+            var t = s.GetTimelineProperties();
+            if (t == null) return;
+            (start, end, minSeek, maxSeek, position, updated) = (t.StartTime, t.EndTime, t.MinSeekTime, t.MaxSeekTime, t.Position, t.LastUpdatedTime);
+        }
+        catch (Exception)
+        {
+            return;
+        }
 
-        _timelineStart = t.StartTime;
-        var duration = t.EndTime - t.StartTime;
-        if (duration <= TimeSpan.Zero && t.MaxSeekTime > TimeSpan.Zero) duration = t.MaxSeekTime - t.MinSeekTime;
+        _timelineStart = start;
+        var duration = end - start;
+        if (duration <= TimeSpan.Zero && maxSeek > TimeSpan.Zero) duration = maxSeek - minSeek;
         Duration = duration > TimeSpan.Zero ? duration : TimeSpan.Zero;
 
-        var pos = t.Position - t.StartTime;
-        var updated = t.LastUpdatedTime;
+        var pos = position - start;
         if (!force && pos == _lastTimelinePos && updated == _lastTimelineUpdate) return;
         _lastTimelinePos = pos;
         _lastTimelineUpdate = updated;

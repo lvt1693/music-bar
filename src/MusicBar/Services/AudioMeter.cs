@@ -138,6 +138,7 @@ public sealed class AudioMeter : IDisposable
         try
         {
             Check(enumerator.GetDefaultAudioEndpoint(0 /* eRender */, 1 /* eMultimedia */, out device));
+            Check(device.GetId(out var deviceId));
             var clientId = typeof(IAudioClient).GUID;
             Check(device.Activate(ref clientId, 23 /* CLSCTX_ALL */, IntPtr.Zero, out var clientObj));
             client = (IAudioClient)clientObj;
@@ -165,10 +166,22 @@ public sealed class AudioMeter : IDisposable
             int ringPos = 0;
             int sinceAnalysis = 0;
             int quietTicks = 0;
+            long checkDeviceAt = Environment.TickCount64 + 1000;
 
             while (_run && generation == _generation)
             {
                 Thread.Sleep(5);
+                // Output switched in Windows (sound settings, the volume flyout, a headset plugged in): the old
+                // device keeps answering with silence, so the bar went still until MusicBar restarted (#18).
+                if (Environment.TickCount64 >= checkDeviceAt)
+                {
+                    checkDeviceAt = Environment.TickCount64 + 1000;
+                    if (DefaultChanged(enumerator, deviceId))
+                    {
+                        Log.Info("The default playback device changed: listening to the new one");
+                        break;
+                    }
+                }
                 bool gotData = false;
                 while (true)
                 {
@@ -227,6 +240,22 @@ public sealed class AudioMeter : IDisposable
             if (client != null) Marshal.ReleaseComObject(client);
             if (device != null) Marshal.ReleaseComObject(device);
             Marshal.ReleaseComObject(enumerator);
+        }
+    }
+
+    /// <summary>Windows' default playback device is no longer the one being listened to.</summary>
+    static bool DefaultChanged(IMMDeviceEnumerator enumerator, string listening)
+    {
+        // No default device at the moment: keep the old one; if it went away, the capture fails and starts over.
+        if (enumerator.GetDefaultAudioEndpoint(0 /* eRender */, 1 /* eMultimedia */, out var current) != 0 || current == null)
+            return false;
+        try
+        {
+            return current.GetId(out var id) == 0 && id != listening;
+        }
+        finally
+        {
+            Marshal.ReleaseComObject(current);
         }
     }
 
@@ -459,6 +488,8 @@ public sealed class AudioMeter : IDisposable
     interface IMMDevice
     {
         [PreserveSig] int Activate(ref Guid iid, int clsCtx, IntPtr activationParams, [MarshalAs(UnmanagedType.IUnknown)] out object instance);
+        [PreserveSig] int OpenPropertyStore(int access, out IntPtr store);
+        [PreserveSig] int GetId([MarshalAs(UnmanagedType.LPWStr)] out string id);
     }
 
     [ComImport, Guid("1CB9AD4C-DBFA-4c32-B178-C2F568A703B2"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]

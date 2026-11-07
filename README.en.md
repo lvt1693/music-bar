@@ -11,7 +11,8 @@ or [portable zip](https://github.com/lvt1693/music-bar/releases/latest/download/
 **Website:** [musicbar.truclv.com](https://musicbar.truclv.com), with the community **gallery**
 (skins, visualizers, LED strips) to download from or share yours.
 
-**What's new:** 1.8 brings an **online gallery** right inside the app, a **welcome tour** (every choice shows on your taskbar as you pick it),
+**What's new:** 1.8.1 adds a **log to send** with song titles masked, a **safe mode** for Explorer, a switch to
+turn hardware acceleration off, and fixes the bar freezing after switching speakers. 1.8 brings an **online gallery** right inside the app, a **welcome tour** (every choice shows on your taskbar as you pick it),
 fixes the progress bar vanishing with a transparent taskbar, **uses far less RAM** (no more
 creeping up over long runs), works properly with an **auto-hiding
 taskbar**, reads **VLC**, and adds a button to
