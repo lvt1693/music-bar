@@ -152,6 +152,32 @@ def db() -> sqlite3.Connection:
     return conn
 
 
+# ------------------------------------------------------------------ the app's switches
+
+FLAGS = DATA / "flags.json"
+
+
+def read_flags() -> dict:
+    """
+    What the app reads at start and once a day (GET /api/v1/flags): the Windows builds on which its taskbar helper
+    must stay out of Explorer, when a Windows update broke it. No file means nothing is switched off.
+    """
+    try:
+        data = json.loads(FLAGS.read_text(encoding="utf-8"))
+    except (FileNotFoundError, ValueError):
+        data = {}
+    if not isinstance(data.get("helper_off"), list):
+        data["helper_off"] = []
+    return data
+
+
+def write_flags(data: dict) -> None:
+    DATA.mkdir(parents=True, exist_ok=True)
+    tmp = FLAGS.with_suffix(".tmp")
+    tmp.write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
+    tmp.replace(FLAGS)
+
+
 # ------------------------------------------------------------------ blobs
 
 def put_blob(data: bytes) -> str:
@@ -257,12 +283,12 @@ def list_items(status: str = "approved", type_: str | None = None, category: str
         where.append("(name like ? or author like ? or tags like ? or description like ?)")
         like = f"%{query[:40]}%"
         args += [like, like, like, like]
-    # Newest first opens with what the community sent lately (newest approval first), ahead of our own
-    # featured looks: seeing your look at the top of the gallery, on the site and in the app, is the thanks.
+    # Newest and popular (the app's gallery asks for popular) open with what the community sent lately, newest
+    # approval first, ahead of our own featured looks: seeing your look at the top of the gallery is the thanks.
     fresh = f"(source != 'seed' and coalesce(reviewed_at, 0) > strftime('%s', 'now') - {FRESH_DAYS * 86400})"
-    order = {"popular": "featured desc, downloads desc, created_at desc", "name": "name collate nocase",
-             "old": "created_at asc"}.get(sort, f"{fresh} desc, case when {fresh} then reviewed_at end desc, "
-                                                "featured desc, created_at desc")
+    first = f"{fresh} desc, case when {fresh} then reviewed_at end desc, "
+    order = {"popular": first + "featured desc, downloads desc, created_at desc", "name": "name collate nocase",
+             "old": "created_at asc"}.get(sort, first + "featured desc, created_at desc")
     clause = " and ".join(where)
     conn = db()
     total = conn.execute(f"select count(*) from items where {clause}", args).fetchone()[0]

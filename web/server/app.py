@@ -488,6 +488,12 @@ async def api_submit(request: Request, name: str = Form(""), nickname: str = For
     return JSONResponse(result, status_code=status)
 
 
+@app.get("/api/v1/flags")
+def api_flags():
+    """The app's switches, read at start and once a day: Windows builds where its taskbar helper stays out of Explorer."""
+    return JSONResponse(store.read_flags(), headers={"Cache-Control": "no-store"})
+
+
 @app.get("/api/v1/ads")
 def api_ads():
     # Links relative to the site: the app puts its own address in front (behind HAProxy this server can't tell it).

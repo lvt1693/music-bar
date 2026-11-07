@@ -9,6 +9,10 @@
   seed <folder>                imports web/seed (manifest.json, skins/, presets/, previews/) as approved
   add-ad <image> <link> <title> [alt]   adds an ad banner
   sync                         mirrors the GitHub releases now
+  flags                        the app's switches (Windows builds where the taskbar helper stays out of Explorer)
+  helper-off <build>[.<ubr>] [note]   keeps the helper out of Explorer on that Windows build (every update of it
+                               without .ubr); the apps notice at their next start or daily check
+  helper-on <build>[.<ubr>]    lets it back in
 """
 
 from __future__ import annotations
@@ -89,6 +93,18 @@ def main(argv: list[str]) -> int:
         return seed_ads(Path(args[0]))
     elif cmd == "sync":
         print(releases.sync())
+    elif cmd == "flags":
+        print(json.dumps(store.read_flags(), ensure_ascii=False, indent=1))
+    elif cmd in ("helper-off", "helper-on"):
+        build, _, ubr = args[0].partition(".")
+        key = (int(build), int(ubr) if ubr else None)
+        flags = store.read_flags()
+        flags["helper_off"] = [e for e in flags["helper_off"] if (e.get("build"), e.get("ubr")) != key]
+        if cmd == "helper-off":
+            flags["helper_off"].append({"build": key[0], "ubr": key[1], "note": " ".join(args[1:])[:200],
+                                        "since": time.strftime("%Y-%m-%d")})
+        store.write_flags(flags)
+        print(json.dumps(flags, ensure_ascii=False, indent=1))
     else:
         print(__doc__)
         return 1
