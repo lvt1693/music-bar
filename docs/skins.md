@@ -70,6 +70,11 @@ Ngoài ra dùng được mọi hàm của HLSL: `sin`, `cos`, `frac`, `floor`, `
 1. Chỉ một hàm vào là `float4 main(float2 uv : TEXCOORD) : COLOR`. Được viết thêm hàm phụ ở trên nó.
 2. Trả về bằng `paint(màu, độ_đậm)`. Chỗ nào không vẽ thì trả `paint(0, 0)` hoặc độ đậm 0.
 3. Shader được dịch theo chuẩn `ps_3_0`. Vòng lặp nên dưới khoảng 64 lần, và phải có số lần cố định.
+   Chuẩn này có trần: khoảng 210 hằng số, 32 thanh ghi tạm, và card đồ họa từ chối shader quá khoảng
+   3.000 lệnh. Skin vượt trần (hay dùng thứ `ps_3_0` không có, như mảng đọc theo chỉ số tính lúc chạy)
+   được MusicBar tự dịch theo shader model 5 và vẽ bằng Direct3D 11 (Cài đặt → Chung → Bộ vẽ skin: Tự
+   động). Skin muốn ai cũng chạy được (máy không có Direct3D 11, người chọn Chỉ cách cũ, bản cũ) thì vẫn
+   nên giữ trong trần `ps_3_0`.
 4. Không đặt tên biến trùng từ khóa của HLSL: `line`, `point`, `triangle`, `sample`, `texture`,
    `vector`, `matrix`, `half`, `in`, `out`, `inline`, `string`.
 5. Không dùng `#include`, texture riêng hay biến toàn cục có giá trị khởi tạo (ngoài `const`).
@@ -106,6 +111,47 @@ float4 main(float2 uv : TEXCOORD) : COLOR
 ```
 
 Muốn xem thêm, đọc 4 skin mẫu trong thư mục [`skins/`](../skins) của repo.
+
+---
+
+## Skin lớn (Direct3D 11)
+
+Skin bình thường chạy theo chuẩn `ps_3_0` như ở trên. Skin nào vượt trần của chuẩn đó thì MusicBar tự dịch
+nó theo **shader model 5** và vẽ bằng **Direct3D 11** (Cài đặt → Chung → Bộ vẽ skin: Tự động). Bạn không
+phải khai báo gì: cùng file `.hlsl`, cùng đầu vào, cùng `main`, cùng `paint()`.
+
+Với Direct3D 11 bạn có thêm:
+
+- **Vòng lặp dài**: hàng trăm bước mỗi điểm ảnh. Đủ cho cảnh 3D thật bằng raymarching (bắn tia qua cảnh),
+  mây thể tích, nước phản chiếu.
+- **Số nguyên và phép bit**: `int`, `uint`, `<<`, `^`, `asuint()`. Dùng để làm hàm ngẫu nhiên ổn định.
+- **Mảng** đọc và ghi theo chỉ số tính lúc chạy, và mảng hằng `static const float a[] = { ... };`.
+- Không còn trần khoảng 210 hằng số, 32 thanh ghi và 3.000 lệnh.
+
+Cần nhớ:
+
+- Skin như vậy **chỉ chạy được trên máy có Direct3D 11**, với bản MusicBar có mục Bộ vẽ skin. Người chọn
+  "Chỉ cách cũ (WPF)" hay dùng bản cũ sẽ thấy skin báo lỗi dịch. Nên ghi rõ "Needs Direct3D 11" trong
+  `description`.
+- **Nặng card đồ họa**: thanh 1920 × 48 điểm ảnh vẽ 30 lần mỗi giây là gần 3 triệu điểm ảnh mỗi giây. Một
+  cảnh mây 3D 40 bước tốn khoảng 5% của một card RTX 2060; card tích hợp đời cũ chậm hơn chừng 15 lần.
+- Hàm ngẫu nhiên kiểu `frac(sin(x) * 43758.5)` cho kết quả **khác nhau** giữa hai bộ vẽ (hàm `sin` tính
+  khác nhau). Skin lớn nên dùng hàm băm số nguyên, máy nào cũng ra như nhau:
+
+```hlsl
+uint pcg(uint v)
+{
+    uint state = v * 747796405u + 2891336453u;
+    uint word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
+    return (word >> 22u) ^ word;
+}
+
+// Một số ngẫu nhiên từ 0 đến 1 cho mỗi ô lưới (ví dụ vị trí một ngôi sao).
+float hash2(int2 p) { return pcg(asuint(p.x) + pcg(asuint(p.y))) * (1.0 / 4294967295.0); }
+```
+
+Muốn nhờ AI viết skin kiểu này thì thêm vào câu lệnh ở dưới: "skin lớn, dùng shader model 5 (Direct3D 11),
+được dùng vòng lặp dài và số nguyên".
 
 ---
 

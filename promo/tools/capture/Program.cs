@@ -61,6 +61,16 @@ static class Program
         {
             Source = new Uri("pack://application:,,,/MusicBar;component/Themes/Bar.xaml"),
         });
+        // Skins drawn by MUSICBAR_SKINS: wpf, auto (as the app does by default) or dx11 (the default here, to compare
+        // the two), each Direct3D 11 frame waited for so a grabbed frame shows its own moment.
+        var renderer = Environment.GetEnvironmentVariable("MUSICBAR_SKINS") switch
+        {
+            "wpf" => SkinRenderer.Wpf,
+            "auto" => SkinRenderer.Auto,
+            _ => SkinRenderer.Direct3D11,
+        };
+        SkinLibrary.UseRenderer(renderer, renderer != SkinRenderer.Wpf && SkinGpu.Start() ? SkinGpu.Shared!.PixelTarget : null);
+        SkinGpu.WaitForFrames = true;
         int code = 0;
         app.Startup += async (_, _) =>
         {
@@ -92,6 +102,7 @@ static class Program
                     case "props": Props(args); break;
                     case "download": await Download(args); break;
                     case "clip": await Clip(args); break;
+                    case "skinperf": await SkinPerf(args); break;
                     default: throw new ArgumentException("unknown mode " + args[0]);
                 }
             }
@@ -163,6 +174,87 @@ static class Program
         }
         window.Close();
         Console.WriteLine($"{Path.GetFileName(input)}: {frames} frames → {outDir}");
+    }
+
+    /// <summary>
+    /// skinperf &lt;skin.hlsl&gt; &lt;seconds&gt; [width height]: runs a skin at taskbar size in a window off the screen,
+    /// a frame on every WPF render tick as the bar does, and prints the frames drawn and the CPU time the
+    /// process used (all threads, WPF's render thread included). MUSICBAR_SKINS=wpf for the old path.
+    /// </summary>
+    static async Task SkinPerf(string[] a)
+    {
+        var text = File.ReadAllText(Path.GetFullPath(a[1]));
+        double seconds = D(a[2]);
+        double w = a.Length > 3 ? D(a[3]) : 1920, h = a.Length > 4 ? D(a[4]) : 48;
+        var bytecode = SkinLibrary.Compile(text, out var error) ?? throw new InvalidDataException(error);
+        // As the app runs: frames come back a frame late and the UI thread never waits on the card.
+        SkinGpu.WaitForFrames = false;
+        double time = 0;
+        var engine = new SeekRenderer { Width = w, Height = h, Clock = () => time, Look = SeekStyle.Classic, Skinned = true, Visibility = Visibility.Hidden };
+        engine.SetEdge(true);
+        engine.SetColors(C("#FF6B6B"), C("#47A9FF"), animate: false, C("#FFC371"));
+        var view = new SkinView();
+        view.SetSkin(new SkinInfo(Path.GetFileName(a[1]), "", "", "", false, bytecode, null));
+        var host = new Grid { Width = w, Height = h, Background = new SolidColorBrush(Color.FromRgb(0x0B, 0x0B, 0x0F)) };
+        host.Children.Add(engine);
+        host.Children.Add(view);
+        var window = new Window
+        {
+            WindowStyle = WindowStyle.None, ResizeMode = ResizeMode.NoResize, ShowInTaskbar = false, ShowActivated = false,
+            Left = -20000, Top = -20000, SizeToContent = SizeToContent.WidthAndHeight, Content = host,
+        };
+        window.Show();
+        // The taskbar's layer window runs on the CPU renderer once skins come as bitmaps (see TaskbarLayerWindow).
+        if (SkinLibrary.IsDirect3D11(bytecode) && Environment.GetEnvironmentVariable("MUSICBAR_PERF_HW") != "1" && PresentationSource.FromVisual(window) is System.Windows.Interop.HwndSource src)
+            src.CompositionTarget.RenderMode = System.Windows.Interop.RenderMode.SoftwareOnly;
+        await Task.Delay(1500);
+
+        int frames = 0;
+        var clock = Stopwatch.StartNew();
+        var inUpdate = new Stopwatch();
+        EventHandler tick = (_, _) =>
+        {
+            time = 20 + clock.Elapsed.TotalSeconds;
+            engine.SetState(0.5, timeline: true, playing: true);
+            engine.Tick();
+            inUpdate.Start();
+            view.Update(engine);
+            inUpdate.Stop();
+            frames++;
+        };
+        using var me = Process.GetCurrentProcess();
+        me.Refresh();
+        var cpu0 = me.TotalProcessorTime;
+        CompositionTarget.Rendering += tick;
+        // MUSICBAR_TEST_LOST=1: halfway, act as if the driver had reset, to see the renderer start over.
+        string? lostTest = Environment.GetEnvironmentVariable("MUSICBAR_TEST_LOST");
+        bool loseOnce = lostTest == "1" && SkinGpu.Shared != null;
+        int before = loseOnce ? SkinGpu.Shared!.GenerationNow : 0;
+        await Task.Delay(TimeSpan.FromSeconds(seconds / 2));
+        if (loseOnce) typeof(SkinGpu).GetMethod("Lose", BindingFlags.NonPublic | BindingFlags.Instance)!.Invoke(SkinGpu.Shared, [new Exception("test")]);
+        int framesAtLoss = frames;
+        await Task.Delay(TimeSpan.FromSeconds(seconds / 2));
+        CompositionTarget.Rendering -= tick;
+        if (lostTest is "1" or "0")
+        {
+            var shot = new RenderTargetBitmap((int)w, (int)h, 96, 96, PixelFormats.Pbgra32);
+            shot.Render(host);
+            var px = new byte[4];
+            shot.CopyPixels(new Int32Rect((int)(w / 2), (int)(h / 2), 1, 1), px, 4, 0);
+            Console.WriteLine($"device lost halfway: generation {before} -> {SkinGpu.Shared!.GenerationNow}, {frames - framesAtLoss} frames after, middle pixel {px[2]},{px[1]},{px[0]}");
+        }
+        me.Refresh();
+        double cpu = (me.TotalProcessorTime - cpu0).TotalSeconds;
+        double wall = clock.Elapsed.TotalSeconds;
+        long busyMb = Process.GetCurrentProcess().PrivateMemorySize64 >> 20;
+        if (Environment.GetEnvironmentVariable("MUSICBAR_TEST_IDLE") == "1")
+        {
+            // Nothing drawn for half a minute: the renderer should have let go of its device by then.
+            await Task.Delay(TimeSpan.FromSeconds(32));
+            Console.WriteLine($"idle: private {busyMb} MB while drawing, {Process.GetCurrentProcess().PrivateMemorySize64 >> 20} MB after 32 s idle");
+        }
+        window.Close();
+        Console.WriteLine($"{(SkinLibrary.IsDirect3D11(bytecode) ? "Direct3D 11" : "WPF effect")}: {frames / wall:0} frames/s, CPU {cpu / wall * 100:0.0}% of one core, {Process.GetCurrentProcess().PrivateMemorySize64 >> 20} MB private, Update {inUpdate.Elapsed.TotalMilliseconds / Math.Max(1, frames):0.00} ms a frame");
     }
 
     static double D(string s) => double.Parse(s, Inv);

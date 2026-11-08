@@ -50,14 +50,22 @@ public sealed partial class SkinEffect : ShaderEffect
 /// Shows a skin: a rectangle whose pixels the skin's shader paints, fed each frame from a
 /// <see cref="SeekRenderer"/> that keeps the clock, the audio and the colors (it runs hidden,
 /// doing everything but drawing). Kept clear of the taskbar's icons, it is one rectangle per empty
-/// stretch, each painting its own part of the one bar.
+/// stretch, each painting its own part of the one bar. The shader runs as the rectangle's WPF effect,
+/// or, once skins go to Direct3D 11 (<see cref="SkinGpu"/>), draws a bitmap the rectangle is filled with.
 /// </summary>
 public sealed class SkinView : Border
 {
     static readonly Brush Clear = Frozen(new SolidColorBrush(Color.FromArgb(1, 0, 0, 0)));
 
+    sealed class Part
+    {
+        public required Rectangle Canvas;
+        public SkinEffect? Effect;
+        public SkinTarget? Target;
+    }
+
     readonly Grid _stage = new();
-    readonly List<(Rectangle Canvas, SkinEffect? Effect)> _parts = [];
+    readonly List<Part> _parts = [];
     readonly WriteableBitmap _audio = new(256, 2, 96, 96, PixelFormats.Bgra32, null);
     readonly byte[] _pixels = new byte[256 * 2 * 4];
     readonly ImageBrush _audioBrush;
@@ -66,28 +74,57 @@ public sealed class SkinView : Border
     public SkinView()
     {
         Child = _stage;
+        _stage.UseLayoutRounding = true;
         _audioBrush = new ImageBrush(_audio) { Stretch = Stretch.Fill };
         IsHitTestVisible = false;
         SizeChanged += (_, _) => LayParts();
+        // Off the screen (a settings window closed, a gallery page left), the textures on the card go at once
+        // rather than whenever the collector gets to them; drawn again, they are made anew.
+        Unloaded += (_, _) =>
+        {
+            foreach (var part in _parts) part.Target?.Dispose();
+        };
         LayParts();
     }
 
     public SkinInfo? Skin { get; private set; }
+
+    /// <summary>The skin on now was compiled for Direct3D 11 (and there is a renderer for it), rather than as a WPF effect.</summary>
+    bool OnGpu => SkinLibrary.IsDirect3D11(Skin?.Bytecode) && SkinGpu.Shared != null;
 
     /// <summary>Puts a skin on (or takes it off with null, or one that didn't compile).</summary>
     public void SetSkin(SkinInfo? skin)
     {
         if (ReferenceEquals(skin, Skin)) return;
         Skin = skin;
-        for (int i = 0; i < _parts.Count; i++)
-        {
-            var effect = NewEffect();
-            _parts[i] = (_parts[i].Canvas, effect);
-            _parts[i].Canvas.Effect = effect;
-        }
+        foreach (var part in _parts) Dress(part);
     }
 
-    SkinEffect? NewEffect() => Skin?.Bytecode is { } code ? new SkinEffect(code) { Audio = _audioBrush } : null;
+    /// <summary>
+    /// The rectangle's paint for the skin on now: its WPF effect, or the bitmap Direct3D 11 draws (each skin
+    /// goes the way it was compiled for; see SkinLibrary.Compile).
+    /// </summary>
+    void Dress(Part part)
+    {
+        if (OnGpu)
+        {
+            if (part.Target == null)
+            {
+                part.Target = new SkinTarget();
+                part.Target.BitmapChanged += () => Dress(part);
+            }
+            part.Effect = null;
+            part.Canvas.Effect = null;
+            part.Canvas.Fill = part.Target.Bitmap is { } bitmap ? new ImageBrush(bitmap) { Stretch = Stretch.Fill } : Clear;
+            return;
+        }
+        part.Target?.Dispose();
+        part.Target = null;
+        part.Canvas.Fill = Clear;
+        // ps_3_0 bytecode only: a Direct3D 11 shader with no renderer to draw it shows nothing rather than fail in WPF.
+        part.Effect = Skin?.Bytecode is { } code && !SkinLibrary.IsDirect3D11(code) ? new SkinEffect(code) { Audio = _audioBrush } : null;
+        part.Canvas.Effect = part.Effect;
+    }
 
     /// <summary>The stretches (in this element's units) the bar keeps to; empty for the whole width.</summary>
     public void SetPieces(IReadOnlyList<(double Left, double Right)> pieces)
@@ -102,15 +139,18 @@ public sealed class SkinView : Border
         int count = Math.Max(1, _pieces.Count);
         while (_parts.Count < count)
         {
-            var canvas = new Rectangle { Fill = Clear, HorizontalAlignment = HorizontalAlignment.Left };
-            var effect = NewEffect();
-            canvas.Effect = effect;
-            _stage.Children.Add(canvas);
-            _parts.Add((canvas, effect));
+            var part = new Part { Canvas = new Rectangle { Fill = Clear, HorizontalAlignment = HorizontalAlignment.Left } };
+            // A frame drawn by Direct3D 11 is already at the screen's pixels: shown one to one, never smoothed
+            // (pixel-art skins would blur), on a stretch whose edges land on whole pixels.
+            RenderOptions.SetBitmapScalingMode(part.Canvas, BitmapScalingMode.NearestNeighbor);
+            Dress(part);
+            _stage.Children.Add(part.Canvas);
+            _parts.Add(part);
         }
         while (_parts.Count > count)
         {
             _stage.Children.Remove(_parts[^1].Canvas);
+            _parts[^1].Target?.Dispose();
             _parts.RemoveAt(_parts.Count - 1);
         }
 
@@ -137,31 +177,11 @@ public sealed class SkinView : Border
     /// <summary>One frame: the time, the song and the sound, as the engine has them now.</summary>
     public void Update(SeekRenderer engine)
     {
-        if (Skin?.Bytecode == null) return;
+        if (Skin?.Bytecode is not { } code) return;
         var (a, b, c) = engine.ColorsNow();
         double full = _pieces.Count == 0 ? ActualWidth : _pieces.Sum(p => p.Right - p.Left);
         full = Math.Max(1, full);
-        double at = 0;
-        for (int i = 0; i < _parts.Count; i++)
-        {
-            if (_parts[i].Effect is not { } e) continue;
-            // The shader keeps time as a 32-bit float: after a day running it only has 8 ms steps, after a
-            // week 60 ms, and motion stutters. Wrapped every 4096 s (68 minutes) it stays sharp, for one jump.
-            e.Time = engine.StyleTime % 4096;
-            e.Progress = engine.ProgressNow;
-            e.Level = engine.LevelNow;
-            e.Beat = engine.BeatNow;
-            e.Playing = engine.PlayingNow ? 1 : 0;
-            e.Size = new Point(full, Math.Max(1, ActualHeight));
-            e.ColorA = a;
-            e.ColorB = b;
-            e.ColorC = c;
-            e.BottomEdge = engine.EdgeAtTop ? 1 : 0;
-            // Where this rectangle's part starts along the whole bar, and how much of it it is.
-            double width = _pieces.Count == 0 ? full : _pieces[i].Right - _pieces[i].Left;
-            e.Span = new Point(at / full, width / full);
-            at += width;
-        }
+        double height = Math.Max(1, ActualHeight);
 
         // Row one, the spectrum (low notes on the left); row two, the waveform around the middle grey.
         var wave = engine.WaveNow;
@@ -172,7 +192,50 @@ public sealed class SkinView : Border
             Put(x, level);
             Put(256 + x, sample);
         }
-        _audio.WritePixels(new Int32Rect(0, 0, 256, 2), _pixels, 256 * 4, 0);
+
+        var inputs = new SkinInputs
+        {
+            // The shader keeps time as a 32-bit float: after a day running it only has 8 ms steps, after a
+            // week 60 ms, and motion stutters. Wrapped every 4096 s (68 minutes) it stays sharp, for one jump.
+            Time = (float)(engine.StyleTime % 4096),
+            Progress = (float)engine.ProgressNow,
+            Level = (float)engine.LevelNow,
+            Beat = (float)engine.BeatNow,
+            Playing = engine.PlayingNow ? 1 : 0,
+            Size = new System.Numerics.Vector2((float)full, (float)height),
+            ColorA = SkinInputs.From(a),
+            ColorB = SkinInputs.From(b),
+            ColorC = SkinInputs.From(c),
+            BottomEdge = engine.EdgeAtTop ? 1 : 0,
+        };
+        var dpi = VisualTreeHelper.GetDpi(this);
+        double at = 0;
+        for (int i = 0; i < _parts.Count; i++)
+        {
+            // Where this rectangle's part starts along the whole bar, and how much of it it is.
+            double width = _pieces.Count == 0 ? full : _pieces[i].Right - _pieces[i].Left;
+            inputs.Span = new System.Numerics.Vector2((float)(at / full), (float)(width / full));
+            at += width;
+            if (_parts[i].Target is { } target && SkinGpu.Shared is { } gpu)
+            {
+                // Drawn at the screen's own pixels; the skin still measures in the units WPF gives it.
+                gpu.Draw(target, code, inputs, _pixels, (int)Math.Round(width * dpi.DpiScaleX), (int)Math.Round(height * dpi.DpiScaleY));
+                continue;
+            }
+            if (_parts[i].Effect is not { } e) continue;
+            e.Time = inputs.Time;
+            e.Progress = inputs.Progress;
+            e.Level = inputs.Level;
+            e.Beat = inputs.Beat;
+            e.Playing = inputs.Playing;
+            e.Size = new Point(full, height);
+            e.ColorA = a;
+            e.ColorB = b;
+            e.ColorC = c;
+            e.BottomEdge = inputs.BottomEdge;
+            e.Span = new Point(inputs.Span.X, inputs.Span.Y);
+        }
+        if (!OnGpu) _audio.WritePixels(new Int32Rect(0, 0, 256, 2), _pixels, 256 * 4, 0);
     }
 
     void Put(int i, byte value)

@@ -7,6 +7,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows.Media;
 using MusicBar.Infrastructure;
+using MusicBar.Models;
 
 namespace MusicBar.Services;
 
@@ -49,6 +50,75 @@ public static class SkinLibrary
         float4 paint(float3 rgb, float alpha) { alpha = saturate(alpha); return float4(saturate(rgb) * alpha, alpha); }
 
         """;
+
+    /// <summary>
+    /// The same inputs and helpers for Direct3D 11 (shader model 5): one constant buffer laid out register by
+    /// register as WPF fills them, so a skin reads the same values either way, and the audio as a texture.
+    /// </summary>
+    public const string Prelude11 = """
+        cbuffer MusicBarInputs : register(b0)
+        {
+            float time : packoffset(c0);
+            float progress : packoffset(c1);
+            float level : packoffset(c2);
+            float playing : packoffset(c3);
+            float2 size : packoffset(c4);
+            float4 colorA : packoffset(c5);
+            float4 colorB : packoffset(c6);
+            float4 colorC : packoffset(c7);
+            float beat : packoffset(c8);
+            float bottomEdge : packoffset(c9);
+            float2 musicbarSpan : packoffset(c10);
+        };
+        Texture2D musicbarAudio : register(t1);
+        SamplerState musicbarAudioSampler : register(s1);
+        float spectrum(float x) { return musicbarAudio.SampleLevel(musicbarAudioSampler, float2(saturate(x), 0.25), 0).r; }
+        float wave(float x) { return musicbarAudio.SampleLevel(musicbarAudioSampler, float2(saturate(x), 0.75), 0).r * 2 - 1; }
+        float rise(float2 uv) { return bottomEdge > 0.5 ? 1 - uv.y : uv.y; }
+        float4 paint(float3 rgb, float alpha) { alpha = saturate(alpha); return float4(saturate(rgb) * alpha, alpha); }
+
+        """;
+
+    /// <summary>
+    /// What skins are compiled for, chosen once at start before the first skin compiles: WPF's ps_3_0
+    /// effects, Direct3D 11's shader model 5 (next to no size limits, drawn by <see cref="Views.SkinGpu"/>),
+    /// or each skin the first of them it fits (<see cref="SkinRenderer.Auto"/>). <paramref name="pixelTarget"/>
+    /// is the shader model the card has for Direct3D 11, null when it has none (then it's WPF for all).
+    /// </summary>
+    public static void UseRenderer(SkinRenderer renderer, string? pixelTarget)
+    {
+        _renderer = pixelTarget == null ? SkinRenderer.Wpf : renderer;
+        _target11 = pixelTarget;
+        _compilerKey = null;
+    }
+
+    static SkinRenderer _renderer = SkinRenderer.Wpf;
+    static string? _target11;
+
+    /// <summary>
+    /// The most instructions a ps_3_0 skin gets before Auto sends it to Direct3D 11. A card refuses a WPF effect
+    /// past a limit of its own: an RTX 2060 drew 3254 and refused 3321; this leaves room for cards with less.
+    /// </summary>
+    const int WpfInstructionBudget = 2800;
+
+    /// <summary>A shader compiled for Direct3D 11 (its bytecode is a DXBC container; ps_3_0 bytecode is a bare token stream).</summary>
+    public static bool IsDirect3D11(byte[]? code) => code is { Length: > 4 } && code[0] == 'D' && code[1] == 'X' && code[2] == 'B' && code[3] == 'C';
+
+    /// <summary>How many instructions a ps_3_0 shader holds (its defs and comments aside).</summary>
+    public static int Instructions(byte[] code)
+    {
+        int count = 0;
+        for (int i = 1; i < code.Length / 4;)
+        {
+            uint token = BitConverter.ToUInt32(code, i * 4);
+            uint op = token & 0xFFFF;
+            if (op == 0xFFFF) break;                                               // end
+            if (op == 0xFFFE) { i += 1 + (int)((token >> 16) & 0x7FFF); continue; }  // comment
+            if (op != 0x51 && op != 0x1F) count++;                                  // not def, not dcl
+            i += 1 + (int)((token >> 24) & 0x0F);
+        }
+        return count;
+    }
 
     static readonly Dictionary<string, (DateTime Written, SkinInfo Info)> Cache = new(StringComparer.OrdinalIgnoreCase);
 
@@ -161,16 +231,26 @@ public static class SkinLibrary
 
     static string KeptFolder => Path.Combine(AppPaths.DataDir, "Cache", "Skins");
 
-    static string KeptPath(string source) => Path.Combine(KeptFolder,
-        $"{Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(source)))[..32]}-{CompilerKey}.cso");
+    // Kept shaders are filed by what they were compiled for, not by the renderer chosen: a skin that stays a WPF
+    // effect under Auto finds the very file 1.8.2 kept for it, so updating compiles nothing again.
+    static string WpfKey => $"{TargetWpf}-{Hash(Prelude + Entry)}";
 
-    /// <summary>The shader compiled from this source before, if it was kept.</summary>
+    static string? Direct3DKey => _target11 == null ? null : $"{_target11}-{Hash(Prelude11 + Entry11)}";
+
+    static string KeptPath(string source, string key) => Path.Combine(KeptFolder,
+        $"{Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(source)))[..32]}-{key}.cso");
+
+    /// <summary>The shader compiled from this source before, if it was kept, as the renderer chosen would compile it now.</summary>
     static byte[]? Kept(string source)
     {
         try
         {
-            var path = KeptPath(source);
-            return File.Exists(path) ? File.ReadAllBytes(path) : null;
+            byte[]? Read(string? key) => key != null && File.Exists(KeptPath(source, key)) ? File.ReadAllBytes(KeptPath(source, key)) : null;
+            if (_renderer == SkinRenderer.Wpf) return Read(WpfKey);
+            if (_renderer == SkinRenderer.Direct3D11) return Read(Direct3DKey);
+            // Auto: the WPF effect when it fits, else the Direct3D 11 shader (kept only for skins that don't).
+            var wpf = Read(WpfKey);
+            return wpf != null && Instructions(wpf) <= WpfInstructionBudget ? wpf : Read(Direct3DKey);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -189,7 +269,8 @@ public static class SkinLibrary
         error = null;
         if (kept != null) return kept;
         var bytecode = Compile(source, out error);
-        if (bytecode != null) Keep(KeptPath(source), bytecode);
+        var key = IsDirect3D11(bytecode) ? Direct3DKey : WpfKey;
+        if (bytecode != null && key != null) Keep(KeptPath(source, key), bytecode);
         return bytecode;
     }
 
@@ -220,34 +301,81 @@ public static class SkinLibrary
         """;
 
     /// <summary>
-    /// Compiles a skin as a pixel shader (ps_3_0, or ps_2_0 where the GPU has nothing newer), with
-    /// the prelude in front and line numbers that still point into the skin's own file.
+    /// The entry point for Direct3D 11: the vertex shader hands over the texture coordinate first and the
+    /// position after it, so a skin whose own main takes only the coordinate still lines up with it.
+    /// </summary>
+    const string Entry11 = """
+
+        #line 1 "musicbar"
+        float4 musicbarMain(float2 uv : TEXCOORD0, float4 musicbarPosition : SV_Position) : SV_Target { return main(float2(musicbarSpan.x + uv.x * musicbarSpan.y, uv.y)); }
+        """;
+
+    /// <summary>
+    /// Compiles a skin as a pixel shader (ps_3_0, or ps_2_0 where the GPU has nothing newer; or shader model 5
+    /// once skins go to Direct3D 11), with the prelude in front and line numbers that still point into the
+    /// skin's own file.
     /// </summary>
     public static byte[]? Compile(string source, out string? error)
     {
-        // A main of another shape won't take the entry point; on its own, its errors are its own.
-        return Compile(source + Entry, "musicbarMain", out error) ?? Compile(source, "main", out error);
+        if (_renderer != SkinRenderer.Auto) return Compile(source, _renderer == SkinRenderer.Direct3D11, out error);
+        // Auto: WPF's effect when the skin fits it (lighter: no second graphics device), Direct3D 11 when it doesn't
+        // compile for ps_3_0 (out of registers) or is longer than a card may take.
+        var wpf = Compile(source, false, out var wpfError);
+        if (wpf != null && Instructions(wpf) <= WpfInstructionBudget)
+        {
+            error = null;
+            return wpf;
+        }
+        var d3d = Compile(source, true, out var d3dError);
+        if (d3d != null)
+        {
+            error = null;
+            return d3d;
+        }
+        // Not for either: shader model 5's complaint is about the skin itself, not about ps_3_0's limits.
+        error = d3dError ?? wpfError;
+        return wpf;
     }
 
-    static string Target => _target ??= RenderCapability.IsPixelShaderVersionSupported(3, 0) ? "ps_3_0" : "ps_2_0";
+    /// <summary>The same, for the target asked for whichever is in use (for comparing the two).</summary>
+    public static byte[]? Compile(string source, bool direct3D11, out string? error)
+    {
+        // A main of another shape won't take the entry point; on its own, its errors are its own.
+        return Compile(source + (direct3D11 ? Entry11 : Entry), "musicbarMain", direct3D11, out error)
+               ?? Compile(source, "main", direct3D11, out error);
+    }
+
+    static string TargetWpf => _target ??= RenderCapability.IsPixelShaderVersionSupported(3, 0) ? "ps_3_0" : "ps_2_0";
 
     static string? _target;
 
-    /// <summary>What a compiled skin depends on besides its own file: the shader model and the code put around it.</summary>
-    public static string CompilerKey => _compilerKey ??=
-        $"{Target}-{Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(Prelude + Entry)))[..8].ToLowerInvariant()}";
+    /// <summary>
+    /// What a compiled skin depends on besides its own file: the renderer chosen, the shader models and the code
+    /// put around it. (Kept shaders say which kind they are by their bytes: see <see cref="IsDirect3D11"/>.)
+    /// </summary>
+    public static string CompilerKey => _compilerKey ??= _renderer switch
+    {
+        SkinRenderer.Wpf => $"{TargetWpf}-{Hash(Prelude + Entry)}",
+        SkinRenderer.Direct3D11 => $"{_target11}-{Hash(Prelude11 + Entry11)}",
+        _ => $"auto-{TargetWpf}-{_target11}-{Hash(Prelude + Entry + Prelude11 + Entry11)}",
+    };
+
+    static string Hash(string text) =>
+        Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(text)))[..8].ToLowerInvariant();
 
     static string? _compilerKey;
 
-    static byte[]? Compile(string source, string entry, out string? error)
+    static byte[]? Compile(string source, string entry, bool direct3D11, out string? error)
     {
         error = null;
-        var target = Target;
-        var text = Encoding.UTF8.GetBytes(Prelude + "#line 1 \"skin\"\n" + source);
+        var target = direct3D11 ? _target11 ?? "ps_5_0" : TargetWpf;
+        var text = Encoding.UTF8.GetBytes((direct3D11 ? Prelude11 : Prelude) + "#line 1 \"skin\"\n" + source);
+        // Shader model 5 takes the older syntax skins are written in (COLOR, TEXCOORD) only when asked to.
+        uint flags = OptimizationLevel3 | (direct3D11 ? BackwardsCompatibility : 0);
         try
         {
             int hr = D3DCompile(text, (IntPtr)text.Length, "skin", IntPtr.Zero, IntPtr.Zero, entry, target,
-                OptimizationLevel3, 0, out var code, out var errors);
+                flags, 0, out var code, out var errors);
             if (hr < 0 || code == null)
             {
                 error = errors != null ? BlobText(errors) : $"0x{hr:X8}";
@@ -277,6 +405,19 @@ public static class SkinLibrary
     }
 
     const uint OptimizationLevel3 = 1 << 15;
+    const uint BackwardsCompatibility = 1 << 12;
+
+    /// <summary>Compiles HLSL MusicBar wrote itself (the Direct3D 11 vertex shader); throws with the compiler's words.</summary>
+    internal static byte[] CompileOwn(string source, string entry, string target)
+    {
+        var text = Encoding.UTF8.GetBytes(source);
+        int hr = D3DCompile(text, (IntPtr)text.Length, "musicbar", IntPtr.Zero, IntPtr.Zero, entry, target,
+            OptimizationLevel3, 0, out var code, out var errors);
+        if (hr < 0 || code == null) throw new InvalidOperationException(errors != null ? BlobText(errors) : $"0x{hr:X8}");
+        var bytes = new byte[(int)code.GetBufferSize()];
+        Marshal.Copy(code.GetBufferPointer(), bytes, 0, bytes.Length);
+        return bytes;
+    }
 
     [ComImport, Guid("8BA5FB08-5195-40e2-AC58-0D989C3A0102"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
     interface ID3DBlob

@@ -117,6 +117,7 @@ public partial class SettingsWindow
             SkinGallery.Children.Add(tile);
         }
         SkinEmpty.Visibility = SkinGallery.Children.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        FilterLooks();
         if (_lookTabs.Count > 0) BuildLookTabs();
         RefreshLooks();
     }
@@ -180,7 +181,7 @@ public partial class SettingsWindow
 
     void AddLookTab(LookGroup group, string name)
     {
-        int count = _looks.Count(l => l.Group == group);
+        int count = _looks.Count(l => l.Group == group && Matches(l));
         // A dot marks the group holding the look that's on, whichever tab is open.
         var dot = new TextBlock { Text = "●", FontSize = 7, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 6, 0) };
         var row = new StackPanel { Orientation = Orientation.Horizontal };
@@ -217,16 +218,75 @@ public partial class SettingsWindow
         VisualizerGallery.Visibility = group == LookGroup.Visualizer ? Visibility.Visible : Visibility.Collapsed;
         LedGallery.Visibility = group == LookGroup.Led ? Visibility.Visible : Visibility.Collapsed;
         SkinPane.Visibility = group == LookGroup.Skin ? Visibility.Visible : Visibility.Collapsed;
-        LookHint.Text = Loc.T(group switch
+        LookHint.Text = _looks.Any(Matches) ? Loc.T(group switch
         {
             LookGroup.Visualizer => "Set_Progress_VisualizerHint",
             LookGroup.Led => "Set_Progress_LedHint",
             LookGroup.Skin => "Set_Progress_SkinsHint",
             _ => "Set_Progress_StyleHint",
-        });
+        }) : Loc.T("Set_Look_NoMatch", LookSearch.Text.Trim());
         _hovered = null;
         PaintLookTabs();
         ShowLookDetail();
+    }
+
+    // ------------------------------------------------------------------ searching the looks
+
+    string[] _lookWords = [];
+
+    /// <summary>
+    /// Shows only the looks whose name, description or author (or the group's name) has every word typed, in any
+    /// group; accents and case don't count, so "hoang hon" finds "Hoàng hôn". The tabs count what's left, and
+    /// when the open tab has nothing left the first one that does opens.
+    /// </summary>
+    void LookSearch_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        LookSearchHint.Visibility = LookSearch.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+        _lookWords = Plain(LookSearch.Text).Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        FilterLooks();
+        BuildLookTabs();
+        if (_lookWords.Length > 0 && !_looks.Any(l => l.Group == _lookGroup && Matches(l))
+            && _looks.FirstOrDefault(Matches) is { } first)
+            ShowLookGroup(first.Group);
+        else
+            ShowLookGroup(_lookGroup);
+    }
+
+    void LookSearch_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Escape || LookSearch.Text.Length == 0) return;
+        LookSearch.Clear();
+        e.Handled = true;
+    }
+
+    void FilterLooks()
+    {
+        foreach (var look in _looks) look.Tile.Visibility = Matches(look) ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    bool Matches(Look look)
+    {
+        if (_lookWords.Length == 0) return true;
+        string text = Plain(look.Name + " " + look.Description + " " + GroupName(look.Group));
+        return _lookWords.All(text.Contains);
+    }
+
+    static string GroupName(LookGroup group) => Loc.T(group switch
+    {
+        LookGroup.Visualizer => "Set_Progress_GroupVisualizer",
+        LookGroup.Led => "Set_Progress_GroupLed",
+        LookGroup.Skin => "Set_Progress_TabSkins",
+        _ => "Set_Progress_TabProgress",
+    });
+
+    /// <summary>Lower case without accents (đ as d), so Vietnamese can be typed with or without its marks.</summary>
+    static string Plain(string text)
+    {
+        var decomposed = text.ToLowerInvariant().Replace('đ', 'd').Normalize(System.Text.NormalizationForm.FormD);
+        var sb = new System.Text.StringBuilder(decomposed.Length);
+        foreach (char ch in decomposed)
+            if (System.Globalization.CharUnicodeInfo.GetUnicodeCategory(ch) != System.Globalization.UnicodeCategory.NonSpacingMark) sb.Append(ch);
+        return sb.ToString();
     }
 
     /// <summary>The line under the tiles: the one under the pointer, or else the one that's on.</summary>
@@ -295,7 +355,7 @@ public partial class SettingsWindow
     {
         foreach (var look in _looks)
         {
-            if (look.Group != _lookGroup) continue;
+            if (look.Group != _lookGroup || look.Tile.Visibility != Visibility.Visible) continue;
             look.Engine.SetState(progress, timeline: true, playing: true);
             look.Engine.Tick();
             look.Shader?.Update(look.Engine);

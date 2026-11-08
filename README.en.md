@@ -183,6 +183,11 @@ no network. **Add the sample skins** gives you 4 (Liquid Chrome, Comet, Plasma, 
 **Import a skin…** adds your own. Can't write shaders? Paste the [skin guide](docs/skins.md) into
 ChatGPT / Claude / Gemini with a description of what you want: it has a ready-made prompt.
 
+**Skin renderer** (Settings → General): **Automatic** by default. A skin that fits pixel shader 3.0 is drawn
+as a WPF effect as before (the lightest way); one too big for it moves to **Direct3D 11** on its own (shader
+model 5, next to no size limit, about 35 MB more RAM only while that skin runs). Always Direct3D 11 and
+Classic only can be picked too.
+
 ## Install
 
 - **Installer** (`MusicBar-1.8.0-Setup.exe`): installs for your account only, in
@@ -491,9 +496,10 @@ ElevenLabs. To rebuild it: go to `promo/` and run `npx hyperframes preview`.
   laptop.
 - Win + A is caught with a keyboard hook; MusicBar slips an invisible key in between so Windows
   doesn't open Start when the Windows key is released, the way PowerToys does it.
-- Skins run on the graphics card (pixel shader 3.0). A PC with only software graphics (a virtual
-  machine, Remote Desktop) only runs older shaders, and a long skin may not compile; MusicBar then
-  keeps the progress style you had.
+- Skins run on the graphics card (pixel shader 3.0, or Direct3D 11 for big ones). A PC without
+  Direct3D 11 (some virtual machines, Remote Desktop) only has pixel shader 3.0, so a skin too big for it
+  doesn't run; one with only software graphics only runs older shaders, and a long skin may not
+  compile; MusicBar then keeps the progress style you had.
 - Reading VLC uses VLC's own web interface: MusicBar turns it on in VLC's settings file (`vlcrc`,
   keeping a copy as `vlcrc.musicbar-backup`), listening on this computer only (127.0.0.1), port
   47328, with a random password; a port or password you set there already is kept. VLC reads that

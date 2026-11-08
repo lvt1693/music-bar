@@ -6,6 +6,12 @@ namespace MusicBar.Models;
 /// <summary>Where the progress layer sits relative to the Windows taskbar.</summary>
 public enum LayerMode { Auto, Under, Over }
 
+/// <summary>
+/// What draws skins. Auto: WPF's ps_3_0 effects for the skins that fit them (as light as before), Direct3D 11
+/// for the ones too big for them. Or one of the two for every skin.
+/// </summary>
+public enum SkinRenderer { Auto, Direct3D11, Wpf }
+
 public enum WidgetPlacement { Auto, Left, Right }
 
 /// <summary>Where lyrics appear when shown: the biggest empty stretch of taskbar, or right beside the cover.</summary>
@@ -122,6 +128,10 @@ public sealed class AppSettings : ObservableObject
     /// <summary>Draw on the graphics card (from the next start). Off draws everything on the CPU, for drivers that crash.</summary>
     bool _hardwareAcceleration = true;
     public bool HardwareAcceleration { get => _hardwareAcceleration; set => Set(ref _hardwareAcceleration, value); }
+
+    /// <summary>What draws skins (from the next start): see <see cref="Models.SkinRenderer"/>.</summary>
+    SkinRenderer _skinRenderer = SkinRenderer.Auto;
+    public SkinRenderer SkinRenderer { get => _skinRenderer; set => Set(ref _skinRenderer, value); }
 
     /// <summary>Win + A opens MusicBar's control center (while it is on) instead of Windows' Quick Settings.</summary>
     bool _winAOpensControlCenter = true;

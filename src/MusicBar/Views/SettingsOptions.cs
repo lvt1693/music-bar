@@ -33,6 +33,13 @@ public static class SettingsOptions
         new(AppLanguage.Vietnamese, "Lang_Vietnamese"),
     ];
 
+    public static IReadOnlyList<Option> SkinRenderers { get; } =
+    [
+        new(SkinRenderer.Auto, "Opt_SkinRenderer_Auto"),
+        new(SkinRenderer.Direct3D11, "Opt_SkinRenderer_D3D11"),
+        new(SkinRenderer.Wpf, "Opt_SkinRenderer_Wpf"),
+    ];
+
     public static IReadOnlyList<Option> LayerModes { get; } =
     [
         new(LayerMode.Auto, "Opt_Layer_Auto"),

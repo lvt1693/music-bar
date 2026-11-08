@@ -176,6 +176,11 @@ Synthwave); **Nhập skin…** để thêm file của bạn. Không biết viế
 [hướng dẫn skin](docs/skins.md) cho ChatGPT / Claude / Gemini kèm mô tả thứ bạn muốn: trong đó có
 sẵn câu lệnh để dán.
 
+**Bộ vẽ skin** (Cài đặt → Chung): mặc định **Tự động**, skin nào vừa với pixel shader 3.0 thì vẽ bằng
+hiệu ứng của WPF như trước (nhẹ nhất), skin quá lớn so với nó thì tự chuyển sang **Direct3D 11** (shader
+model 5, gần như không giới hạn độ lớn, tốn thêm khoảng 35 MB RAM chỉ trong lúc skin đó chạy). Chọn được
+Luôn dùng Direct3D 11 hoặc Chỉ cách cũ.
+
 ## Cài
 
 - **Bản cài đặt** (`MusicBar-1.8.0-Setup.exe`): cài cho riêng tài khoản của bạn vào
@@ -467,9 +472,10 @@ từ ElevenLabs. Muốn dựng lại: vào `promo/`, `npx hyperframes preview`.
   (qua WMI, như Windows) chưa thử trên laptop thật.
 - Win + A được bắt bằng một hook bàn phím; MusicBar chen một phím vô hình vào giữa để Windows không
   mở Start khi nhả phím Windows, cách PowerToys vẫn làm.
-- Skin chạy trên card đồ họa (pixel shader 3.0). Máy chỉ có đồ họa phần mềm (máy ảo, Remote
-  Desktop) chỉ chạy được shader đời cũ hơn, skin dài có thể không dịch nổi; khi đó MusicBar giữ
-  nguyên kiểu thanh tiến trình đang chọn.
+- Skin chạy trên card đồ họa (pixel shader 3.0, hoặc Direct3D 11 cho skin lớn). Máy không có
+  Direct3D 11 (một số máy ảo, Remote Desktop) chỉ dùng pixel shader 3.0, skin quá lớn không chạy được;
+  máy chỉ có đồ họa phần mềm chỉ chạy được shader đời cũ hơn, skin dài có thể không dịch nổi; khi đó
+  MusicBar giữ nguyên kiểu thanh tiến trình đang chọn.
 - Đọc VLC dùng giao diện web có sẵn của VLC: MusicBar bật nó trong file cài đặt của VLC (`vlcrc`, có
   giữ bản sao `vlcrc.musicbar-backup`), chỉ nghe trong máy (127.0.0.1), cổng 47328, mật khẩu ngẫu
   nhiên; cổng hay mật khẩu bạn đặt sẵn thì giữ của bạn. VLC đọc file đó lúc khởi động nên phải mở lại

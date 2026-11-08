@@ -13,6 +13,9 @@ public static partial class Strings
 
         // ---- option lists
         d.Add("Opt_Layer_Auto", ("Automatic", "Tự động"));
+        d.Add("Opt_SkinRenderer_Auto", ("Automatic (recommended)", "Tự động (khuyên dùng)"));
+        d.Add("Opt_SkinRenderer_D3D11", ("Always Direct3D 11", "Luôn dùng Direct3D 11"));
+        d.Add("Opt_SkinRenderer_Wpf", ("Classic only (WPF)", "Chỉ cách cũ (WPF)"));
         d.Add("Opt_Layer_Under", ("Under the taskbar icons", "Nằm dưới icon taskbar"));
         d.Add("Opt_Layer_Over", ("Tinted over the taskbar", "Phủ mờ lên taskbar"));
         d.Add("Opt_Place_Right", ("Right, next to the system tray (bottom when vertical)", "Bên phải, cạnh khay hệ thống (dọc: phía dưới)"));

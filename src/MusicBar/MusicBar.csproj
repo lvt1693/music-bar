@@ -48,6 +48,8 @@
 
   <ItemGroup>
     <PackageReference Include="System.Management" Version="10.0.14" />
+    <!-- Skins drawn on Direct3D 11 (ps_5_0) instead of WPF's ps_3_0 effects, which cap how big a skin can be. -->
+    <PackageReference Include="Vortice.Direct3D11" Version="3.8.3" />
   </ItemGroup>
 
   <Target Name="BuildTaskbarTap" BeforeTargets="PrepareForBuild" Inputs="$(TaskbarTapSource)TaskbarTap.cpp;$(TaskbarTapSource)TaskbarTap.def;$(TaskbarTapSource)build.cmd" Outputs="$(TaskbarTapOut)\MusicBar.TaskbarTap.dll">

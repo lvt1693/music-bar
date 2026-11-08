@@ -131,6 +131,25 @@ public partial class App : Application
             System.Windows.Media.RenderOptions.ProcessRenderMode = System.Windows.Interop.RenderMode.SoftwareOnly;
             Log.Info("Drawing on the CPU: hardware acceleration is off");
         }
+        // What draws skins: the setting, or MUSICBAR_SKINS=wpf|dx11|auto for comparing. Decided before the first skin
+        // compiles, since that decides what they are compiled for. Direct3D 11 needs the card; without it, WPF for all.
+        var renderer = Environment.GetEnvironmentVariable("MUSICBAR_SKINS") switch
+        {
+            "wpf" => SkinRenderer.Wpf,
+            "dx11" => SkinRenderer.Direct3D11,
+            "auto" => SkinRenderer.Auto,
+            _ => settings.SkinRenderer,
+        };
+        bool direct3D = renderer != SkinRenderer.Wpf && settings.HardwareAcceleration && SkinGpu.Start();
+        SkinLibrary.UseRenderer(renderer, direct3D ? SkinGpu.Shared!.PixelTarget : null);
+        // A shader the card turns down at draw time (too big for it) would throw on every frame: say so once, and the
+        // skin just doesn't show, the style it stands on staying where it is.
+        System.Windows.Media.Effects.PixelShader.InvalidPixelShaderEncountered += (_, _) =>
+        {
+            if (_shaderRefused) return;
+            _shaderRefused = true;
+            Log.Info("The graphics card refused a skin's shader (too big for it?): it isn't drawn");
+        };
         // The very first time, before anything is touched: how Windows looked, to give back on uninstall.
         SystemSnapshot.TakeOnce(settings.WindowsModeBefore);
         Loc.Instance.Language = settings.Language;
@@ -440,6 +459,7 @@ public partial class App : Application
     }
 
     System.Windows.Threading.DispatcherTimer? _memoryTimer;
+    bool _shaderRefused;
 
     /// <summary>
     /// Run by the uninstaller (--uninstall): a copy still running hands back what it holds and quits,
