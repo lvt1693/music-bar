@@ -27,6 +27,8 @@ public sealed class NotificationFeed
 
     readonly DispatcherTimer _poll = new() { Interval = SlowPoll };
     readonly Dictionary<string, ImageSource?> _logos = new();
+    // What each notification said, read once: they don't change while they wait.
+    readonly Dictionary<uint, NotificationItem> _read = new();
     readonly HashSet<uint> _seen = new();
     readonly HashSet<uint> _removed = new();
     UserNotificationListener? _listener;
@@ -88,27 +90,25 @@ public sealed class NotificationFeed
         _refreshing = true;
         try
         {
-            var raw = await _listener.GetNotificationsAsync(NotificationKinds.Toast);
-            // One the user took away but Windows still lists (or a read that started before the clear): try again, keep it hidden.
-            _removed.IntersectWith(raw.Select(n => n.Id));
-            foreach (var id in _removed.ToList()) Remove(id);
-            var items = new List<NotificationItem>(raw.Count);
-            foreach (var n in raw.Where(n => !_removed.Contains(n.Id)).OrderByDescending(n => n.CreationTime))
+            // Each notification's text and app is a call into Windows' notification service, about 8 ms apiece:
+            // read on a pool thread, and only for the ones not read before. Every 8 seconds on the UI thread, a
+            // notification center holding dozens froze the bar and the lyrics for most of a second (#17).
+            var listener = _listener;
+            var known = _read.Keys.ToHashSet();
+            var (ids, fresh) = await Task.Run(async () =>
             {
-                var texts = n.Notification?.Visual?.GetBinding(KnownNotificationBindings.ToastGeneric)?.GetTextElements();
-                string title = texts?.FirstOrDefault()?.Text?.Trim() ?? "";
-                string body = texts == null ? "" : string.Join("\n", texts.Skip(1).Select(t => t.Text?.Trim()).Where(t => !string.IsNullOrEmpty(t)));
-                string appName = "", appId = "";
-                try
-                {
-                    appName = n.AppInfo?.DisplayInfo?.DisplayName ?? "";
-                    appId = n.AppInfo?.AppUserModelId ?? "";
-                }
-                catch (Exception)
-                {
-                }
-                items.Add(new NotificationItem(n.Id, appName, appId, await LogoAsync(n), title, body, n.CreationTime));
-            }
+                var raw = await listener.GetNotificationsAsync(NotificationKinds.Toast);
+                var fresh = new List<NotificationItem>();
+                foreach (var n in raw.Where(n => !known.Contains(n.Id))) fresh.Add(await ReadAsync(n));
+                return (raw.Select(n => n.Id).ToList(), fresh);
+            });
+            foreach (var item in fresh) _read[item.Id] = item;
+            foreach (var gone in _read.Keys.Except(ids).ToList()) _read.Remove(gone);
+
+            // One the user took away but Windows still lists (or a read that started before the clear): try again, keep it hidden.
+            _removed.IntersectWith(ids);
+            foreach (var id in _removed.ToList()) Remove(id);
+            var items = ids.Where(id => !_removed.Contains(id)).Select(id => _read[id]).OrderByDescending(i => i.Time).ToList();
 
             string signature = string.Join(",", items.Select(i => i.Id));
             Items = items;
@@ -190,6 +190,32 @@ public sealed class NotificationFeed
         Dismiss(item.Id);
     }
 
+    /// <summary>A notification's text, app and logo (on a pool thread: every part is a call into Windows).</summary>
+    async Task<NotificationItem> ReadAsync(UserNotification n)
+    {
+        string title = "", body = "";
+        try
+        {
+            var texts = n.Notification?.Visual?.GetBinding(KnownNotificationBindings.ToastGeneric)?.GetTextElements();
+            title = texts?.FirstOrDefault()?.Text?.Trim() ?? "";
+            body = texts == null ? "" : string.Join("\n", texts.Skip(1).Select(t => t.Text?.Trim()).Where(t => !string.IsNullOrEmpty(t)));
+        }
+        catch (Exception)
+        {
+        }
+        string appName = "", appId = "";
+        try
+        {
+            appName = n.AppInfo?.DisplayInfo?.DisplayName ?? "";
+            appId = n.AppInfo?.AppUserModelId ?? "";
+        }
+        catch (Exception)
+        {
+        }
+        return new NotificationItem(n.Id, appName, appId, await LogoAsync(n), title, body, n.CreationTime);
+    }
+
+    // Only touched by the one read running at a time, on its pool thread.
     async Task<ImageSource?> LogoAsync(UserNotification n)
     {
         string key;

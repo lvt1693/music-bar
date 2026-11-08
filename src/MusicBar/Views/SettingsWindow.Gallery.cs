@@ -38,16 +38,26 @@ public partial class SettingsWindow
     int _galleryPage = 1;
     bool _galleryAsked;
     CancellationTokenSource? _galleryCts;
+    // Only the tiles on screen (or about to be) move, and a skin tile fetches and compiles its skin the first
+    // time it comes near: a page of 30 live skins, all compiled at once, froze weaker PCs (#17).
+    readonly HashSet<Border> _nearTiles = [];
+    readonly Dictionary<Border, Func<Task>> _pendingPreviews = [];
+    bool _nearStale = true;
 
     // ------------------------------------------------------------------ browsing
 
     /// <summary>The page opened: the first look at the gallery, and the presets kept here.</summary>
     void ShowGalleryPage()
     {
-        if (_galleryTabs.Count == 0) BuildGalleryTabs();
+        if (_galleryTabs.Count == 0)
+        {
+            BuildGalleryTabs();
+            PageScroll.ScrollChanged += (_, _) => _nearStale = true;
+        }
         BuildPresetTiles();
         BuildShareChoices();
         if (!_galleryAsked) LoadGallery();
+        _nearStale = true;
     }
 
     void BuildGalleryTabs()
@@ -88,6 +98,7 @@ public partial class SettingsWindow
             _galleryPage = 1;
             GalleryGrid.Children.Clear();
             _galleryTiles.Clear();
+            _pendingPreviews.Clear();
         }
         GalleryStatus.Text = Loc.T("Set_Gal_Loading");
         try
@@ -95,6 +106,7 @@ public partial class SettingsWindow
             var (items, total) = await Hub.GalleryAsync(_galleryCategory, "popular", _galleryPage, cts.Token);
             if (cts.IsCancellationRequested) return;
             foreach (var item in items) GalleryGrid.Children.Add(GalleryTileFor(item, cts.Token));
+            _nearStale = true;
             GalleryStatus.Text = total == 0 ? Loc.T("Set_Gal_Empty") : Loc.T("Set_Gal_Count", total);
             GalleryMore.Visibility = _galleryTiles.Count < total ? Visibility.Visible : Visibility.Collapsed;
         }
@@ -125,7 +137,6 @@ public partial class SettingsWindow
             stage.Children.Add(engine);
             stage.Children.Add(shader);
             preview = stage;
-            _ = PreviewSkinAsync(item, shader, ct);
         }
         else
         {
@@ -134,6 +145,7 @@ public partial class SettingsWindow
 
         var get = new Button { Padding = new Thickness(12, 3, 12, 3), FontSize = 12, VerticalAlignment = VerticalAlignment.Center };
         var tile = GalleryCard(preview, item.Name, $"{Loc.T("Set_Gal_By")} {item.Author} · {Loc.T("Set_Gal_Downloads", item.Downloads)}", get);
+        if (shader is { } view) _pendingPreviews[tile] = () => PreviewSkinAsync(item, view, ct);
         var entry = new GalleryTile(item, tile, engine, shader, get);
         PaintGet(entry);
         get.Click += async (_, e) =>
@@ -154,12 +166,11 @@ public partial class SettingsWindow
     {
         try
         {
-            var text = await Hub.FetchAsync(item, ct, preview: true);
-            var bytecode = await Task.Run(() => SkinLibrary.Compile(text, out _), ct);
+            var bytecode = await Hub.PreviewShaderAsync(item, ct);
             if (bytecode != null && !ct.IsCancellationRequested)
                 shader.SetSkin(new SkinInfo("gallery:" + item.Slug, item.Name, item.Author, item.Description, item.Category == "visualizer", bytecode, null));
         }
-        catch (Exception ex) when (ex is System.Net.Http.HttpRequestException or TaskCanceledException or InvalidDataException or DecoderFallbackException)
+        catch (Exception ex) when (ex is System.Net.Http.HttpRequestException or OperationCanceledException or InvalidDataException or DecoderFallbackException or IOException)
         {
         }
     }
@@ -320,19 +331,46 @@ public partial class SettingsWindow
         };
     }
 
-    /// <summary>Keeps the gallery's previews moving while its page is on screen.</summary>
+    /// <summary>Keeps the gallery's previews moving while its page is on screen, the ones in view only.</summary>
     void TickGallery(double progress)
     {
+        if (_nearStale) FindNearTiles();
         foreach (var t in _galleryTiles)
         {
+            if (!_nearTiles.Contains(t.Tile)) continue;
             t.Engine.SetState(progress, timeline: true, playing: true);
             t.Engine.Tick();
             t.Shader?.Update(t.Engine);
         }
-        foreach (var (_, _, engine) in _presetTiles)
+        foreach (var (_, tile, engine) in _presetTiles)
         {
+            if (!_nearTiles.Contains(tile)) continue;
             engine.SetState(progress, timeline: true, playing: true);
             engine.Tick();
+        }
+    }
+
+    /// <summary>
+    /// The tiles in the page's view or close to it (a skin tile starts its preview the first time), worked out
+    /// again when the page scrolls, resizes or gets new tiles.
+    /// </summary>
+    void FindNearTiles()
+    {
+        _nearStale = false;
+        _nearTiles.Clear();
+        var view = new Rect(PageScroll.RenderSize);
+        view.Inflate(0, 160);
+        foreach (var tile in _galleryTiles.Select(t => t.Tile).Concat(_presetTiles.Select(p => p.Tile)))
+        {
+            // Not laid out yet: ask again next frame rather than guess (a guess would start every preview).
+            if (!tile.IsArrangeValid || tile.RenderSize.Height == 0)
+            {
+                _nearStale = true;
+                continue;
+            }
+            if (!tile.TransformToAncestor(PageScroll).TransformBounds(new Rect(tile.RenderSize)).IntersectsWith(view)) continue;
+            _nearTiles.Add(tile);
+            if (_pendingPreviews.Remove(tile, out var start)) _ = start();
         }
     }
 
@@ -380,6 +418,7 @@ public partial class SettingsWindow
             PresetGrid.Children.Add(tile);
         }
         PresetsEmpty.Visibility = _presetTiles.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        _nearStale = true;
     }
 
     // ------------------------------------------------------------------ sharing
@@ -388,7 +427,8 @@ public partial class SettingsWindow
     {
         var choices = new List<ShareChoice>();
         if (_s.Skin.Length == 0) choices.Add(new ShareChoice(Loc.T("Set_Gal_ShareLook", _s.SeekStyle), null));
-        foreach (var skin in SkinLibrary.List().Where(k => k.Works)) choices.Add(new ShareChoice(Loc.T("Set_Gal_ShareSkin", skin.Name), skin));
+        // Only skins compiled already (the Looks page compiles the rest on a pool thread): compiling here froze the page.
+        foreach (var skin in SkinLibrary.List(compile: false).Where(k => k.Works)) choices.Add(new ShareChoice(Loc.T("Set_Gal_ShareSkin", skin.Name), skin));
         var was = (ShareWhat.SelectedItem as ShareChoice)?.Label;
         ShareWhat.ItemsSource = choices;
         ShareWhat.SelectedItem = choices.FirstOrDefault(c => c.Label == was) ?? choices.FirstOrDefault();

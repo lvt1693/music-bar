@@ -52,19 +52,23 @@ public static class SkinLibrary
 
     static readonly Dictionary<string, (DateTime Written, SkinInfo Info)> Cache = new(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>Every skin in the folder, compiled (once per change of the file).</summary>
-    public static IReadOnlyList<SkinInfo> List()
+    /// <summary>Every skin in the folder, compiled (once per change of the file); with <paramref name="compile"/> false, the ones that need no compiling.</summary>
+    public static IReadOnlyList<SkinInfo> List(bool compile = true)
     {
         if (!Directory.Exists(Folder)) return [];
         return Directory.EnumerateFiles(Folder, "*.hlsl")
-            .Select(path => Load(Path.GetFileName(path)))
+            .Select(path => Load(Path.GetFileName(path), compile))
             .OfType<SkinInfo>()
             .OrderBy(s => s.Name, StringComparer.CurrentCultureIgnoreCase)
             .ToList();
     }
 
-    /// <summary>One skin by its file name; null when the file is gone.</summary>
-    public static SkinInfo? Load(string file)
+    /// <summary>
+    /// One skin by its file name; null when the file is gone. With <paramref name="compile"/> false, also null
+    /// when it would have to be compiled (compiling one can take seconds): the UI thread asks that way, and
+    /// compiles on a pool thread when it gets nothing.
+    /// </summary>
+    public static SkinInfo? Load(string file, bool compile = true)
     {
         if (string.IsNullOrWhiteSpace(file)) return null;
         var path = Path.Combine(Folder, Path.GetFileName(file));
@@ -83,7 +87,8 @@ public static class SkinLibrary
         {
             return new SkinInfo(Path.GetFileName(path), Path.GetFileNameWithoutExtension(path), "", "", false, null, ex.Message);
         }
-        var info = Read(Path.GetFileName(path), source);
+        var info = Read(Path.GetFileName(path), source, compile);
+        if (info == null) return null;
         if (info.Error != null) Log.Error($"Skin '{info.File}' did not compile: {info.Error}");
         lock (Cache) Cache[path] = (written, info);
         return info;
@@ -92,7 +97,7 @@ public static class SkinLibrary
     /// <summary>Copies a skin into the folder once it compiles; otherwise says why not.</summary>
     public static SkinInfo Import(string path)
     {
-        var info = Read(Path.GetFileName(path), File.ReadAllText(path));
+        var info = Read(Path.GetFileName(path), File.ReadAllText(path))!;
         if (!info.Works) return info;
         Directory.CreateDirectory(Folder);
         var name = Path.GetFileName(path);
@@ -127,8 +132,8 @@ public static class SkinLibrary
         return added;
     }
 
-    /// <summary>Reads the header ("//! name: ...") and compiles the shader.</summary>
-    static SkinInfo Read(string file, string source)
+    /// <summary>Reads the header ("//! name: ...") and compiles the shader (null when it isn't kept and <paramref name="compile"/> is false).</summary>
+    static SkinInfo? Read(string file, string source, bool compile = true)
     {
         string name = Path.GetFileNameWithoutExtension(file), author = "", description = "";
         bool visualizer = false;
@@ -148,8 +153,59 @@ public static class SkinLibrary
                 case "kind": visualizer = value.Equals("visualizer", StringComparison.OrdinalIgnoreCase); break;
             }
         }
-        var bytecode = Compile(source, out var error);
+        string? error = null;
+        var bytecode = Kept(source) ?? (compile ? CompileKept(source, out error) : null);
+        if (bytecode == null && !compile) return null;
         return new SkinInfo(file, name, author, description, visualizer, bytecode, error);
+    }
+
+    static string KeptFolder => Path.Combine(AppPaths.DataDir, "Cache", "Skins");
+
+    static string KeptPath(string source) => Path.Combine(KeptFolder,
+        $"{Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(source)))[..32]}-{CompilerKey}.cso");
+
+    /// <summary>The shader compiled from this source before, if it was kept.</summary>
+    static byte[]? Kept(string source)
+    {
+        try
+        {
+            var path = KeptPath(source);
+            return File.Exists(path) ? File.ReadAllBytes(path) : null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Compiles a skin and keeps the shader by the source's checksum (and what the compiler was given), so it is
+    /// compiled once, not at every start and every opening of the settings: some take two or three seconds,
+    /// twenty skins took ten, and that froze the bar and the settings window (#17).
+    /// </summary>
+    public static byte[]? CompileKept(string source, out string? error)
+    {
+        var kept = Kept(source);
+        error = null;
+        if (kept != null) return kept;
+        var bytecode = Compile(source, out error);
+        if (bytecode != null) Keep(KeptPath(source), bytecode);
+        return bytecode;
+    }
+
+    /// <summary>Writes a compiled shader to the cache: aside first and moved in, so a half-written one is never read back.</summary>
+    internal static void Keep(string path, byte[] bytecode)
+    {
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            var aside = path + "." + Environment.CurrentManagedThreadId + ".tmp";
+            File.WriteAllBytes(aside, bytecode);
+            File.Move(aside, path, overwrite: true);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+        }
     }
 
     /// <summary>
@@ -173,10 +229,20 @@ public static class SkinLibrary
         return Compile(source + Entry, "musicbarMain", out error) ?? Compile(source, "main", out error);
     }
 
+    static string Target => _target ??= RenderCapability.IsPixelShaderVersionSupported(3, 0) ? "ps_3_0" : "ps_2_0";
+
+    static string? _target;
+
+    /// <summary>What a compiled skin depends on besides its own file: the shader model and the code put around it.</summary>
+    public static string CompilerKey => _compilerKey ??=
+        $"{Target}-{Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(Prelude + Entry)))[..8].ToLowerInvariant()}";
+
+    static string? _compilerKey;
+
     static byte[]? Compile(string source, string entry, out string? error)
     {
         error = null;
-        var target = RenderCapability.IsPixelShaderVersionSupported(3, 0) ? "ps_3_0" : "ps_2_0";
+        var target = Target;
         var text = Encoding.UTF8.GetBytes(Prelude + "#line 1 \"skin\"\n" + source);
         try
         {

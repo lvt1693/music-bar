@@ -11,8 +11,9 @@ or [portable zip](https://github.com/lvt1693/music-bar/releases/latest/download/
 **Website:** [musicbar.truclv.com](https://musicbar.truclv.com), with the community **gallery**
 (skins, visualizers, LED strips) to download from or share yours.
 
-**What's new:** 1.8.1 adds a **log to send** with song titles masked, a **safe mode** for Explorer, a switch to
-turn hardware acceleration off, and fixes the bar freezing after switching speakers. 1.8 brings an **online gallery** right inside the app, a **welcome tour** (every choice shows on your taskbar as you pick it),
+**What's new:** 1.8.2 makes **every screen's taskbar transparent**, also while nothing plays, and fixes a
+**stutter every few seconds** and a **slow settings window**. 1.8.1 adds a **log to send** with song titles
+masked, a **safe mode** for Explorer and a switch to turn hardware acceleration off. 1.8 brings an **online gallery** right inside the app, a **welcome tour** (every choice shows on your taskbar as you pick it),
 fixes the progress bar vanishing with a transparent taskbar, **uses far less RAM** (no more
 creeping up over long runs), works properly with an **auto-hiding
 taskbar**, reads **VLC**, and adds a button to
@@ -65,7 +66,7 @@ Vietnamese.
   lyrics, the face and a few habits, each showing on your taskbar as you pick it (with nothing
   playing, a demo song plays meanwhile). Any step can be skipped, and each says where it lives in
   the settings. Take it again from Settings → About.
-- **Tells you about updates:** at start (and daily) it checks GitHub and, if there's a new
+- **Tells you about updates:** at start (and daily) it checks MusicBar's website (GitHub when the site can't be reached) and, if there's a new
   version, asks once in the corner of the screen.
 - **See-through, light or dark:** by default the taskbar goes see-through with the bar right under
   the icons. For a background, pick dark, light, *Match Windows* (it changes when Windows does) or
@@ -197,7 +198,8 @@ ChatGPT / Claude / Gemini with a description of what you want: it has a ready-ma
   alignment you chose in MusicBar stays, since that was your choice.
 - **Portable** (`MusicBar-1.8.0-portable.zip`): unzip anywhere and run `MusicBar.exe`.
 
-**Updates:** from 1.4 on, MusicBar checks GitHub every time it starts (and once a day while
+**Updates:** from 1.4 on, MusicBar checks for a new version every time it starts (from 1.8.2 it asks
+[musicbar.truclv.com](https://musicbar.truclv.com) first and downloads the installer from there, GitHub when the site can't be reached) (and once a day while
 running). When there's a new version a card shows above the tray: *Update now* downloads it,
 checks its SHA-256, installs quietly and reopens; *Later* asks again next time; tick *Skip this
 version* to stay quiet until the one after. In the portable copy the button opens the download
@@ -232,7 +234,8 @@ MusicBar.exe --exit       # quit and give the taskbar back
 
 Windows doesn't let anything draw "inside" the taskbar, so the progress bar is a window of its own
 kept just below the taskbar, and it only shows through when the taskbar is transparent. Turn it on
-in **Settings → Taskbar → Make the taskbar transparent**. If
+in **Settings → Taskbar → Make the taskbar transparent**. Once on, every screen's taskbar is
+transparent, including screens without the bar and while nothing plays. If
 [TranslucentTB](https://github.com/TranslucentTB/TranslucentTB) is running, MusicBar leaves the
 job to it.
 
@@ -414,7 +417,7 @@ src/MusicBar/
   Services/WallpaperTone.cs     how bright the wallpaper behind the taskbar is, for the text color
   Services/Romanizer.cs         Korean / Japanese / Chinese romanization (pinyin from Unihan data)
   Services/ListeningStats.cs    listening time for the recap;  YearRecap.cs works the recap out
-  Services/UpdateService.cs     looks for new versions on GitHub, downloads, checks SHA-256, installs
+  Services/UpdateService.cs     looks for new versions (website first, GitHub as fallback), downloads, checks SHA-256, installs
   Services/SkinLibrary.cs       compiles skins (HLSL) with the shader compiler Windows has
   Services/SystemSnapshot.cs    Windows as it was before MusicBar, put back on uninstall
   Services/FocusTimer.cs        the Pomodoro timer;  SystemSense.cs CPU, network, battery for the face
@@ -426,8 +429,6 @@ src/MusicBar/
   Interop/TaskbarAutomation.cs  reads the taskbar's buttons through UI Automation COM, without leaking
   Services/Community.cs         the online gallery: browse, install (SHA-256 checked), share; sponsor banners
   Services/LookPresets.cs       presets from the gallery (a style, three colors, strength, direction; no code)
-  web/                          the musicbar.truclv.com site (FastAPI): product page, downloads, gallery,
-                                review queue, the upload scanner (never runs a file), server deployment
   Interop/XamlTaskbar.cs        loads the Windows 11 taskbar transparency module
   Interop/TrayMerge.cs          hides the volume / bell icons, folds the tray, restores it
   Views/SeekRenderer.cs         the 14 progress styles, the visualizers, 4 directions;

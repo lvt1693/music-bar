@@ -14,8 +14,9 @@ hoặc [bản portable](https://github.com/lvt1693/music-bar/releases/latest/dow
 **Trang web:** [musicbar.truclv.com](https://musicbar.truclv.com), có **kho giao diện** của cộng đồng
 (skin, visualizer, dải LED) để tải về hoặc đăng giao diện của bạn.
 
-**Có gì mới:** bản 1.8.1 thêm **log để gửi** đã che tên bài hát, **chế độ an toàn** cho Explorer, nút tắt
-tăng tốc phần cứng và sửa lỗi đổi loa làm thanh đứng nhịp. Bản 1.8 có **kho giao diện trực tuyến** ngay trong app, **phần hướng dẫn lần đầu mở** (chọn gì thấy ngay trên taskbar), sửa vụ
+**Có gì mới:** bản 1.8.2 làm **taskbar trong suốt trên mọi màn hình** cả lúc không phát nhạc, hết
+**khựng mỗi vài giây** và hết **chậm khi mở Cài đặt**. Bản 1.8.1 thêm **log để gửi** đã che tên bài hát,
+**chế độ an toàn** cho Explorer, nút tắt tăng tốc phần cứng. Bản 1.8 có **kho giao diện trực tuyến** ngay trong app, **phần hướng dẫn lần đầu mở** (chọn gì thấy ngay trên taskbar), sửa vụ
 thanh tiến trình biến mất khi bật taskbar trong suốt, **nhẹ RAM hẳn** (không còn phình dần khi
 chạy lâu), chạy gọn với **taskbar tự ẩn**, đọc được
 **VLC**, thêm nút khôi phục cài đặt mặc định và chấm đỏ báo thông báo.
@@ -62,7 +63,7 @@ MusicBar đọc thẳng VLC. Không có nhạc thì nó lặn mất, taskbar v�
 - **Lần đầu mở có phần hướng dẫn:** đi qua kiểu thanh, nền taskbar, trình phát, lời, cái mặt và
   vài thói quen; chọn gì taskbar đổi ngay cái đó (chưa có nhạc thì một bài mẫu phát để xem thử).
   Bỏ qua bước nào cũng được, mỗi bước chỉ chỗ đổi lại trong cài đặt. Xem lại ở Cài đặt → Giới thiệu.
-- **Tự báo bản mới:** mở app (hay mở máy) là nó xem GitHub có bản mới chưa, có thì hỏi một câu ở
+- **Tự báo bản mới:** mở app (hay mở máy) là nó xem trang web của MusicBar (không vào được thì xem GitHub) có bản mới chưa, có thì hỏi một câu ở
   góc màn hình.
 - **Nền trong suốt, sáng hay tối:** mặc định taskbar trong suốt, thanh nằm ngay dưới icon. Muốn có
   nền thì chọn tối, sáng, *Theo Windows* (đổi theo ngay khi Windows đổi chế độ) hay *Theo Windows,
@@ -191,7 +192,8 @@ sẵn câu lệnh để dán.
 - **Bản portable** (`MusicBar-1.8.0-portable.zip`): giải nén ra đâu cũng được, chạy
   `MusicBar.exe`.
 
-**Cập nhật:** từ bản 1.4, MusicBar tự xem GitHub mỗi lần chạy (và mỗi ngày một lần khi đang
+**Cập nhật:** từ bản 1.4, MusicBar tự xem có bản mới mỗi lần chạy (từ 1.8.2 hỏi
+[musicbar.truclv.com](https://musicbar.truclv.com) trước và tải bản cài từ đó, web không vào được thì về GitHub) (và mỗi ngày một lần khi đang
 chạy). Có bản mới thì một thẻ hiện ở góc trên khay: *Cập nhật* là tải về, kiểm tra mã SHA-256,
 cài êm rồi tự mở lại; *Để lần sau* thì lần sau hỏi tiếp; tick *Bỏ qua phiên bản này* là im luôn
 tới bản sau nữa. Bản portable thì nút đó mở trang tải. Tắt được ở **Cài đặt → Giới thiệu**.
@@ -223,7 +225,8 @@ MusicBar.exe --exit       # thoát, trả taskbar về như cũ
 
 Windows không cho vẽ "vào trong" taskbar, nên thanh tiến trình là một cửa sổ riêng giữ ngay
 dưới taskbar, và chỉ nhìn xuyên qua được khi taskbar trong suốt. Bật ở **Cài đặt → Taskbar →
-Làm taskbar trong suốt**. Đang chạy [TranslucentTB](https://github.com/TranslucentTB/TranslucentTB)
+Làm taskbar trong suốt**. Bật rồi thì taskbar của mọi màn hình đều trong suốt, cả màn không có thanh
+và cả lúc không phát nhạc. Đang chạy [TranslucentTB](https://github.com/TranslucentTB/TranslucentTB)
 thì MusicBar để nó lo.
 
 Taskbar đặt **tự ẩn** thì MusicBar giữ nền của Windows và phủ mờ thanh lên trên: lúc taskbar trồi
@@ -391,7 +394,7 @@ src/MusicBar/
   Services/WallpaperTone.cs     độ sáng hình nền sau taskbar, để chữ tự đổi màu
   Services/Romanizer.cs         phiên âm Hàn / Nhật / Trung (pinyin từ dữ liệu Unihan)
   Services/ListeningStats.cs    đếm giờ nghe cho tổng kết năm;  YearRecap.cs tính tổng kết
-  Services/UpdateService.cs     xem bản mới trên GitHub, tải, kiểm tra SHA-256, cài êm
+  Services/UpdateService.cs     xem bản mới (web trước, GitHub dự phòng), tải, kiểm tra SHA-256, cài êm
   Services/SkinLibrary.cs       dịch skin (HLSL) bằng trình dịch shader có sẵn trong Windows
   Services/SystemSnapshot.cs    Windows trước khi có MusicBar, trả lại khi gỡ cài đặt
   Services/FocusTimer.cs        hẹn giờ Pomodoro;  SystemSense.cs CPU, mạng, pin cho cái mặt
@@ -403,8 +406,6 @@ src/MusicBar/
   Interop/TaskbarAutomation.cs  đọc các nút trên taskbar qua UI Automation COM, không rò bộ nhớ
   Services/Community.cs         kho trực tuyến: duyệt, tải (kiểm SHA-256), đăng; banner tài trợ
   Services/LookPresets.cs       preset tải từ kho (kiểu thanh, ba màu, độ đậm, hướng; không có mã)
-  web/                          trang musicbar.truclv.com (FastAPI): giới thiệu, tải về, kho, trang duyệt,
-                                trình quét file gửi lên (không bao giờ chạy file), bản triển khai lên server
   Interop/XamlTaskbar.cs        nạp module làm trong suốt taskbar Windows 11
   Interop/TrayMerge.cs          ẩn icon âm lượng / chuông, dồn khay, khôi phục
   Views/SeekRenderer.cs         14 kiểu thanh tiến trình, các visualizer, 4 hướng chạy;

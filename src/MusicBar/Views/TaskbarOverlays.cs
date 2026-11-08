@@ -86,7 +86,7 @@ public sealed class TaskbarOverlays : IDisposable
     void OnSettingChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName is nameof(AppSettings.DisplayTarget) or nameof(AppSettings.DisplayMonitor)
-            or nameof(AppSettings.PlayerTarget) or nameof(AppSettings.PlayerMonitor)) Sync();
+            or nameof(AppSettings.PlayerTarget) or nameof(AppSettings.PlayerMonitor) or nameof(AppSettings.TransparentTaskbar)) Sync();
     }
 
     /// <summary>Which taskbars a choice of screens covers: the main one or not, and which secondary ones.</summary>
@@ -120,6 +120,8 @@ public sealed class TaskbarOverlays : IDisposable
             _ => Pick(DisplayTarget.Main, "", secondaries),
         };
         var wanted = bar.Secondary.Union(player.Secondary).ToHashSet();
+        // A see-through taskbar is every taskbar's: a screen showing nothing of MusicBar's still gets an overlay, to clear it (#6).
+        if (_s.TransparentTaskbar) wanted.UnionWith(secondaries);
 
         Main.ShowsBar = bar.Main;
         Main.ShowsPlayer = player.Main;

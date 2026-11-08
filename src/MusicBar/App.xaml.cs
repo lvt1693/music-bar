@@ -171,6 +171,7 @@ public partial class App : Application
         if (link != null) OpenLink(link);
         StartUpdateChecks(settings);
         StartMemoryLog();
+        StallLog.Start(Dispatcher);
         StartRecapChecks(settings, now: e.Args.Any(a => a.Equals("--recap", StringComparison.OrdinalIgnoreCase)));
     }
 

@@ -38,6 +38,10 @@ public sealed class Community(AppSettings settings)
 
     static string CacheFolder => Path.Combine(AppPaths.DataDir, "Cache", "Community");
 
+    // Previews compiled at once: a quarter of the cores (one on a 4-thread laptop), so a page of skins
+    // doesn't take the whole PC the way 30 compiles side by side did (#17).
+    static readonly SemaphoreSlim CompileGate = new(Math.Clamp(Environment.ProcessorCount / 4, 1, 3));
+
     readonly AppSettings _s = settings;
 
     HttpClient Client(TimeSpan timeout)
@@ -109,6 +113,30 @@ public sealed class Community(AppSettings settings)
         return new UTF8Encoding(false, true).GetString(bytes);
     }
 
+    /// <summary>
+    /// A gallery skin's shader for its tile: compiled once and kept by the file's checksum (and what the
+    /// compiler was given), so the tile starts at once the next time, without downloading it again. Null
+    /// when the skin doesn't compile.
+    /// </summary>
+    public async Task<byte[]?> PreviewShaderAsync(GalleryItem item, CancellationToken ct)
+    {
+        var kept = item.Sha256.Length == 64 ? Path.Combine(CacheFolder, $"{item.Sha256[..32]}-{SkinLibrary.CompilerKey}.cso") : null;
+        if (kept != null && File.Exists(kept)) return await File.ReadAllBytesAsync(kept, ct);
+        var text = await FetchAsync(item, ct, preview: true);
+        byte[]? bytecode;
+        await CompileGate.WaitAsync(ct);
+        try
+        {
+            bytecode = await Task.Run(() => SkinLibrary.Compile(text, out _), ct);
+        }
+        finally
+        {
+            CompileGate.Release();
+        }
+        if (bytecode != null && kept != null) SkinLibrary.Keep(kept, bytecode);
+        return bytecode;
+    }
+
     /// <summary>Downloads and keeps an item: a skin into the skins folder once it compiles, a preset into the presets folder.</summary>
     public async Task<string> InstallAsync(GalleryItem item, CancellationToken ct)
     {
@@ -116,7 +144,8 @@ public sealed class Community(AppSettings settings)
         var name = LookPresets.SafeName(item.Slug);
         if (item.IsSkin)
         {
-            var bytecode = await Task.Run(() => SkinLibrary.Compile(text, out var error) ?? throw new InvalidDataException(error ?? "the skin doesn't compile"), ct);
+            // Kept once compiled, so the skin starts at once when it is put on.
+            var bytecode = await Task.Run(() => SkinLibrary.CompileKept(text, out var error) ?? throw new InvalidDataException(error ?? "the skin doesn't compile"), ct);
             Directory.CreateDirectory(SkinLibrary.Folder);
             var file = name + ".hlsl";
             await File.WriteAllTextAsync(Path.Combine(SkinLibrary.Folder, file), text, new UTF8Encoding(false), ct);

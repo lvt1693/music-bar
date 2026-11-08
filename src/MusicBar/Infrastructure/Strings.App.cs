@@ -137,10 +137,10 @@ public static partial class Strings
         d.Add("Upd_Later", ("Later", "Để lần sau"));
         d.Add("Upd_Install", ("Update now", "Cập nhật ngay"));
         d.Add("Upd_Download", ("Download", "Tải về"));
-        d.Add("Upd_Page", ("What's new on GitHub", "Xem trên GitHub"));
+        d.Add("Upd_Page", ("What's new", "Xem có gì mới"));
         d.Add("Upd_Downloading", ("Downloading… {0}%", "Đang tải… {0}%"));
         d.Add("Upd_Installing", ("Installing…", "Đang cài…"));
-        d.Add("Upd_Failed", ("The download didn't work. Try again later, or get it from the GitHub page.", "Tải không được. Thử lại sau, hoặc tải ở trang GitHub."));
+        d.Add("Upd_Failed", ("The download didn't work. Try again later, or get it from the download page.", "Tải không được. Thử lại sau, hoặc tải ở trang tải về."));
         d.Add("Face_Hide", ("Hide the face", "Ẩn cái mặt"));
         d.Add("Face_Settings", ("Face settings…", "Cài đặt cái mặt…"));
         d.Add("Opt_Face_BesidePlayer", ("Beside the player", "Cạnh trình phát"));

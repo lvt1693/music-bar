@@ -289,16 +289,17 @@ public sealed class TaskbarOverlay : IDisposable, ILyricsHost
     bool _xamlBackground;
 
     /// <summary>
-    /// Only this overlay's taskbar goes see-through, and only while the layer is behind it: a
-    /// clear taskbar with nothing of MusicBar's there (another monitor, or MusicBar hidden while
-    /// nothing plays) would show the wallpaper smeared through Windows' blur.
-    /// Explorer resets the accent every now and then (Start menu, theme), so this runs on every tick.
+    /// This overlay's taskbar goes see-through whenever the setting is on, as TranslucentTB does: also while
+    /// nothing plays and the layer is hidden, and on a screen without the progress bar (an overlay is kept
+    /// there for it). Tied to the layer, people with two screens saw one clear and one solid, and both
+    /// turn solid between songs (#6). Explorer resets the accent every now and then (Start menu, theme),
+    /// so this runs on every tick.
     /// </summary>
     void UpdateTransparency()
     {
         if (_disposed) return;
         if (_s.TransparentTaskbar && XamlBackground) XamlTaskbar.CheckHelper(_tracker.Handle);
-        var want = OwnsTransparency && _layerShown ? _tracker.Handle : IntPtr.Zero;
+        var want = OwnsTransparency ? _tracker.Handle : IntPtr.Zero;
         if (_clearedTaskbar != IntPtr.Zero && _clearedTaskbar != want) RestoreTransparency();
         _clearedTaskbar = want;
         if (want == IntPtr.Zero) return;

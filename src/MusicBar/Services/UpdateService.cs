@@ -15,17 +15,19 @@ using MusicBar.Models;
 
 namespace MusicBar.Services;
 
-/// <summary>A release on GitHub newer than this copy.</summary>
-public sealed record ReleaseInfo(Version Version, string Tag, string Notes, string Page, Uri? Setup, long SetupSize, string? SetupSha256);
+/// <summary>A release newer than this copy; <see cref="SetupFallback"/> is GitHub's copy of the installer when <see cref="Setup"/> is the website's.</summary>
+public sealed record ReleaseInfo(Version Version, string Tag, string Notes, string Page, Uri? Setup, long SetupSize, string? SetupSha256, Uri? SetupFallback = null);
 
 /// <summary>
-/// Looks for a newer MusicBar on the GitHub releases page and installs it: the installed copy
-/// downloads the new installer and runs it quietly (it closes MusicBar and opens the new one);
-/// a portable copy is pointed at the release page instead.
+/// Looks for a newer MusicBar and installs it: the installed copy downloads the new installer and
+/// runs it quietly (it closes MusicBar and opens the new one); a portable copy is pointed at the
+/// download page instead. Asked of the website first, which mirrors the releases (each file checked
+/// against GitHub's checksum) and is the page people know; of GitHub when the site doesn't answer.
 /// </summary>
 public sealed class UpdateService
 {
     const string LatestRelease = "https://api.github.com/repos/lvt1693/music-bar/releases/latest";
+    static string SiteRelease => Community.Server + "/api/v1/release";
 
     readonly AppSettings _settings;
 
@@ -59,8 +61,61 @@ public sealed class UpdateService
         return http;
     }
 
-    /// <summary>The latest release if it is newer than this copy, null when there is none (or GitHub can't be reached).</summary>
+    /// <summary>The latest release if it is newer than this copy, null when there is none (or neither the site nor GitHub can be reached).</summary>
     public async Task<ReleaseInfo?> CheckAsync(CancellationToken ct)
+    {
+        var (answered, release) = await CheckSiteAsync(ct);
+        return answered ? release : await CheckGitHubAsync(ct);
+    }
+
+    /// <summary>The website's mirror of the latest release; not answered when the site is down or has nothing mirrored yet.</summary>
+    async Task<(bool Answered, ReleaseInfo? Release)> CheckSiteAsync(CancellationToken ct)
+    {
+        try
+        {
+            using var http = Client(TimeSpan.FromSeconds(15));
+            using var response = await http.GetAsync(SiteRelease, ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                Log.Info($"Update check: the website answered {(int)response.StatusCode}, asking GitHub");
+                return (false, null);
+            }
+            using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
+            var root = doc.RootElement;
+            string tag = root.GetProperty("tag").GetString() ?? "";
+            if (!Version.TryParse(tag.TrimStart('v', 'V'), out var version)) return (false, null);
+            version = new Version(version.Major, version.Minor, Math.Max(0, version.Build));
+            if (version <= Current) return (true, null);
+
+            Uri? setup = null, fallback = null;
+            long size = 0;
+            string? sha = null;
+            foreach (var asset in root.GetProperty("assets").EnumerateArray())
+            {
+                string name = asset.GetProperty("name").GetString() ?? "";
+                if (!name.EndsWith("-Setup.exe", StringComparison.OrdinalIgnoreCase)) continue;
+                setup = new Uri($"{Community.Server}/download/{Uri.EscapeDataString(tag)}/{Uri.EscapeDataString(name)}");
+                size = asset.GetProperty("size").GetInt64();
+                sha = asset.TryGetProperty("sha256", out var s) && s.GetString() is { Length: 64 } hex ? hex : null;
+                if (asset.TryGetProperty("github_url", out var g) && Uri.TryCreate(g.GetString(), UriKind.Absolute, out var github)) fallback = github;
+            }
+            string notes = root.TryGetProperty("notes", out var body) ? body.GetString() ?? "" : "";
+            Log.Info($"Update check: {tag} is out (this is {Current}), from the website");
+            return (true, new ReleaseInfo(version, tag, notes, Community.Server + "/download", setup, size, sha, fallback));
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            return (true, null);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or JsonException or System.Collections.Generic.KeyNotFoundException
+                                       or InvalidOperationException or UriFormatException)
+        {
+            Log.Info($"Update check: the website didn't answer ({ex.GetType().Name}), asking GitHub");
+            return (false, null);
+        }
+    }
+
+    async Task<ReleaseInfo?> CheckGitHubAsync(CancellationToken ct)
     {
         try
         {
@@ -109,17 +164,26 @@ public sealed class UpdateService
         }
     }
 
-    /// <summary>Downloads the release's installer to a temporary folder; null when it failed or didn't match.</summary>
+    /// <summary>Downloads the release's installer to a temporary folder (from GitHub when the site's copy fails); null when both failed or didn't match.</summary>
     public async Task<string?> DownloadAsync(ReleaseInfo release, IProgress<double> progress, CancellationToken ct)
     {
         if (release.Setup == null) return null;
+        var path = await DownloadAsync(release, release.Setup, progress, ct);
+        if (path != null || release.SetupFallback == null || ct.IsCancellationRequested) return path;
+        Log.Info($"Update {release.Tag}: downloading from GitHub instead");
+        progress.Report(0);
+        return await DownloadAsync(release, release.SetupFallback, progress, ct);
+    }
+
+    async Task<string?> DownloadAsync(ReleaseInfo release, Uri from, IProgress<double> progress, CancellationToken ct)
+    {
         string folder = Path.Combine(Path.GetTempPath(), "MusicBar-update");
-        string path = Path.Combine(folder, Path.GetFileName(release.Setup.LocalPath));
+        string path = Path.Combine(folder, Uri.UnescapeDataString(Path.GetFileName(from.LocalPath)));
         try
         {
             Directory.CreateDirectory(folder);
             using var http = Client(TimeSpan.FromMinutes(10));
-            using var response = await http.GetAsync(release.Setup, HttpCompletionOption.ResponseHeadersRead, ct);
+            using var response = await http.GetAsync(from, HttpCompletionOption.ResponseHeadersRead, ct);
             response.EnsureSuccessStatusCode();
             long total = response.Content.Headers.ContentLength ?? release.SetupSize;
             await using (var source = await response.Content.ReadAsStreamAsync(ct))

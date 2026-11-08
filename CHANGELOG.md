@@ -3,6 +3,23 @@
 Mới nhất ở trên. Bản cài và bản portable của từng bản có ở trang
 [Releases](https://github.com/lvt1693/music-bar/releases).
 
+## 1.8.2 · 08/11/2026
+
+**Mới**
+
+- **Taskbar trong suốt trên mọi màn hình, mọi lúc:** bật là taskbar của cả màn không có thanh cũng
+  trong suốt, và không còn đặc lại giữa hai bài hay lúc không phát nhạc (#6).
+- Bản mới giờ hỏi và tải từ [musicbar.truclv.com](https://musicbar.truclv.com) trước, trang web không
+  vào được mới về GitHub.
+
+**Sửa lỗi**
+
+- Thanh và lời khựng nhẹ mỗi 7 đến 8 giây trên máy có nhiều thông báo (#17).
+- Bấm icon khay mở Cài đặt rất lâu, thanh đứng hình và CPU lên cao; mở lại app sau khi tắt ngang cũng
+  lâu mới hiện (#17). Skin giờ chỉ dịch một lần rồi giữ lại, và dịch ngầm.
+- Kho trực tuyến trong app nhẹ hơn: chỉ chạy những ô đang thấy, nạp skin lần lượt (#17).
+- Nhật ký ghi lại những lần app bị khựng, để báo lỗi dễ tìm nguyên nhân hơn.
+
 ## 1.8.1 · 07/11/2026
 
 **Mới**

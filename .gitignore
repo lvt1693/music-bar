@@ -6,19 +6,8 @@ artifacts/
 *.user
 __pycache__/
 
-# web: the site's local data and virtual environments (the server keeps its own in /var/lib/musicbar-web)
-web/data/
-web/venv/
-web/.venv/
-
-# web/films: the HyperFrames and Remotion projects behind the site's films (the films themselves are in
-# web/server/static/media)
-web/films/*/node_modules/
-web/films/*/.hyperframes/
-web/films/*/.thumbnails/
-web/films/*/renders/
-web/films/*/snaps/
-web/films/*/out/
+# web: the musicbar.truclv.com site is no longer developed in this public repo; it is deployed from this folder.
+web/
 
 # promo: HyperFrames working files and the rendered video (it ships with the release instead)
 promo/node_modules/
@@ -26,7 +15,3 @@ promo/.hyperframes/
 promo/.capture/
 promo/.thumbnails/
 promo/renders/
-
-# web/seed: the gallery content (skins, presets, previews, manifest, upcoming.json) stays private: it is
-# deployed from this folder by web/deploy/deploy.ps1 and never goes to the repo
-web/seed/

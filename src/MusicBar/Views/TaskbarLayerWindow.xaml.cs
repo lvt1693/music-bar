@@ -86,7 +86,11 @@ public partial class TaskbarLayerWindow : Window
         // A skin that compiled paints instead of the style; one that didn't leaves the style on. Drawing on the
         // CPU only (hardware acceleration off), a skin's pixel shader can't run: the style stands in.
         bool cpuOnly = RenderOptions.ProcessRenderMode == System.Windows.Interop.RenderMode.SoftwareOnly;
-        var skin = s.Skin.Length > 0 && !cpuOnly ? SkinLibrary.Load(s.Skin) : null;
+        // A skin not compiled before compiles on a pool thread, the style standing in meanwhile: on the UI
+        // thread it held up the start (and the tray icon) for as long as it took, seconds for some (#17).
+        _styled = (over, edge, background);
+        var skin = s.Skin.Length > 0 && !cpuOnly ? SkinLibrary.Load(s.Skin, compile: false) : null;
+        if (skin == null && s.Skin.Length > 0 && !cpuOnly) CompileSkin(s.Skin);
         bool skinned = skin is { Works: true };
         SkinHost.SetSkin(skinned ? skin : null);
         SkinHost.Visibility = skinned ? Visibility.Visible : Visibility.Collapsed;
@@ -108,6 +112,18 @@ public partial class TaskbarLayerWindow : Window
         _tintBrush.StartPoint = vertical ? new Point(0.5, 1) : new Point(0, 0.5);
         _tintBrush.EndPoint = vertical ? new Point(0.5, 0) : new Point(1, 0.5);
         SetColors(_primary, _secondary, animate: false);
+    }
+
+    (bool Over, TaskbarEdge Edge, BarBackground Background) _styled;
+    string? _compiling;
+
+    async void CompileSkin(string file)
+    {
+        if (_compiling == file) return;
+        _compiling = file;
+        var skin = await System.Threading.Tasks.Task.Run(() => SkinLibrary.Load(file));
+        _compiling = null;
+        if (skin != null && _s?.Skin == file) ApplyStyle(_s, _styled.Over, _styled.Edge, _styled.Background);
     }
 
     /// <summary>The song's colors: the background's tint takes them, and the style too unless it keeps colors of its own.</summary>

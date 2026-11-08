@@ -86,7 +86,11 @@ public static class CrashReport
             long ms = (long)Math.Max(60_000, (DateTime.Now - since).TotalMilliseconds + 60_000);
             var query = new EventLogQuery("Application", PathType.LogName,
                 "*[System[Provider[@Name='Application Error' or @Name='.NET Runtime' or @Name='Application Hang']" +
-                $" and TimeCreated[timediff(@SystemTime) <= {ms}]]]");
+                $" and TimeCreated[timediff(@SystemTime) <= {ms}]]]")
+            {
+                // Newest first: after a run of days, reading from the oldest worked through every other program's reports.
+                ReverseDirection = true,
+            };
             using var reader = new EventLogReader(query);
             for (var record = reader.ReadEvent(); record != null && reports.Count < most; record = reader.ReadEvent())
             {

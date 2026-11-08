@@ -78,12 +78,21 @@ public partial class SettingsWindow
         return tile;
     }
 
-    /// <summary>The skins in the folder, each running live; one that didn't compile says why.</summary>
-    void BuildSkinTiles()
+    int _skinListing;
+
+    /// <summary>
+    /// The skins in the folder, each running live; one that didn't compile says why. Listed on a pool thread:
+    /// a skin not compiled before can take seconds, and on the UI thread opening the settings froze the bar (#17).
+    /// </summary>
+    async void BuildSkinTiles()
     {
+        int listing = ++_skinListing;
+        var skins = await System.Threading.Tasks.Task.Run(() => SkinLibrary.List());
+        // Listed again meanwhile (a skin deleted or brought in): that listing is the one to show.
+        if (listing != _skinListing) return;
         foreach (var look in _looks.Where(l => l.Skin != null).ToList()) _looks.Remove(look);
         SkinGallery.Children.Clear();
-        foreach (var skin in SkinLibrary.List())
+        foreach (var skin in skins)
         {
             // The engine keeps time and makes up music for the preview; the skin paints over it.
             var engine = new SeekRenderer { Look = skin.Visualizer ? SeekStyle.Equalizer : SeekStyle.Classic, Skinned = true, Visibility = Visibility.Hidden };
@@ -109,6 +118,7 @@ public partial class SettingsWindow
         }
         SkinEmpty.Visibility = SkinGallery.Children.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         if (_lookTabs.Count > 0) BuildLookTabs();
+        RefreshLooks();
     }
 
     /// <summary>A gallery tile: a small dark screen with the live preview, and its name.</summary>
@@ -348,7 +358,7 @@ public partial class SettingsWindow
     void RefreshPalettePicker()
     {
         string lookName = _s.Skin.Length > 0
-            ? SkinLibrary.Load(_s.Skin)?.Name ?? _s.Skin
+            ? SkinLibrary.Load(_s.Skin, compile: false)?.Name ?? _s.Skin
             : (SettingsOptions.AllStyles.FirstOrDefault(o => o.Value == _s.SeekStyle)?.Label ?? _s.SeekStyle.ToString());
         // A rainbow, fire or a VU meter keeps its own colors: no palette to pick.
         bool ownColors = _s.Skin.Length == 0 && SeekRenderer.HasOwnColors(_s.SeekStyle);

@@ -370,7 +370,7 @@ public static partial class Strings
         d.Add("Set_Tip_ClickCover_Desc", ("Shows or hides the lyrics.", "Mở hoặc thu gọn lời bài hát."));
         d.Add("Set_About_GroupUpdates", ("Updates", "Cập nhật"));
         d.Add("Set_CheckUpdates", ("Check for updates", "Tự kiểm tra bản mới"));
-        d.Add("Set_CheckUpdates_Desc", ("When MusicBar starts, and once a day while it runs, it asks GitHub for a newer release and offers it in the corner.", "Mỗi khi MusicBar khởi động, và mỗi ngày một lần khi đang chạy, nó hỏi GitHub có bản mới không rồi báo ở góc màn hình."));
+        d.Add("Set_CheckUpdates_Desc", ("When MusicBar starts, and once a day while it runs, it asks musicbar.truclv.com (or GitHub, when the site can't be reached) for a newer release and offers it in the corner.", "Mỗi khi MusicBar khởi động, và mỗi ngày một lần khi đang chạy, nó hỏi musicbar.truclv.com (không vào được thì hỏi GitHub) có bản mới không rồi báo ở góc màn hình."));
         d.Add("Set_CheckNow", ("Check now", "Kiểm tra ngay"));
         d.Add("Set_CheckNowButton", ("Check", "Kiểm tra"));
         d.Add("Set_CheckNow_Checking", ("Asking GitHub…", "Đang hỏi GitHub…"));
