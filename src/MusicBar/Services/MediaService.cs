@@ -111,6 +111,7 @@ public sealed class MediaService : ObservableObject
     public int AlbumTrackCount { get => _albumTrackCount; private set => Set(ref _albumTrackCount, value); }
 
     BitmapSource? _thumbnail;
+    string _thumbnailHash = "";
     public BitmapSource? Thumbnail { get => _thumbnail; private set => Set(ref _thumbnail, value); }
 
     TimeSpan _duration;
@@ -578,11 +579,14 @@ public sealed class MediaService : ObservableObject
             TrackChanged?.Invoke(this, EventArgs.Empty);
         }
 
-        if (p.Thumbnail != null && (trackChanged || Thumbnail == null))
+        // Spotify and browsers often show their own logo first and the cover a moment later, on the
+        // same song: every picture is looked at, and one that differs replaces what is shown.
+        if (p.Thumbnail != null)
         {
-            var bmp = await LoadThumbnailAsync(p.Thumbnail);
+            var (bmp, hash) = await LoadThumbnailAsync(p.Thumbnail, trackChanged || Thumbnail == null ? "" : _thumbnailHash);
             if (bmp != null && key == _trackKey)
             {
+                _thumbnailHash = hash;
                 Thumbnail = bmp;
                 ThumbnailChanged?.Invoke(this, EventArgs.Empty);
             }
@@ -609,7 +613,8 @@ public sealed class MediaService : ObservableObject
     static readonly string[] Browsers =
         ["chrome", "msedge", "firefox", "308046b0af4a39cb", "opera", "brave", "vivaldi", "coccoc", "thorium", "yandex", "floorp", "librewolf"];
 
-    static async Task<BitmapSource?> LoadThumbnailAsync(IRandomAccessStreamReference reference)
+    /// <summary>The picture and a hash of its bytes; no picture when the bytes hash to <paramref name="skipHash"/>.</summary>
+    static async Task<(BitmapSource? Bitmap, string Hash)> LoadThumbnailAsync(IRandomAccessStreamReference reference, string skipHash)
     {
         try
         {
@@ -619,8 +624,10 @@ public sealed class MediaService : ObservableObject
             {
                 await stream.CopyToAsync(ms);
             }
+            var hash = Convert.ToHexString(System.Security.Cryptography.SHA1.HashData(ms.GetBuffer().AsSpan(0, (int)ms.Length)));
+            if (hash == skipHash) return (null, hash);
             ms.Position = 0;
-            return await Task.Run(() =>
+            var bitmap = await Task.Run(() =>
             {
                 var bmp = new BitmapImage();
                 bmp.BeginInit();
@@ -631,11 +638,12 @@ public sealed class MediaService : ObservableObject
                 bmp.Freeze();
                 return (BitmapSource)bmp;
             });
+            return (bitmap, hash);
         }
         catch (Exception ex)
         {
             Log.Error("Loading thumbnail failed", ex);
-            return null;
+            return (null, "");
         }
     }
 

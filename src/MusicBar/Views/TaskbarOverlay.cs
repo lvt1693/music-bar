@@ -123,13 +123,10 @@ public sealed class TaskbarOverlay : IDisposable, ILyricsHost
         _popup.SeekRequested += target => _ = _media.SeekAsync(target);
         _widget.ExpandToggled += () => _s.LyricsExpanded = !_s.LyricsExpanded;
         _widget.LyricsClicked += ShowLyricsPanel;
-        _widget.LyricsWheel += delta =>
-        {
-            if (_lyricsResult?.Lyrics == null) return;
-            NudgeOffset(delta > 0 ? 250 : -250);
-            int ms = (int)_lyricsResult.Lyrics.Offset.TotalMilliseconds;
-            Say(LyricsService.DescribeTiming(ms), "", 1.6);
-        };
+        _widget.LyricsWheel += NudgeLyricsByWheel;
+        // The same on lyrics shown in the taskbar's biggest gap.
+        _band.LyricsClicked += ShowLyricsPanel;
+        _band.LyricsWheel += NudgeLyricsByWheel;
 
         if (monitorDevice == null)
         {
@@ -385,6 +382,15 @@ public sealed class TaskbarOverlay : IDisposable, ILyricsHost
     }
 
     public event Action? LyricsChanged;
+
+    /// <summary>The wheel over the lyrics: a quarter second earlier or later, said on the bar.</summary>
+    void NudgeLyricsByWheel(int delta)
+    {
+        if (_lyricsResult?.Lyrics == null) return;
+        NudgeOffset(delta > 0 ? 250 : -250);
+        int ms = (int)_lyricsResult.Lyrics.Offset.TotalMilliseconds;
+        Say(LyricsService.DescribeTiming(ms), "", 1.6);
+    }
 
     /// <summary>The whole song's lyrics in a card beside the taskbar, near the pointer.</summary>
     public void ShowLyricsPanel()

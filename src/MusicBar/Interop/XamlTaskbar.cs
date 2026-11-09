@@ -265,20 +265,61 @@ internal static class XamlTaskbar
     }
 
     /// <summary>
-    /// Writes the embedded helper next to MusicBar's data. The file name carries a
-    /// hash of its contents: a copy Explorer still holds open is never overwritten.
+    /// Whether an Explorer still holds a helper other than this build's: the one of the copy just
+    /// updated over. A helper of the same version is never replaced while its Explorer lives (the
+    /// newer one sees it ready and stays out), so only restarting Explorer brings the new one in.
     /// </summary>
-    static string WriteHelper()
+    public static bool OlderHelperInExplorer()
+    {
+        string current = HelperFileName(EmbeddedHelper());
+        foreach (var explorer in System.Diagnostics.Process.GetProcessesByName("explorer"))
+        {
+            using (explorer)
+            {
+                try
+                {
+                    foreach (System.Diagnostics.ProcessModule module in explorer.Modules)
+                    {
+                        string name = module.ModuleName;
+                        if (name.StartsWith("MusicBar.TaskbarTap", StringComparison.OrdinalIgnoreCase)
+                            && !name.Equals(current, StringComparison.OrdinalIgnoreCase))
+                        {
+                            Log.Info($"Explorer ({explorer.Id}) holds the taskbar helper {name}; this build's is {current}");
+                            return true;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log.Error($"Listing what Explorer ({explorer.Id}) has loaded failed", ex);
+                }
+            }
+        }
+        return false;
+    }
+
+    static byte[] EmbeddedHelper()
     {
         using var resource = Assembly.GetExecutingAssembly().GetManifestResourceStream("MusicBar.TaskbarTap.dll")
                              ?? throw new InvalidOperationException("The taskbar helper is missing from this build.");
         using var buffer = new MemoryStream();
         resource.CopyTo(buffer);
-        var bytes = buffer.ToArray();
-        string hash = Convert.ToHexString(SHA256.HashData(bytes))[..12].ToLowerInvariant();
+        return buffer.ToArray();
+    }
+
+    static string HelperFileName(byte[] bytes)
+        => $"MusicBar.TaskbarTap.{Convert.ToHexString(SHA256.HashData(bytes))[..12].ToLowerInvariant()}.dll";
+
+    /// <summary>
+    /// Writes the embedded helper next to MusicBar's data. The file name carries a
+    /// hash of its contents: a copy Explorer still holds open is never overwritten.
+    /// </summary>
+    static string WriteHelper()
+    {
+        var bytes = EmbeddedHelper();
         string folder = Path.Combine(AppPaths.DataDir, "TaskbarHelper");
         Directory.CreateDirectory(folder);
-        string path = Path.Combine(folder, $"MusicBar.TaskbarTap.{hash}.dll");
+        string path = Path.Combine(folder, HelperFileName(bytes));
         if (!File.Exists(path)) File.WriteAllBytes(path, bytes);
         // Older copies go once no Explorer holds them any more.
         foreach (var old in Directory.EnumerateFiles(folder, "MusicBar.TaskbarTap.*.dll"))

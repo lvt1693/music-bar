@@ -69,9 +69,10 @@ Name: "{autodesktop}\MusicBar"; Filename: "{app}\MusicBar.exe"; Tasks: desktopic
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueName: "MusicBar"; ValueType: none; Flags: uninsdeletevalue
 
 [Run]
-Filename: "{app}\MusicBar.exe"; Description: "{cm:LaunchNow}"; Flags: nowait postinstall skipifsilent
+; --updated: the new MusicBar restarts Explorer if Explorer still holds the old copy's taskbar helper.
+Filename: "{app}\MusicBar.exe"; Parameters: "--updated"; Description: "{cm:LaunchNow}"; Flags: nowait postinstall skipifsilent
 ; An update started from inside MusicBar runs silently: open the new version when it is done.
-Filename: "{app}\MusicBar.exe"; Flags: nowait; Check: WizardSilent
+Filename: "{app}\MusicBar.exe"; Parameters: "--updated"; Flags: nowait; Check: WizardSilent
 
 [UninstallRun]
 Filename: "{app}\MusicBar.exe"; Parameters: "--uninstall"; Flags: runhidden waituntilterminated; RunOnceId: "PutWindowsBack"

@@ -3,6 +3,26 @@
 Mới nhất ở trên. Bản cài và bản portable của từng bản có ở trang
 [Releases](https://github.com/lvt1693/music-bar/releases).
 
+## 1.8.3 · 10/11/2026
+
+**Mới**
+
+- **Skin lớn chạy được:** skin quá lớn so với cách vẽ cũ (card đồ họa từ chối vẽ) giờ tự chạy bằng
+  Direct3D 11, gần như không còn giới hạn độ chi tiết. Skin thường vẫn vẽ như cũ, không tốn thêm gì.
+  Đổi được ở Cài đặt → Chung → Bộ vẽ skin. Cách làm skin lớn có trong [docs/skins.md](docs/skins.md).
+- **Ô tìm kiếm** trong trang Giao diện: tìm kiểu thanh, visualizer, dải LED, skin theo tên, mô tả hay
+  tác giả, gõ không dấu vẫn ra.
+- Cập nhật xong mà Explorer còn giữ bộ phận làm trong suốt của bản cũ thì MusicBar tự khởi động lại
+  Explorer một lần, để bản mới chạy hết ngay, không phải tự restart.
+
+**Sửa lỗi**
+
+- Lời bài hát đặt ở **khoảng trống lớn nhất** trên taskbar bấm không được nên không mở được ô tìm lời.
+  Giờ bấm vào chữ là mở, cuộn chuột trên chữ để chỉnh lời sớm hay muộn.
+- Ảnh bìa đôi khi là logo Spotify (hay logo Google khi xem stream) thay vì bìa bài hát (#17).
+- Bài không tìm thấy lời giờ được tìm lại sau 1 ngày thay vì 3; bật NetEase là tìm lại ngay.
+- Skin quá lớn cho card đồ họa không còn báo lỗi liên tục, chỉ ghi vào nhật ký một lần.
+
 ## 1.8.2 · 08/11/2026
 
 **Mới**

@@ -356,7 +356,7 @@ public static partial class Strings
         d.Add("Set_Change", ("Change…", "Đổi…"));
         d.Add("Set_Default", ("Default", "Mặc định"));
         d.Add("Set_Cache", ("Cache", "Bộ nhớ đệm"));
-        d.Add("Set_Cache_Desc", ("Songs saved: {0} · Marked not found: {1} (tried again automatically after 3 days)", "{0} bài đã lưu · {1} bài đánh dấu không tìm thấy (tự thử lại sau 3 ngày)"));
+        d.Add("Set_Cache_Desc", ("Songs saved: {0} · Marked not found: {1} (tried again automatically the next day)", "{0} bài đã lưu · {1} bài đánh dấu không tìm thấy (tự thử lại sau 1 ngày)"));
         d.Add("Set_RetryMisses", ("Retry songs not found", "Thử tìm lại bài lỗi"));
         d.Add("Set_ClearDownloaded", ("Delete downloaded lyrics", "Xóa lời đã tải"));
         d.Add("Set_ClearDownloaded_Ask", ("Delete all lyrics MusicBar has downloaded?\nAny .lrc files you added to the folder yourself will be kept.", "Xóa toàn bộ lời bài hát MusicBar đã tải về?\nFile .lrc bạn tự thêm vào thư mục sẽ được giữ nguyên."));

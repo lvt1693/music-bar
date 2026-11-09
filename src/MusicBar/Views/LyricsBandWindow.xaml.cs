@@ -11,16 +11,21 @@ using MusicBar.Models;
 namespace MusicBar.Views;
 
 /// <summary>
-/// Frameless, click-through strip that shows the lyrics in the biggest empty
-/// stretch of the taskbar, wherever the taskbar's icons happen to sit.
+/// Frameless strip that shows the lyrics in the biggest empty stretch of the taskbar, wherever the
+/// taskbar's icons happen to sit. Clicks go through it to the taskbar, except on the words themselves:
+/// there a click opens the lyrics card and the wheel nudges their timing, as on the player's lyrics.
 /// </summary>
 public partial class LyricsBandWindow : Window
 {
     static readonly IEasingFunction EaseOut = Frozen(new CubicEase { EasingMode = EasingMode.EaseOut });
+    static readonly Brush AlmostClear = Frozen(new SolidColorBrush(Color.FromArgb(1, 0, 0, 0)));
 
     readonly DropShadowEffect _lyricStroke = new() { ShadowDepth = 0 };
+    // Watches the pointer while the strip shows: over the words, the strip takes clicks; elsewhere they pass.
+    readonly System.Windows.Threading.DispatcherTimer _pointer = new() { Interval = TimeSpan.FromMilliseconds(50) };
     int _token;
     bool _vertical;
+    bool _clickable;
 
     public LyricsBandWindow()
     {
@@ -32,6 +37,48 @@ public partial class LyricsBandWindow : Window
             Native.AddExStyle(Hwnd, Native.WS_EX_TOOLWINDOW | Native.WS_EX_NOACTIVATE | Native.WS_EX_TRANSPARENT,
                 Native.WS_EX_APPWINDOW);
         };
+        _pointer.Tick += (_, _) => FollowPointer();
+        MouseLeftButtonUp += (_, e) =>
+        {
+            e.Handled = true;
+            LyricsClicked?.Invoke();
+        };
+        MouseWheel += (_, e) =>
+        {
+            e.Handled = true;
+            LyricsWheel?.Invoke(e.Delta);
+        };
+    }
+
+    /// <summary>The words were clicked: open the lyrics card (and from it the lyrics search).</summary>
+    public event Action? LyricsClicked;
+
+    /// <summary>The wheel turned over the words: nudge their timing.</summary>
+    public event Action<int>? LyricsWheel;
+
+    /// <summary>
+    /// The strip is click-through so the empty taskbar under it still works (its menu, dragging to it), which left
+    /// the lyrics there with no way in: no lyrics card, no lyrics search. Now it takes clicks while the pointer is
+    /// over the words, a few pixels around them, and lets them through again as soon as it leaves.
+    /// </summary>
+    void FollowPointer()
+    {
+        bool over = false;
+        if (IsRevealed && Hwnd != IntPtr.Zero && Native.GetCursorPos(out var p) && Native.GetWindowRect(Hwnd, out var r)
+            && p.X >= r.Left && p.X < r.Right && p.Y >= r.Top && p.Y < r.Bottom)
+        {
+            var (start, end) = LyricsScreenSpan();
+            double along = _vertical ? p.Y : p.X;
+            over = end - start > 4 && along >= start - 6 && along <= end + 6;
+        }
+        if (over == _clickable) return;
+        _clickable = over;
+        Native.AddExStyle(Hwnd, over ? 0 : Native.WS_EX_TRANSPARENT, over ? Native.WS_EX_TRANSPARENT : 0);
+        IsHitTestVisible = over;
+        // A layered window lets clicks through wherever it is fully clear, the gaps between letters too: barely
+        // there instead while the words take clicks.
+        Background = over ? AlmostClear : Brushes.Transparent;
+        Cursor = over ? System.Windows.Input.Cursors.Hand : null;
     }
 
     public IntPtr Hwnd { get; private set; }
@@ -81,6 +128,7 @@ public partial class LyricsBandWindow : Window
         if (show)
         {
             if (!IsVisible) Show();
+            _pointer.Start();
             var d = TimeSpan.FromMilliseconds(380);
             Root.BeginAnimation(OpacityProperty, new DoubleAnimation(1, d) { EasingFunction = EaseOut });
             var along = _vertical ? TranslateTransform.YProperty : TranslateTransform.XProperty;
@@ -88,6 +136,8 @@ public partial class LyricsBandWindow : Window
             RootShift.BeginAnimation(along, new DoubleAnimation(from, 0, d) { EasingFunction = EaseOut });
             return;
         }
+        _pointer.Stop();
+        FollowPointer();  // not revealed: back to click-through at once
         var fade = new DoubleAnimation(0, TimeSpan.FromMilliseconds(220));
         fade.Completed += (_, _) =>
         {

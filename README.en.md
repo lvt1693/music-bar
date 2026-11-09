@@ -11,7 +11,8 @@ or [portable zip](https://github.com/lvt1693/music-bar/releases/latest/download/
 **Website:** [musicbar.truclv.com](https://musicbar.truclv.com), with the community **gallery**
 (skins, visualizers, LED strips) to download from or share yours.
 
-**What's new:** 1.8.2 makes **every screen's taskbar transparent**, also while nothing plays, and fixes a
+**What's new:** 1.8.3 runs **big skins** on Direct3D 11, adds a **search box** for the looks, makes the
+lyrics in the biggest gap clickable and fixes the cover showing Spotify's logo. 1.8.2 makes **every screen's taskbar transparent**, also while nothing plays, and fixes a
 **stutter every few seconds** and a **slow settings window**. 1.8.1 adds a **log to send** with song titles
 masked, a **safe mode** for Explorer and a switch to turn hardware acceleration off. 1.8 brings an **online gallery** right inside the app, a **welcome tour** (every choice shows on your taskbar as you pick it),
 fixes the progress bar vanishing with a transparent taskbar, **uses far less RAM** (no more
@@ -343,8 +344,8 @@ it in **Settings → Face**).
 
 Where they come from, in order: an `.lrc` file in the lyrics folder (`%LOCALAPPDATA%\MusicBar\Lyrics`,
 named `Artist - Title.lrc`; drop your own in too), then LRCLIB by title, artist, album and length,
-then NetEase if you turn it on. A song with no lyrics is remembered for 3 days so it isn't asked
-again. If your network needs a proxy, fill it in under **Settings → Lyrics → Proxy**.
+then NetEase if you turn it on. A song with no lyrics is remembered for a day so it isn't asked
+again (turning NetEase on asks again at once). If your network needs a proxy, fill it in under **Settings → Lyrics → Proxy**.
 
 - **The right artist:** a song of the same name by a different artist is dropped, unless it's
   exactly as long as what's playing (the same recording, the artist just spelled differently).

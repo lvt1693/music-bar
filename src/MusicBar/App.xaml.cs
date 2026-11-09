@@ -167,6 +167,16 @@ public partial class App : Application
         };
         CrashReport.ExplorerCrashed += report => Dispatcher.BeginInvoke(() => OnExplorerCrashed(report));
 
+        // Opened by the installer after an update: an Explorer still holding the old copy's taskbar helper
+        // keeps it for as long as it lives, so it is restarted once, before anything reaches into it.
+        if (e.Args.Any(a => a.Equals("--updated", StringComparison.OrdinalIgnoreCase)) && XamlTaskbar.OlderHelperInExplorer())
+        {
+            Log.Info("Updated: restarting Explorer so it takes the new taskbar helper");
+            await Task.Run(TaskbarTweaks.RestartExplorer);
+            await TaskbarTracker.WaitForTaskbarAsync(TimeSpan.FromSeconds(45));
+            if (_exiting) return;
+        }
+
         _media = new MediaService(settings);
         _lyrics = new LyricsService(settings);
         _bars = new TaskbarOverlays(settings, _media, _lyrics);

@@ -28,7 +28,8 @@ public sealed partial class LyricsService
     const string MarkerStart = "[re:MusicBar/";
     const string Marker = MarkerStart + "LRCLIB]";
     const string NetEaseMarker = MarkerStart + "NetEase]";
-    static readonly TimeSpan MissTtl = TimeSpan.FromDays(3);
+    static readonly TimeSpan MissTtl = TimeSpan.FromDays(1);
+    const string NetEaseMiss = "|netease";
     static readonly JsonSerializerOptions Json = new() { PropertyNameCaseInsensitive = true };
 
     internal sealed class LrclibTrack
@@ -76,7 +77,8 @@ public sealed partial class LyricsService
 
         Directory.CreateDirectory(Folder);
         var (artist, title) = TitleCleaner.Clean(q.Artist, q.Title);
-        var key = MissKey(artist, title);
+        // A miss with NetEase off says nothing about NetEase: turning it on asks again.
+        var key = MissKey(artist, title) + (_settings.LyricsFromNetEase ? NetEaseMiss : "");
 
         if (!force)
         {
@@ -683,9 +685,11 @@ public sealed partial class LyricsService
 
     void ForgetMiss(string key)
     {
+        if (key.EndsWith(NetEaseMiss, StringComparison.Ordinal)) key = key[..^NetEaseMiss.Length];
         lock (_missLock)
         {
-            if (LoadMisses().Remove(key))
+            var misses = LoadMisses();
+            if (misses.Remove(key) | misses.Remove(key + NetEaseMiss))
                 try { File.WriteAllText(MissFile, JsonSerializer.Serialize(_misses)); } catch (Exception) { }
         }
     }

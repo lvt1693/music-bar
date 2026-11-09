@@ -400,6 +400,34 @@ internal sealed class TaskbarTracker : IDisposable
     }
 
     /// <summary>
+    /// Waits, up to <paramref name="limit"/>, until a scan of the main taskbar reaches its notification area.
+    /// Right after Explorer starts, UI Automation answers for the taskbar with nothing for a while (about 20 s
+    /// measured), and a bar laid out on that sits over the Start button until a scan finds the icons.
+    /// </summary>
+    public static async Task WaitForTaskbarAsync(TimeSpan limit)
+    {
+        var waited = System.Diagnostics.Stopwatch.StartNew();
+        while (waited.Elapsed < limit)
+        {
+            var tray = Native.FindWindow("Shell_TrayWnd", null);
+            if (tray != IntPtr.Zero && Native.GetWindowRect(tray, out var rc))
+            {
+                bool horizontal = rc.Width >= rc.Height;
+                int end = horizontal ? rc.Right : rc.Bottom;
+                int length = horizontal ? rc.Width : rc.Height;
+                var (occupied, _, _) = await Task.Run(() => FindOccupied(tray, rc, horizontal));
+                if (occupied.Any(s => s.End >= end - length / 20))
+                {
+                    Log.Info($"The taskbar answers again after {waited.ElapsedMilliseconds} ms: [{Describe(occupied)}]");
+                    return;
+                }
+            }
+            await Task.Delay(500);
+        }
+        Log.Info($"The taskbar still doesn't answer after {limit.TotalSeconds:0} s: going on");
+    }
+
+    /// <summary>
     /// Walks the taskbar's UI Automation tree and collects the stretches along
     /// it covered by real controls. Containers that span most of the bar are
     /// ignored. When icons are centered, the group is assumed symmetric around
