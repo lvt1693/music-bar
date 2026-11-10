@@ -319,6 +319,15 @@ public static partial class Strings
         d.Add("QA_Accessibility", ("Accessibility", "Trợ năng"));
         d.Add("Audio_Device", ("Audio device", "Thiết bị âm thanh"));
 
+        // ---- names for screen readers (controls with no text of their own)
+        d.Add("A11y_Prev", ("Previous track", "Bài trước"));
+        d.Add("A11y_PlayPause", ("Play / pause", "Phát / tạm dừng"));
+        d.Add("A11y_Next", ("Next track", "Bài kế tiếp"));
+        d.Add("A11y_Volume", ("Volume", "Âm lượng"));
+        d.Add("A11y_Palette1", ("First color (#RRGGBB)", "Màu thứ nhất (#RRGGBB)"));
+        d.Add("A11y_Palette2", ("Second color (#RRGGBB)", "Màu thứ hai (#RRGGBB)"));
+        d.Add("A11y_Palette3", ("Third color (#RRGGBB)", "Màu thứ ba (#RRGGBB)"));
+
         d.Add("Taskbar_ExplorerPatcher", ("Windows 10 style (ExplorerPatcher)", "kiểu Windows 10 (ExplorerPatcher)"));
     }
 }

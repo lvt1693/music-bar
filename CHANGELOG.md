@@ -3,6 +3,31 @@
 Mới nhất ở trên. Bản cài và bản portable của từng bản có ở trang
 [Releases](https://github.com/lvt1693/music-bar/releases).
 
+## 1.8.4 · 10/11/2026
+
+**Mới**
+
+- **Lời từ NetEase bật sẵn** cho người mới cài: LRCLIB không có lời chạy theo nhạc thì hỏi thêm NetEase
+  (mạnh nhạc Hàn, Hoa, Nhật). Ai cài từ bản cũ vẫn giữ như đã chọn, bật ở Cài đặt → Lời bài hát →
+  Tìm thêm trên NetEase.
+- **Dùng được bằng bàn phím và trình đọc màn hình:** bấm Tab thấy rõ đang đứng ở nút nào, các nút chỉ
+  có icon giờ có tên cho Narrator đọc.
+- Cửa sổ Cài đặt, màn hình giới thiệu và recap tự co cho vừa màn hình nhỏ hay phóng to 150% trở lên,
+  không còn tràn mất thanh tiêu đề.
+- Nhật ký ghi rõ phần nào làm thanh khựng, để gửi log là biết sửa chỗ nào; lúc máy ngủ không bị tính.
+
+**Sửa lỗi**
+
+- Tên cuộc họp, thông báo chat, tên tab web không còn bị gửi đi tìm lời và thông tin bài hát. Chỉ những
+  gì giống bài hát mới được tìm; tìm tay thì vẫn tìm mọi thứ.
+- MusicBar không còn đứng chờ khi trình phát hay Windows trả lời chậm: đọc trạng thái trình phát và
+  icon app giờ chạy ngầm.
+- App phát nhạc lần đầu thấy đôi khi không có icon cho tới lúc mở lại MusicBar.
+- File cài đặt hỏng không còn làm mất hết cài đặt: MusicBar lấy lại từ bản sao lưu và giữ file hỏng
+  bên cạnh.
+- Win + A đôi khi ngừng mở bảng điều khiển sau khi máy ngủ dậy hay bị đơ; giờ tự gắn lại.
+- Thiết bị âm thanh lỗi liên tục không còn ghi đầy nhật ký.
+
 ## 1.8.3 · 10/11/2026
 
 **Mới**

@@ -419,8 +419,11 @@ public sealed class AppSettings : ObservableObject
     bool _fetchOnline = true;
     public bool FetchOnline { get => _fetchOnline; set => Set(ref _fetchOnline, value); }
 
-    /// <summary>Ask NetEase Cloud Music (an unofficial source) when LRCLIB has no synced lyrics.</summary>
-    bool _lyricsFromNetEase;
+    /// <summary>
+    /// Ask NetEase Cloud Music (an unofficial source) when LRCLIB has no synced lyrics. On for new installs;
+    /// a settings file from an earlier version already holds false and keeps it.
+    /// </summary>
+    bool _lyricsFromNetEase = true;
     public bool LyricsFromNetEase { get => _lyricsFromNetEase; set => Set(ref _lyricsFromNetEase, value); }
 
     string _proxyUrl = "";

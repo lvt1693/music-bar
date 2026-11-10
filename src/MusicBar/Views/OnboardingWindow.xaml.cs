@@ -61,6 +61,8 @@ public partial class OnboardingWindow : Window
     public OnboardingWindow(AppSettings settings, MediaService media, Action openSettings)
     {
         InitializeComponent();
+        // The tour is laid out for one size, so on a small screen it is scaled down rather than cut off.
+        ScreenFit.AttachScaled(this, new Size(Width, Height));
         _s = settings;
         _media = media;
         _openSettings = openSettings;

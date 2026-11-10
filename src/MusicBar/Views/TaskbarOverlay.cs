@@ -1400,6 +1400,13 @@ public sealed class TaskbarOverlay : IDisposable, ILyricsHost
                 UpdateBadge();
                 UpdateAccent(animate: true);
                 break;
+            case nameof(MediaService.AppName):
+                // A player seen for the first time is named a moment after its song may already be on the
+                // bar: the song's message, which names the player when the title or artist is missing,
+                // follows. Not when another player was picked meanwhile; its own song is on the way.
+                if (_media.HasSession && _media.AppId == _trackMessageApp && _stagedLyrics == null
+                    && _lyricsStatus != LyricsStatus.Instrumental) ShowTrackMessage();
+                break;
         }
     }
 
@@ -1460,8 +1467,12 @@ public sealed class TaskbarOverlay : IDisposable, ILyricsHost
     {
         var title = _media.Title.Length > 0 ? _media.Title : _media.AppName;
         var artist = _media.Artist.Length > 0 ? _media.Artist : _media.Title.Length > 0 ? _media.AppName : "";
+        _trackMessageApp = _media.AppId;
         ShowLyricsMessage(title, artist);
     }
+
+    // The player whose song the message on the bar was made for.
+    string _trackMessageApp = "";
 
     async void LoadLyrics(bool force, int attempt = 0)
     {
@@ -1518,7 +1529,7 @@ public sealed class TaskbarOverlay : IDisposable, ILyricsHost
         try
         {
             await Task.Delay(800, cts.Token);
-            var details = await _trackInfo.LookupAsync(_media.Artist, _media.Title, _media.Duration, cts.Token);
+            var details = await _trackInfo.LookupAsync(_media.Artist, _media.Title, _media.Duration, cts.Token, _media.AppId);
             if (cts.IsCancellationRequested) return;
             _details = details;
             if (_popup.IsOpen) _popup.SetContent(BuildCard());

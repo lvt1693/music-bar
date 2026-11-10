@@ -11,7 +11,9 @@ or [portable zip](https://github.com/lvt1693/music-bar/releases/latest/download/
 **Website:** [musicbar.truclv.com](https://musicbar.truclv.com), with the community **gallery**
 (skins, visualizers, LED strips) to download from or share yours.
 
-**What's new:** 1.8.3 runs **big skins** on Direct3D 11, adds a **search box** for the looks, makes the
+**What's new:** 1.8.4 turns **NetEase lyrics** on for new installs, works with the **Tab key and screen
+readers**, fits its windows on small screens, and **stops sending meeting names and web tabs** to the
+lyrics sites. 1.8.3 runs **big skins** on Direct3D 11, adds a **search box** for the looks, makes the
 lyrics in the biggest gap clickable and fixes the cover showing Spotify's logo. 1.8.2 makes **every screen's taskbar transparent**, also while nothing plays, and fixes a
 **stutter every few seconds** and a **slow settings window**. 1.8.1 adds a **log to send** with song titles
 masked, a **safe mode** for Explorer and a switch to turn hardware acceleration off. 1.8 brings an **online gallery** right inside the app, a **welcome tour** (every choice shows on your taskbar as you pick it),
@@ -344,7 +346,7 @@ it in **Settings → Face**).
 
 Where they come from, in order: an `.lrc` file in the lyrics folder (`%LOCALAPPDATA%\MusicBar\Lyrics`,
 named `Artist - Title.lrc`; drop your own in too), then LRCLIB by title, artist, album and length,
-then NetEase if you turn it on. A song with no lyrics is remembered for a day so it isn't asked
+then NetEase (on unless you turn it off). A song with no lyrics is remembered for a day so it isn't asked
 again (turning NetEase on asks again at once). If your network needs a proxy, fill it in under **Settings → Lyrics → Proxy**.
 
 - **The right artist:** a song of the same name by a different artist is dropped, unless it's
@@ -358,10 +360,11 @@ again (turning NetEase on asks again at once). If your network needs a proxy, fi
   and *Send*. MusicBar solves LRCLIB's anti-spam puzzle (a few seconds) and sends it; corrected
   timing becomes a new version of that very song on LRCLIB rather than a duplicate. From then on
   everyone using LRCLIB has it.
-- **NetEase as a fallback:** turn on **Settings → Lyrics → Also ask NetEase**. When LRCLIB has no
+- **NetEase as a fallback:** the switch is **Settings → Lyrics → Also ask NetEase**. When LRCLIB has no
   synced lyrics (or is down), MusicBar asks NetEase Cloud Music, strong on Korean, Chinese and
   Japanese music. Only the right artist and length, no live, remix or cover versions. NetEase
-  results show in the manual search too. It's an unofficial source, so it's off by default.
+  results show in the manual search too. It's on for new installs; an install updated from an
+  earlier version keeps what it had (off before). It's an unofficial source and may stop working any time.
 - **YouTube titles of any length:** something like "HIEUTHUHAI - Không Thể Say (prod. by Kewtiie) |
   Album 'Ai Cũng Phải Bắt Đầu Từ Đâu Đó'" is split at `-` and `|`, loses the Album, OST, prod.,
   Official MV, Lyrics Video, track numbers and hashtags, the channel name is recognized, and what's

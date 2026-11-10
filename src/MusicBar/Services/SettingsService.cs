@@ -1,5 +1,7 @@
 using System;
 using System.IO;
+using System.Linq;
+using System.Threading;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Windows.Threading;
@@ -68,15 +70,111 @@ public sealed class SettingsService
     {
         firstRun = !File.Exists(AppPaths.SettingsFile);
         if (firstRun) return new AppSettings();
+        for (int attempt = 1; ; attempt++)
+        {
+            try
+            {
+                var settings = Parse(AppPaths.SettingsFile);
+                // The last copy known to be good, for the day the file is damaged.
+                try
+                {
+                    File.Copy(AppPaths.SettingsFile, AppPaths.SettingsBackupFile, overwrite: true);
+                }
+                catch (Exception ex)
+                {
+                    Log.Error("Backing up the settings failed", ex);
+                }
+                return settings;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // Not damaged, just not readable now (another program has it open for a moment): wait a little.
+                if (attempt < 3)
+                {
+                    Thread.Sleep(100);
+                    continue;
+                }
+                Log.Error("Settings file could not be read; using the last good copy for this run, the file is left as it is", ex);
+                return Recover(damaged: false);
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Settings file unreadable", ex);
+                return Recover(damaged: true);
+            }
+        }
+    }
+
+    static AppSettings Parse(string path)
+        => JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(path), JsonOptions)
+           ?? throw new InvalidDataException("The settings file holds no settings");
+
+    /// <summary>
+    /// Keeps the damaged file (never moves it: its absence would read as a first run), then goes back to the
+    /// last good copy, or to defaults when there is none. Nothing here may stop the app from starting.
+    /// With <paramref name="damaged"/> false the file was only unreadable for now: it is not touched at all.
+    /// </summary>
+    static AppSettings Recover(bool damaged)
+    {
+        bool kept = damaged && KeepBadCopy();
+        AppSettings? settings = null;
         try
         {
-            var json = File.ReadAllText(AppPaths.SettingsFile);
-            return JsonSerializer.Deserialize<AppSettings>(json, JsonOptions) ?? new AppSettings();
+            if (File.Exists(AppPaths.SettingsBackupFile)) settings = Parse(AppPaths.SettingsBackupFile);
         }
         catch (Exception ex)
         {
-            Log.Error("Settings file unreadable, using defaults", ex);
+            Log.Error("The settings backup is unreadable too", ex);
+        }
+        if (settings == null)
+        {
+            Log.Info("Using default settings" + (kept ? "; the damaged file is kept next to it as settings.bad-*.json" : ""));
             return new AppSettings();
+        }
+        Log.Info("Settings restored from settings.bak" + (kept ? "; the damaged file is kept next to it as settings.bad-*.json" : ""));
+        // Put the good copy in place so the next start does not find the damaged file again before anything is saved,
+        // but only once the damaged file is safe: otherwise this would destroy the only copy of the latest changes.
+        if (!kept) return settings;
+        try
+        {
+            File.Copy(AppPaths.SettingsBackupFile, AppPaths.SettingsFile, overwrite: true);
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Putting the settings backup back failed", ex);
+        }
+        return settings;
+    }
+
+    /// <summary>True when the damaged file is safe in a copy (one that was already there, identical, counts).</summary>
+    static bool KeepBadCopy()
+    {
+        try
+        {
+            var bad = File.ReadAllBytes(AppPaths.SettingsFile);
+            var copies = new DirectoryInfo(AppPaths.DataDir).GetFiles(AppPaths.BadSettingsPattern)
+                .OrderByDescending(f => f.Name).ToList();
+            // Starting again with the same damaged file would only push the older copies out.
+            if (copies.Count == 0 || !File.ReadAllBytes(copies[0].FullName).AsSpan().SequenceEqual(bad.AsSpan()))
+            {
+                File.WriteAllBytes(AppPaths.BadSettingsFile(DateTime.Now), bad);
+                copies = new DirectoryInfo(AppPaths.DataDir).GetFiles(AppPaths.BadSettingsPattern)
+                    .OrderByDescending(f => f.Name).ToList();
+            }
+            try
+            {
+                foreach (var old in copies.Skip(3)) old.Delete();
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Removing old copies of the damaged settings failed", ex);
+            }
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Keeping a copy of the damaged settings failed", ex);
+            return false;
         }
     }
 

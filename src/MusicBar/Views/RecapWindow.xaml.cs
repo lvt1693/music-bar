@@ -33,6 +33,8 @@ public partial class RecapWindow : Window
         _s = settings;
         _culture = CultureInfo.GetCultureInfo(settings.Language == AppLanguage.Vietnamese ? "vi-VN" : "en-US");
         InitializeComponent();
+        // The card is a fixed-size picture, so on a small screen the window is scaled down; the saved picture stays full size.
+        ScreenFit.AttachScaled(this);
         Paint(ColorUtil.ForDarkSurface(accent));
         Fill();
 

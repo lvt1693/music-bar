@@ -36,6 +36,7 @@ public partial class SettingsWindow : Window
         _media = media;
         _lyrics = lyrics;
         InitializeComponent();
+        ScreenFit.Attach(this);
         DataContext = settings;
         _pages = [PageGeneral, PageBar, PagePlayer, PageFace, PageProgress, PageGallery, PageLyrics, PageAbout];
 
@@ -391,7 +392,7 @@ public partial class SettingsWindow : Window
 
     void OnMediaChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is nameof(MediaService.Title) or nameof(MediaService.Artist) or nameof(MediaService.HasSession))
+        if (e.PropertyName is nameof(MediaService.Title) or nameof(MediaService.Artist) or nameof(MediaService.AppName) or nameof(MediaService.HasSession))
             UpdateNowPlaying();
         else if (e.PropertyName == nameof(MediaService.VlcAnswers))
             RefreshVlc();

@@ -8,7 +8,32 @@
     <SolidColorBrush x:Key="CardBackground" Color="#F5141418" />
     <SolidColorBrush x:Key="CardEdge" Color="#24FFFFFF" />
 
+    <!-- The keyboard focus ring: a thin accent outline just outside the control, drawn only while focus
+         arrived by keyboard. The Round one suits the circular icon buttons. It is drawn in the adorner
+         layer, so it may not see a window's own Accent and then shows the app-wide coral. -->
+    <Style x:Key="FocusRing">
+        <Setter Property="Control.Template">
+            <Setter.Value>
+                <ControlTemplate>
+                    <Rectangle Margin="-2" RadiusX="9" RadiusY="9" Stroke="{DynamicResource Accent}" StrokeThickness="1.5"
+                               SnapsToDevicePixels="True" IsHitTestVisible="False" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <Style x:Key="FocusRingRound">
+        <Setter Property="Control.Template">
+            <Setter.Value>
+                <ControlTemplate>
+                    <Rectangle Margin="-2" RadiusX="16" RadiusY="16" Stroke="{DynamicResource Accent}" StrokeThickness="1.5"
+                               SnapsToDevicePixels="True" IsHitTestVisible="False" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <Style x:Key="CardAccentButton" TargetType="Button">
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="Foreground" Value="#FF101014" />
         <Setter Property="FontSize" Value="12" />
@@ -36,6 +61,7 @@
     </Style>
 
     <Style x:Key="CardSoftButton" TargetType="Button">
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="Foreground" Value="White" />
         <Setter Property="FontSize" Value="12" />
@@ -60,6 +86,7 @@
     </Style>
 
     <Style x:Key="CardLinkButton" TargetType="Button">
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="Foreground" Value="#B3FFFFFF" />
         <Setter Property="FontSize" Value="12" />
@@ -79,6 +106,9 @@
 
     <!-- A round glyph button (close, back, nudge). -->
     <Style x:Key="CardIconButton" TargetType="Button">
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRingRound}" />
+        <!-- A screen reader gets the tooltip's words unless the button names itself. -->
+        <Setter Property="AutomationProperties.Name" Value="{Binding ToolTip, RelativeSource={RelativeSource Self}}" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="Foreground" Value="#D9FFFFFF" />
         <Setter Property="FontFamily" Value="Segoe Fluent Icons, Segoe MDL2 Assets" />
@@ -106,6 +136,7 @@
 
     <!-- A pill that is on or off (the romanization switch, a year to show). -->
     <Style x:Key="CardChip" TargetType="ToggleButton">
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRingRound}" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="Foreground" Value="#D9FFFFFF" />
         <Setter Property="FontSize" Value="11.5" />
@@ -132,6 +163,7 @@
     </Style>
 
     <Style x:Key="CardCheck" TargetType="CheckBox">
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="Foreground" Value="White" />
         <Setter Property="FontSize" Value="12" />

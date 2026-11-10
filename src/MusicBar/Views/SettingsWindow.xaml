@@ -49,6 +49,9 @@
 
         <!-- Toggle switch -->
         <Style x:Key="Switch" TargetType="CheckBox">
+            <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
+            <!-- The switch takes its name from the card's header, as a sighted user reads it. -->
+            <Setter Property="AutomationProperties.Name" Value="{Binding Header, RelativeSource={RelativeSource AncestorType=v:SettingCard}}" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Focusable" Value="True" />
             <Setter Property="Template">
@@ -118,7 +121,7 @@
         <!-- Navigation entries -->
         <Style x:Key="NavItem" TargetType="ListBoxItem">
             <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
             <Setter Property="Margin" Value="0,1" />
             <Setter Property="Template">
                 <Setter.Value>
@@ -172,6 +175,9 @@
         </Style>
 
         <Style x:Key="Swatch" TargetType="Button">
+            <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRingRound}" />
+            <!-- Tag holds the color; its text (a hex value) is the best name a swatch has. -->
+            <Setter Property="AutomationProperties.Name" Value="{Binding Tag, RelativeSource={RelativeSource Self}}" />
             <Setter Property="Width" Value="24" />
             <Setter Property="Height" Value="24" />
             <Setter Property="Margin" Value="0,0,6,0" />
@@ -227,7 +233,7 @@
                                HorizontalAlignment="Center" VerticalAlignment="Center" />
                     <ComboBox Grid.Column="1" Margin="12,0,0,0" DisplayMemberPath="Label" SelectedValuePath="Value"
                               ItemsSource="{x:Static v:SettingsOptions.Languages}" SelectedValue="{Binding Language}"
-                              ToolTip="{l:Tr Set_Language}" />
+                              ToolTip="{l:Tr Set_Language}" AutomationProperties.Name="{l:Tr Set_Language}" />
                 </Grid>
             </StackPanel>
 
@@ -349,7 +355,8 @@
                     <v:SettingCard Glyph="&#xE767;" Header="{l:Tr Set_Source}"
                                    Description="{l:Tr Set_Source_Desc}">
                         <ComboBox x:Name="SourceCombo" MinWidth="260" DisplayMemberPath="Label" SelectedValuePath="Value"
-                                  SelectedValue="{Binding PinnedAppId}" DropDownOpened="SourceCombo_DropDownOpened" />
+                                  SelectedValue="{Binding PinnedAppId}" DropDownOpened="SourceCombo_DropDownOpened"
+                                  AutomationProperties.Name="{Binding Header, RelativeSource={RelativeSource AncestorType=v:SettingCard}}" />
                     </v:SettingCard>
                     <!-- VLC 3 publishes no media session: read through its web interface, once switched on there. -->
                     <StackPanel x:Name="VlcPanel" Visibility="Collapsed">
@@ -362,18 +369,21 @@
                     <TextBlock Text="{l:Tr Set_Bar_GroupScreens}" Style="{StaticResource Group}" />
                     <v:SettingCard Glyph="&#xE7F4;" Header="{l:Tr Set_DisplayTarget}" Description="{l:Tr Set_DisplayTarget_Desc}">
                         <ComboBox x:Name="DisplayCombo" MinWidth="260" DisplayMemberPath="Label"
-                                  SelectionChanged="DisplayCombo_Changed" DropDownOpened="DisplayCombo_DropDownOpened" />
+                                  SelectionChanged="DisplayCombo_Changed" DropDownOpened="DisplayCombo_DropDownOpened"
+                                  AutomationProperties.Name="{Binding Header, RelativeSource={RelativeSource AncestorType=v:SettingCard}}" />
                     </v:SettingCard>
                     <v:SettingCard Glyph="&#xE768;" Header="{l:Tr Set_PlayerTarget}" Description="{l:Tr Set_PlayerTarget_Desc}">
                         <ComboBox x:Name="PlayerScreenCombo" MinWidth="260" DisplayMemberPath="Label"
-                                  SelectionChanged="PlayerScreenCombo_Changed" DropDownOpened="DisplayCombo_DropDownOpened" />
+                                  SelectionChanged="PlayerScreenCombo_Changed" DropDownOpened="DisplayCombo_DropDownOpened"
+                                  AutomationProperties.Name="{Binding Header, RelativeSource={RelativeSource AncestorType=v:SettingCard}}" />
                     </v:SettingCard>
                     <v:SettingCard Glyph="&#xE945;" Header="{l:Tr Set_HardwareAccel}" Description="{l:Tr Set_HardwareAccel_Desc}">
                         <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding HardwareAcceleration}" />
                     </v:SettingCard>
                     <v:SettingCard Glyph="&#xE7F8;" Header="{l:Tr Set_SkinRenderer}" Description="{l:Tr Set_SkinRenderer_Desc}">
                         <ComboBox MinWidth="260" DisplayMemberPath="Label" SelectedValuePath="Value" IsEnabled="{Binding HardwareAcceleration}"
-                                  ItemsSource="{x:Static v:SettingsOptions.SkinRenderers}" SelectedValue="{Binding SkinRenderer}" />
+                                  ItemsSource="{x:Static v:SettingsOptions.SkinRenderers}" SelectedValue="{Binding SkinRenderer}"
+                                  AutomationProperties.Name="{Binding Header, RelativeSource={RelativeSource AncestorType=v:SettingCard}}" />
                     </v:SettingCard>
                 </StackPanel>
 
@@ -389,7 +399,8 @@
                     </v:SettingCard>
                     <v:SettingCard Glyph="&#xE771;" Header="{l:Tr Set_Background}" Description="{l:Tr Set_Background_Desc}">
                         <ComboBox MinWidth="260" DisplayMemberPath="Label" SelectedValuePath="Value" ItemsSource="{x:Static v:SettingsOptions.Backgrounds}"
-                                  SelectedValue="{Binding Background}" />
+                                  SelectedValue="{Binding Background}"
+                                  AutomationProperties.Name="{Binding Header, RelativeSource={RelativeSource AncestorType=v:SettingCard}}" />
                     </v:SettingCard>
                     <v:SettingCard Glyph="&#xE793;" Header="{l:Tr Set_MatchWindowsMode}" Description="{l:Tr Set_MatchWindowsMode_Desc}">
                         <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding MatchWindowsMode}" />
@@ -397,14 +408,16 @@
                     <v:SettingCard Glyph="&#xE706;" Header="{l:Tr Set_BgOpacity}" Description="{l:Tr Set_BgOpacity_Desc}">
                         <StackPanel Orientation="Horizontal">
                             <Slider Width="220" Minimum="0" Maximum="1" SmallChange="0.02" LargeChange="0.1"
-                                    Value="{Binding BackgroundOpacity}" VerticalAlignment="Center" />
+                                    Value="{Binding BackgroundOpacity}" VerticalAlignment="Center"
+                                    AutomationProperties.Name="{Binding Header, RelativeSource={RelativeSource AncestorType=v:SettingCard}}" />
                             <TextBlock Style="{StaticResource Value}" Text="{Binding BackgroundOpacity, StringFormat={}{0:P0}}" />
                         </StackPanel>
                     </v:SettingCard>
                     <v:SettingCard Glyph="&#xE81E;" Header="{l:Tr Set_LayerMode}"
                                    Description="{l:Tr Set_LayerMode_Desc}">
                         <ComboBox MinWidth="260" DisplayMemberPath="Label" SelectedValuePath="Value"
-                                  ItemsSource="{x:Static v:SettingsOptions.LayerModes}" SelectedValue="{Binding LayerMode}" />
+                                  ItemsSource="{x:Static v:SettingsOptions.LayerModes}" SelectedValue="{Binding LayerMode}"
+                                  AutomationProperties.Name="{Binding Header, RelativeSource={RelativeSource AncestorType=v:SettingCard}}" />
                     </v:SettingCard>
                     <TextBlock x:Name="LayerStatusText" FontSize="12" Opacity="0.55" Margin="18,-2,0,8" />
 
@@ -412,7 +425,8 @@
                     <v:SettingCard x:Name="TaskbarSizeCard" Glyph="&#xE740;" Header="{l:Tr Set_TaskbarSize}"
                                    Description="{l:Tr Set_TaskbarSize_Desc}">
                         <ComboBox x:Name="TaskbarSizeCombo" MinWidth="260" DisplayMemberPath="Label" SelectedValuePath="Value"
-                                  ItemsSource="{x:Static v:SettingsOptions.TaskbarSizes}" SelectionChanged="TaskbarSize_Changed" />
+                                  ItemsSource="{x:Static v:SettingsOptions.TaskbarSizes}" SelectionChanged="TaskbarSize_Changed"
+                                  AutomationProperties.Name="{Binding Header, RelativeSource={RelativeSource AncestorType=v:SettingCard}}" />
                     </v:SettingCard>
                     <v:SettingCard Glyph="&#xE8E3;" Header="{l:Tr Set_Center}"
                                    Description="{l:Tr Set_Center_Desc}">
@@ -458,7 +472,8 @@
 
                     <v:SettingCard Glyph="&#xE768;" Header="{l:Tr Set_PlayerMode}" Description="{l:Tr Set_PlayerMode_Desc}">
                         <ComboBox MinWidth="260" DisplayMemberPath="Label" SelectedValuePath="Value"
-                                  ItemsSource="{x:Static v:SettingsOptions.PlayerModes}" SelectedValue="{Binding PlayerMode}" />
+                                  ItemsSource="{x:Static v:SettingsOptions.PlayerModes}" SelectedValue="{Binding PlayerMode}"
+                                  AutomationProperties.Name="{Binding Header, RelativeSource={RelativeSource AncestorType=v:SettingCard}}" />
                     </v:SettingCard>
 
                     <!-- Everything below shapes the player, so it rests while the player is hidden. -->
@@ -466,7 +481,8 @@
                         <TextBlock Text="{l:Tr Set_Player_GroupPlace}" Style="{StaticResource Group}" />
                         <v:SettingCard Glyph="&#xE737;" Header="{l:Tr Set_WidgetPlacement}" Description="{l:Tr Set_WidgetPlacement_Desc}">
                             <ComboBox MinWidth="260" DisplayMemberPath="Label" SelectedValuePath="Value"
-                                      ItemsSource="{x:Static v:SettingsOptions.Placements}" SelectedValue="{Binding WidgetPlacement}" />
+                                      ItemsSource="{x:Static v:SettingsOptions.Placements}" SelectedValue="{Binding WidgetPlacement}"
+                                      AutomationProperties.Name="{Binding Header, RelativeSource={RelativeSource AncestorType=v:SettingCard}}" />
                         </v:SettingCard>
 
                         <TextBlock Text="{l:Tr Set_Player_GroupParts}" Style="{StaticResource Group}" />
@@ -481,7 +497,8 @@
                         </v:SettingCard>
                         <v:SettingCard Glyph="&#xE790;" Header="{l:Tr Set_ControlStyle}" Description="{l:Tr Set_ControlStyle_Desc}">
                             <ComboBox MinWidth="260" DisplayMemberPath="Label" SelectedValuePath="Value"
-                                      ItemsSource="{x:Static v:SettingsOptions.ControlStyles}" SelectedValue="{Binding ControlStyle}" />
+                                      ItemsSource="{x:Static v:SettingsOptions.ControlStyles}" SelectedValue="{Binding ControlStyle}"
+                                      AutomationProperties.Name="{Binding Header, RelativeSource={RelativeSource AncestorType=v:SettingCard}}" />
                         </v:SettingCard>
                         <TextBlock Text="{l:Tr Set_Player_GroupCard}" Style="{StaticResource Group}" />
                         <v:SettingCard Glyph="&#xE946;" Header="{l:Tr Set_InfoPopup}"
@@ -521,12 +538,14 @@
                         <TextBlock Text="{l:Tr Set_Face_GroupPlace}" Style="{StaticResource Group}" />
                         <v:SettingCard Glyph="&#xE737;" Header="{l:Tr Set_FacePlacement}" Description="{l:Tr Set_FacePlacement_Desc}">
                             <ComboBox MinWidth="260" DisplayMemberPath="Label" SelectedValuePath="Value"
-                                      ItemsSource="{x:Static v:SettingsOptions.FacePlacements}" SelectedValue="{Binding FacePlacement}" />
+                                      ItemsSource="{x:Static v:SettingsOptions.FacePlacements}" SelectedValue="{Binding FacePlacement}"
+                                      AutomationProperties.Name="{Binding Header, RelativeSource={RelativeSource AncestorType=v:SettingCard}}" />
                         </v:SettingCard>
                         <v:SettingCard Glyph="&#xE740;" Header="{l:Tr Set_FaceScale}">
                             <StackPanel Orientation="Horizontal">
                                 <Slider Width="220" Minimum="0.6" Maximum="1" SmallChange="0.05" LargeChange="0.1"
-                                        Value="{Binding FaceScale}" VerticalAlignment="Center" />
+                                        Value="{Binding FaceScale}" VerticalAlignment="Center"
+                                        AutomationProperties.Name="{Binding Header, RelativeSource={RelativeSource AncestorType=v:SettingCard}}" />
                                 <TextBlock Style="{StaticResource Value}" Text="{Binding FaceScale, StringFormat={}{0:P0}}" />
                             </StackPanel>
                         </v:SettingCard>
@@ -554,11 +573,13 @@
                         <TextBlock Text="{l:Tr Set_Face_GroupWear}" Style="{StaticResource Group}" />
                         <v:SettingCard Glyph="&#xE7BE;" Header="{l:Tr Set_FaceHat}" Description="{l:Tr Set_FaceHat_Desc}">
                             <ComboBox MinWidth="200" DisplayMemberPath="Label" SelectedValuePath="Value"
-                                      ItemsSource="{x:Static v:SettingsOptions.FaceHats}" SelectedValue="{Binding FaceHat}" />
+                                      ItemsSource="{x:Static v:SettingsOptions.FaceHats}" SelectedValue="{Binding FaceHat}"
+                                      AutomationProperties.Name="{Binding Header, RelativeSource={RelativeSource AncestorType=v:SettingCard}}" />
                         </v:SettingCard>
                         <v:SettingCard Glyph="&#xE7B3;" Header="{l:Tr Set_FaceGlasses}">
                             <ComboBox MinWidth="200" DisplayMemberPath="Label" SelectedValuePath="Value"
-                                      ItemsSource="{x:Static v:SettingsOptions.FaceGlasses}" SelectedValue="{Binding FaceGlasses}" />
+                                      ItemsSource="{x:Static v:SettingsOptions.FaceGlasses}" SelectedValue="{Binding FaceGlasses}"
+                                      AutomationProperties.Name="{Binding Header, RelativeSource={RelativeSource AncestorType=v:SettingCard}}" />
                         </v:SettingCard>
                         <v:SettingCard Glyph="&#xE7F6;" Header="{l:Tr Set_FaceHeadphones}">
                             <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding FaceHeadphones}" />
@@ -574,14 +595,16 @@
                         <v:SettingCard Glyph="&#xE916;" Header="{l:Tr Set_FocusMinutes}" Description="{l:Tr Set_FocusMinutes_Desc}">
                             <StackPanel Orientation="Horizontal">
                                 <Slider Width="220" Minimum="5" Maximum="90" SmallChange="5" LargeChange="5" TickFrequency="5" IsSnapToTickEnabled="True"
-                                        Value="{Binding FocusMinutes}" VerticalAlignment="Center" />
+                                        Value="{Binding FocusMinutes}" VerticalAlignment="Center"
+                                        AutomationProperties.Name="{Binding Header, RelativeSource={RelativeSource AncestorType=v:SettingCard}}" />
                                 <TextBlock Style="{StaticResource Value}"><Run Text="{Binding FocusMinutes, Mode=OneWay}" /> <Run Text="{l:Tr Set_MinutesUnit}" /></TextBlock>
                             </StackPanel>
                         </v:SettingCard>
                         <v:SettingCard Glyph="&#xE76E;" Header="{l:Tr Set_BreakMinutes}" Description="{l:Tr Set_BreakMinutes_Desc}">
                             <StackPanel Orientation="Horizontal">
                                 <Slider Width="220" Minimum="1" Maximum="30" SmallChange="1" LargeChange="5" TickFrequency="1" IsSnapToTickEnabled="True"
-                                        Value="{Binding BreakMinutes}" VerticalAlignment="Center" />
+                                        Value="{Binding BreakMinutes}" VerticalAlignment="Center"
+                                        AutomationProperties.Name="{Binding Header, RelativeSource={RelativeSource AncestorType=v:SettingCard}}" />
                                 <TextBlock Style="{StaticResource Value}"><Run Text="{Binding BreakMinutes, Mode=OneWay}" /> <Run Text="{l:Tr Set_MinutesUnit}" /></TextBlock>
                             </StackPanel>
                         </v:SettingCard>
@@ -614,7 +637,8 @@
                         </Border>
                         <!-- Search every style, visualizer, LED strip and skin by name, description or author. -->
                         <Grid Grid.Column="2" Width="230" VerticalAlignment="Center">
-                            <TextBox x:Name="LookSearch" Padding="26,5,8,5" TextChanged="LookSearch_TextChanged" KeyDown="LookSearch_KeyDown" />
+                            <TextBox x:Name="LookSearch" Padding="26,5,8,5" TextChanged="LookSearch_TextChanged" KeyDown="LookSearch_KeyDown"
+                                     AutomationProperties.Name="{l:Tr Set_Look_Search}" />
                             <TextBlock Text="&#xE721;" FontFamily="{StaticResource IconFont}" FontSize="12" Opacity="0.5" Margin="10,0,0,0"
                                        VerticalAlignment="Center" IsHitTestVisible="False" />
                             <TextBlock x:Name="LookSearchHint" Text="{l:Tr Set_Look_Search}" FontSize="12.5" Opacity="0.45" Margin="29,0,0,0"
@@ -648,15 +672,19 @@
                     <WrapPanel x:Name="PaletteChips" Margin="4,-2,-10,4" />
                     <StackPanel x:Name="CustomPalette" Orientation="Horizontal" Margin="6,2,0,12" Visibility="Collapsed">
                         <TextBlock Text="{l:Tr Pal_CustomHint}" FontSize="12" Opacity="0.7" VerticalAlignment="Center" Margin="0,0,10,0" />
-                        <TextBox x:Name="PaletteA" Width="86" Margin="0,0,6,0" KeyDown="PaletteBox_KeyDown" LostFocus="PaletteBox_LostFocus" />
-                        <TextBox x:Name="PaletteB" Width="86" Margin="0,0,6,0" KeyDown="PaletteBox_KeyDown" LostFocus="PaletteBox_LostFocus" />
-                        <TextBox x:Name="PaletteC" Width="86" KeyDown="PaletteBox_KeyDown" LostFocus="PaletteBox_LostFocus" />
+                        <TextBox x:Name="PaletteA" Width="86" Margin="0,0,6,0" KeyDown="PaletteBox_KeyDown" LostFocus="PaletteBox_LostFocus"
+                                 AutomationProperties.Name="{l:Tr A11y_Palette1}" />
+                        <TextBox x:Name="PaletteB" Width="86" Margin="0,0,6,0" KeyDown="PaletteBox_KeyDown" LostFocus="PaletteBox_LostFocus"
+                                 AutomationProperties.Name="{l:Tr A11y_Palette2}" />
+                        <TextBox x:Name="PaletteC" Width="86" KeyDown="PaletteBox_KeyDown" LostFocus="PaletteBox_LostFocus"
+                                 AutomationProperties.Name="{l:Tr A11y_Palette3}" />
                     </StackPanel>
 
                     <TextBlock Text="{l:Tr Set_Progress_GroupMotion}" Style="{StaticResource Group}" />
                     <v:SettingCard Glyph="&#xE8AB;" Header="{l:Tr Set_SeekDirection}" Description="{l:Tr Set_SeekDirection_Desc}">
                         <ComboBox MinWidth="260" DisplayMemberPath="Label" SelectedValuePath="Value"
-                                  ItemsSource="{x:Static v:SettingsOptions.SeekDirections}" SelectedValue="{Binding SeekDirection}" />
+                                  ItemsSource="{x:Static v:SettingsOptions.SeekDirections}" SelectedValue="{Binding SeekDirection}"
+                                  AutomationProperties.Name="{Binding Header, RelativeSource={RelativeSource AncestorType=v:SettingCard}}" />
                     </v:SettingCard>
                     <v:SettingCard Glyph="&#xE7C4;" Header="{l:Tr Set_AvoidIcons}" Description="{l:Tr Set_AvoidIcons_Desc}">
                         <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding SeekAvoidIcons}" />
@@ -664,7 +692,8 @@
                     <v:SettingCard Glyph="&#xE793;" Header="{l:Tr Set_FillOpacity}">
                         <StackPanel Orientation="Horizontal">
                             <Slider Width="220" Minimum="0.08" Maximum="0.9" SmallChange="0.02" LargeChange="0.1"
-                                    Value="{Binding FillOpacity}" VerticalAlignment="Center" />
+                                    Value="{Binding FillOpacity}" VerticalAlignment="Center"
+                                    AutomationProperties.Name="{Binding Header, RelativeSource={RelativeSource AncestorType=v:SettingCard}}" />
                             <TextBlock Style="{StaticResource Value}" Text="{Binding FillOpacity, StringFormat={}{0:P0}}" />
                         </StackPanel>
                     </v:SettingCard>
@@ -680,7 +709,8 @@
                     <v:SettingCard Glyph="&#xE790;" Header="{l:Tr Set_Accent}"
                                    Description="{l:Tr Set_Accent_Desc}">
                         <ComboBox MinWidth="260" DisplayMemberPath="Label" SelectedValuePath="Value" ItemsSource="{x:Static v:SettingsOptions.AccentSources}"
-                                  SelectedValue="{Binding AccentSource}" />
+                                  SelectedValue="{Binding AccentSource}"
+                                  AutomationProperties.Name="{Binding Header, RelativeSource={RelativeSource AncestorType=v:SettingCard}}" />
                     </v:SettingCard>
                     <v:SettingCard Glyph="&#xE2B1;" Header="{l:Tr Set_CustomColor}" Description="{l:Tr Set_CustomColor_Desc}">
                         <StackPanel Orientation="Horizontal">
@@ -698,7 +728,8 @@
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
                             <TextBox x:Name="HexBox" Width="92" Margin="6,0,0,0" VerticalAlignment="Center"
-                                     Text="{Binding CustomColor, UpdateSourceTrigger=LostFocus}" KeyDown="HexBox_KeyDown" />
+                                     Text="{Binding CustomColor, UpdateSourceTrigger=LostFocus}" KeyDown="HexBox_KeyDown"
+                                     AutomationProperties.Name="{Binding Header, RelativeSource={RelativeSource AncestorType=v:SettingCard}}" />
                         </StackPanel>
                     </v:SettingCard>
                 </StackPanel>
@@ -724,10 +755,12 @@
 
                     <TextBlock Text="{l:Tr Set_Gal_GroupShare}" Style="{StaticResource Group}" />
                     <v:SettingCard Glyph="&#xE77B;" Header="{l:Tr Set_Gal_Nickname}" Description="{l:Tr Set_Gal_Nickname_Desc}">
-                        <TextBox Width="220" MaxLength="24" Text="{Binding CommunityNickname, UpdateSourceTrigger=LostFocus}" />
+                        <TextBox Width="220" MaxLength="24" Text="{Binding CommunityNickname, UpdateSourceTrigger=LostFocus}"
+                                 AutomationProperties.Name="{Binding Header, RelativeSource={RelativeSource AncestorType=v:SettingCard}}" />
                     </v:SettingCard>
                     <v:SettingCard Glyph="&#xE898;" Header="{l:Tr Set_Gal_Share}" Description="{l:Tr Set_Gal_Share_Desc}">
-                        <ComboBox x:Name="ShareWhat" MinWidth="260" DisplayMemberPath="Label" />
+                        <ComboBox x:Name="ShareWhat" MinWidth="260" DisplayMemberPath="Label"
+                                  AutomationProperties.Name="{Binding Header, RelativeSource={RelativeSource AncestorType=v:SettingCard}}" />
                     </v:SettingCard>
                     <Grid Margin="4,2,0,6">
                         <Grid.ColumnDefinitions>
@@ -737,11 +770,11 @@
                         </Grid.ColumnDefinitions>
                         <StackPanel>
                             <TextBlock Text="{l:Tr Set_Gal_ShareName}" FontSize="12" Opacity="0.7" Margin="0,0,0,4" />
-                            <TextBox x:Name="ShareName" MaxLength="40" />
+                            <TextBox x:Name="ShareName" MaxLength="40" AutomationProperties.Name="{l:Tr Set_Gal_ShareName}" />
                         </StackPanel>
                         <StackPanel Grid.Column="1" Margin="10,0,10,0">
                             <TextBlock Text="{l:Tr Set_Gal_ShareDesc}" FontSize="12" Opacity="0.7" Margin="0,0,0,4" />
-                            <TextBox x:Name="ShareDesc" MaxLength="300" />
+                            <TextBox x:Name="ShareDesc" MaxLength="300" AutomationProperties.Name="{l:Tr Set_Gal_ShareDesc}" />
                         </StackPanel>
                         <Button x:Name="ShareButton" Grid.Column="2" VerticalAlignment="Bottom" Content="{l:Tr Set_Gal_ShareSend}" Padding="16,5" Click="Share_Click" />
                     </Grid>
@@ -761,32 +794,37 @@
                     <v:SettingCard Glyph="&#xE8A1;" Header="{l:Tr Set_LyricsPlacement}"
                                    Description="{l:Tr Set_LyricsPlacement_Desc}">
                         <ComboBox MinWidth="260" DisplayMemberPath="Label" SelectedValuePath="Value"
-                                  ItemsSource="{x:Static v:SettingsOptions.LyricsPlacements}" SelectedValue="{Binding LyricsPlacement}" />
+                                  ItemsSource="{x:Static v:SettingsOptions.LyricsPlacements}" SelectedValue="{Binding LyricsPlacement}"
+                                  AutomationProperties.Name="{Binding Header, RelativeSource={RelativeSource AncestorType=v:SettingCard}}" />
                     </v:SettingCard>
                     <v:SettingCard Glyph="&#xE740;" Header="{l:Tr Set_WidgetMaxWidth}" Description="{l:Tr Set_WidgetMaxWidth_Desc}">
                         <StackPanel Orientation="Horizontal">
                             <Slider Width="220" Minimum="240" Maximum="1200" TickFrequency="20" IsSnapToTickEnabled="True"
-                                    Value="{Binding WidgetMaxWidth}" VerticalAlignment="Center" />
+                                    Value="{Binding WidgetMaxWidth}" VerticalAlignment="Center"
+                                    AutomationProperties.Name="{Binding Header, RelativeSource={RelativeSource AncestorType=v:SettingCard}}" />
                             <TextBlock Style="{StaticResource Value}" Text="{Binding WidgetMaxWidth, StringFormat={}{0:0} px}" />
                         </StackPanel>
                     </v:SettingCard>
                     <v:SettingCard Glyph="&#xE8E3;" Header="{l:Tr Set_LyricsAlign}">
                         <ComboBox MinWidth="260" DisplayMemberPath="Label" SelectedValuePath="Value" ItemsSource="{x:Static v:SettingsOptions.Alignments}"
-                                  SelectedValue="{Binding LyricsAlign}" />
+                                  SelectedValue="{Binding LyricsAlign}"
+                                  AutomationProperties.Name="{Binding Header, RelativeSource={RelativeSource AncestorType=v:SettingCard}}" />
                     </v:SettingCard>
 
                     <TextBlock Text="{l:Tr Set_Lyr_GroupEffects}" Style="{StaticResource Group}" />
                     <v:SettingCard Glyph="&#xE945;" Header="{l:Tr Set_LyricEffect}">
                         <StackPanel Orientation="Horizontal">
                             <ComboBox MinWidth="260" DisplayMemberPath="Label" SelectedValuePath="Value" ItemsSource="{x:Static v:SettingsOptions.LyricEffects}"
-                                      SelectedValue="{Binding LyricEffect}" />
+                                      SelectedValue="{Binding LyricEffect}"
+                                      AutomationProperties.Name="{Binding Header, RelativeSource={RelativeSource AncestorType=v:SettingCard}}" />
                             <Button Content="{l:Tr Set_Preview}" Margin="8,0,0,0" Padding="14,5" Click="PreviewEffect_Click" />
                         </StackPanel>
                     </v:SettingCard>
                     <v:SettingCard Glyph="&#xEC4A;" Header="{l:Tr Set_AnimSpeed}">
                         <StackPanel Orientation="Horizontal">
                             <Slider Width="220" Minimum="0.5" Maximum="2" SmallChange="0.1" LargeChange="0.25"
-                                    Value="{Binding AnimationSpeed}" VerticalAlignment="Center" />
+                                    Value="{Binding AnimationSpeed}" VerticalAlignment="Center"
+                                    AutomationProperties.Name="{Binding Header, RelativeSource={RelativeSource AncestorType=v:SettingCard}}" />
                             <TextBlock Style="{StaticResource Value}" Text="{Binding AnimationSpeed, StringFormat={}{0:0.0}×}" />
                         </StackPanel>
                     </v:SettingCard>
@@ -801,13 +839,15 @@
                                    Description="{l:Tr Set_Offset_Desc}">
                         <StackPanel Orientation="Horizontal">
                             <Slider Width="220" Minimum="-3000" Maximum="3000" TickFrequency="100" IsSnapToTickEnabled="True"
-                                    Value="{Binding LyricsDelayMs}" VerticalAlignment="Center" />
+                                    Value="{Binding LyricsDelayMs}" VerticalAlignment="Center"
+                                    AutomationProperties.Name="{Binding Header, RelativeSource={RelativeSource AncestorType=v:SettingCard}}" />
                             <TextBlock Style="{StaticResource Value}" Text="{Binding LyricsDelayMs, StringFormat={}{0:+0;-0;0} ms}" />
                         </StackPanel>
                     </v:SettingCard>
                     <v:SettingCard Glyph="&#xE8C1;" Header="{l:Tr Set_Romanization}" Description="{l:Tr Set_Romanization_Desc}">
                         <ComboBox MinWidth="200" DisplayMemberPath="Label" SelectedValuePath="Value"
-                                  ItemsSource="{x:Static v:SettingsOptions.Romanizations}" SelectedValue="{Binding Romanization}" />
+                                  ItemsSource="{x:Static v:SettingsOptions.Romanizations}" SelectedValue="{Binding Romanization}"
+                                  AutomationProperties.Name="{Binding Header, RelativeSource={RelativeSource AncestorType=v:SettingCard}}" />
                     </v:SettingCard>
                     <v:SettingCard Glyph="&#xE8BC;" Header="{l:Tr Set_LyricsPanel}" Description="{l:Tr Set_LyricsPanel_Desc}" />
 
@@ -815,7 +855,8 @@
                     <v:SettingCard Glyph="&#xE8D2;" Header="{l:Tr Set_Font}"
                                    Description="{l:Tr Set_Font_Desc}">
                         <ComboBox x:Name="FontCombo" MinWidth="260" SelectedItem="{Binding FontFamily}" MaxDropDownHeight="420"
-                                  VirtualizingPanel.IsVirtualizing="True">
+                                  VirtualizingPanel.IsVirtualizing="True"
+                                  AutomationProperties.Name="{Binding Header, RelativeSource={RelativeSource AncestorType=v:SettingCard}}">
                             <ComboBox.Resources>
                                 <v:FontPreviewConverter x:Key="FontPreview" />
                             </ComboBox.Resources>
@@ -834,7 +875,8 @@
                     <v:SettingCard Glyph="&#xE8E9;" Header="{l:Tr Set_LyricScale}">
                         <StackPanel Orientation="Horizontal">
                             <Slider Width="220" Minimum="0.6" Maximum="2" SmallChange="0.05" LargeChange="0.1"
-                                    Value="{Binding LyricScale}" VerticalAlignment="Center" />
+                                    Value="{Binding LyricScale}" VerticalAlignment="Center"
+                                    AutomationProperties.Name="{Binding Header, RelativeSource={RelativeSource AncestorType=v:SettingCard}}" />
                             <TextBlock Style="{StaticResource Value}" Text="{Binding LyricScale, StringFormat={}{0:P0}}" />
                         </StackPanel>
                     </v:SettingCard>
@@ -855,13 +897,15 @@
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
                             <TextBox Width="92" Margin="6,0,0,0" VerticalAlignment="Center"
-                                     Text="{Binding LyricColor, UpdateSourceTrigger=LostFocus}" KeyDown="ColorBox_KeyDown" />
+                                     Text="{Binding LyricColor, UpdateSourceTrigger=LostFocus}" KeyDown="ColorBox_KeyDown"
+                                     AutomationProperties.Name="{Binding Header, RelativeSource={RelativeSource AncestorType=v:SettingCard}}" />
                         </StackPanel>
                     </v:SettingCard>
                     <v:SettingCard Glyph="&#xE793;" Header="{l:Tr Set_LyricOpacity}" Description="{l:Tr Set_LyricOpacity_Desc}">
                         <StackPanel Orientation="Horizontal">
                             <Slider Width="220" Minimum="0.2" Maximum="1" SmallChange="0.02" LargeChange="0.1"
-                                    Value="{Binding LyricOpacity}" VerticalAlignment="Center" />
+                                    Value="{Binding LyricOpacity}" VerticalAlignment="Center"
+                                    AutomationProperties.Name="{Binding Header, RelativeSource={RelativeSource AncestorType=v:SettingCard}}" />
                             <TextBlock Style="{StaticResource Value}" Text="{Binding LyricOpacity, StringFormat={}{0:P0}}" />
                         </StackPanel>
                     </v:SettingCard>
@@ -885,13 +929,15 @@
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
                             <TextBox Width="92" Margin="6,0,0,0" VerticalAlignment="Center"
-                                     Text="{Binding LyricStrokeColor, UpdateSourceTrigger=LostFocus}" KeyDown="ColorBox_KeyDown" />
+                                     Text="{Binding LyricStrokeColor, UpdateSourceTrigger=LostFocus}" KeyDown="ColorBox_KeyDown"
+                                     AutomationProperties.Name="{Binding Header, RelativeSource={RelativeSource AncestorType=v:SettingCard}}" />
                         </StackPanel>
                     </v:SettingCard>
                     <v:SettingCard Glyph="&#xE793;" Header="{l:Tr Set_StrokeOpacity}" IsEnabled="{Binding LyricStroke}">
                         <StackPanel Orientation="Horizontal">
                             <Slider Width="220" Minimum="0" Maximum="1" SmallChange="0.02" LargeChange="0.1"
-                                    Value="{Binding LyricStrokeOpacity}" VerticalAlignment="Center" />
+                                    Value="{Binding LyricStrokeOpacity}" VerticalAlignment="Center"
+                                    AutomationProperties.Name="{Binding Header, RelativeSource={RelativeSource AncestorType=v:SettingCard}}" />
                             <TextBlock Style="{StaticResource Value}" Text="{Binding LyricStrokeOpacity, StringFormat={}{0:P0}}" />
                         </StackPanel>
                     </v:SettingCard>
@@ -900,7 +946,8 @@
                         <StackPanel Orientation="Horizontal">
                             <Slider Width="220" Minimum="1" Maximum="24" SmallChange="1" LargeChange="2"
                                     IsSnapToTickEnabled="True" TickFrequency="1"
-                                    Value="{Binding LyricStrokeRadius}" VerticalAlignment="Center" />
+                                    Value="{Binding LyricStrokeRadius}" VerticalAlignment="Center"
+                                    AutomationProperties.Name="{Binding Header, RelativeSource={RelativeSource AncestorType=v:SettingCard}}" />
                             <TextBlock Style="{StaticResource Value}" Text="{Binding LyricStrokeRadius, StringFormat={}{0:0} px}" />
                         </StackPanel>
                     </v:SettingCard>
@@ -916,7 +963,8 @@
                         <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding LyricsFromNetEase}" />
                     </v:SettingCard>
                     <v:SettingCard Glyph="&#xE968;" Header="{l:Tr Set_Proxy}" Description="{l:Tr Set_Proxy_Desc}">
-                        <TextBox Width="260" Text="{Binding ProxyUrl, UpdateSourceTrigger=LostFocus}" />
+                        <TextBox Width="260" Text="{Binding ProxyUrl, UpdateSourceTrigger=LostFocus}"
+                                 AutomationProperties.Name="{Binding Header, RelativeSource={RelativeSource AncestorType=v:SettingCard}}" />
                     </v:SettingCard>
                     <v:SettingCard Glyph="&#xE8B7;" Header="{l:Tr Set_LyricsFolder}"
                                    Description="{l:Tr Set_LyricsFolder_Desc}">

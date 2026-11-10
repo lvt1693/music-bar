@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -33,11 +35,37 @@ public sealed class MediaService : ObservableObject
         public required TypedEventHandler<GlobalSystemMediaTransportControlsSession, TimelinePropertiesChangedEventArgs> Timeline;
     }
 
+    /// <summary>A session's playback info, every value read at once (off the UI thread, handed to it as plain values).</summary>
+    sealed record PlaybackRead(bool CanPlayPause, bool CanNext, bool CanPrevious, bool CanSeek, double Rate, bool Playing);
+
+    /// <summary>A session's timeline, every value read at once, and when it was read.</summary>
+    sealed record TimelineRead(TimeSpan Start, TimeSpan End, TimeSpan MinSeek, TimeSpan MaxSeek, TimeSpan Position, DateTimeOffset Updated, DateTimeOffset ReadAt);
+
+    /// <summary>A session as PickSession weighs it, with what SetSession needs to show it at once.</summary>
+    sealed record SessionRead(GlobalSystemMediaTransportControlsSession Session, string Id, bool Playing, PlaybackRead? Playback, TimelineRead? Timeline);
+
+    /// <summary>Every session, and the one Windows calls current.</summary>
+    sealed record SessionsRead(IReadOnlyList<SessionRead> All, SessionRead? Current);
+
     readonly AppSettings _settings;
     readonly Dispatcher _ui = Dispatcher.CurrentDispatcher;
     readonly DispatcherTimer _poll = new() { Interval = TimeSpan.FromSeconds(1) };
+    // Touched only by reads, which never run two at once.
     readonly List<Subscription> _subs = [];
     readonly Dictionary<string, string> _sessionTitles = new();
+
+    // The sessions are read on the thread pool, one read at a time and in the order asked for: Windows'
+    // media service or a player slow to answer would otherwise hold up the UI thread, and with it the
+    // bar, the lyrics and every window. Each answer is applied on the UI thread.
+    readonly TaskScheduler _reader = new ConcurrentExclusiveSchedulerPair(TaskScheduler.Default).ExclusiveScheduler;
+    // Reads asked for and not back yet (UI thread only): a poll is skipped while there are any.
+    int _readsPending;
+    // The read running now and since when (a Stopwatch timestamp, 0 between reads), for the note about one that hangs.
+    volatile string _readWhat = "";
+    long _readSince;
+    // When a slow read was last noted: _slowReadNoted by the reads, _stuckReadNoted by the UI thread.
+    DateTime _slowReadNoted, _stuckReadNoted;
+    static readonly TimeSpan SlowRead = TimeSpan.FromMilliseconds(200);
 
     GlobalSystemMediaTransportControlsSessionManager? _manager;
     GlobalSystemMediaTransportControlsSession? _session;
@@ -239,9 +267,18 @@ public sealed class MediaService : ObservableObject
 
     // ------------------------------------------------------------------ session tracking
 
-    void RefreshSessions()
+    async void RefreshSessions()
     {
-        if (_manager == null) return;
+        if (_manager is not { } manager) return;
+        var sessions = await ReadAsync("the session list", () => Resubscribe(manager));
+        if (sessions == null) return;
+        foreach (var s in sessions) _ = CacheSessionTitleAsync(s);
+        PickSession();
+    }
+
+    /// <summary>Follows the events of the sessions there are now, and no others. Run as a read: it calls into them.</summary>
+    IReadOnlyList<GlobalSystemMediaTransportControlsSession>? Resubscribe(GlobalSystemMediaTransportControlsSessionManager manager)
+    {
         foreach (var sub in _subs)
         {
             try
@@ -258,11 +295,11 @@ public sealed class MediaService : ObservableObject
         _subs.Clear();
 
         IReadOnlyList<GlobalSystemMediaTransportControlsSession> sessions;
-        try { sessions = _manager.GetSessions(); }
+        try { sessions = manager.GetSessions(); }
         catch (Exception ex)
         {
             Log.Error("GetSessions failed", ex);
-            return;
+            return null;
         }
 
         foreach (var s in sessions)
@@ -278,55 +315,66 @@ public sealed class MediaService : ObservableObject
             s.MediaPropertiesChanged += sub.Media;
             s.TimelinePropertiesChanged += sub.Timeline;
             _subs.Add(sub);
-            _ = CacheSessionTitleAsync(s);
         }
-        PickSession();
+        return sessions;
     }
 
-    void PickSession()
+    async void PickSession()
     {
         if (_demo || (_manager == null && _vlc == null)) return;
-        IReadOnlyList<GlobalSystemMediaTransportControlsSession> all = [];
-        GlobalSystemMediaTransportControlsSession? current = null;
-        if (_manager != null)
+        SessionsRead? read = new([], null);
+        if (_manager is { } manager)
         {
-            try
-            {
-                all = _manager.GetSessions();
-                current = _manager.GetCurrentSession();
-            }
-            catch (Exception ex)
-            {
-                Log.Error("Picking session failed", ex);
-                return;
-            }
+            read = await ReadAsync("the sessions", () => ReadSessions(manager));
+            // The demo may have started while they were read.
+            if (read == null || _demo) return;
         }
+        var (all, current) = read;
 
         var pinned = _settings.PinnedAppId;
         // VLC, which has no media session: when it is the app pinned, or when it plays (or is paused
         // while on the bar) and no media session plays, unless the app pinned is there.
-        bool anotherPlays = all.Any(IsPlayingSession);
+        bool anotherPlays = all.Any(s => s.Playing);
         if (_vlcStatus is { Stopped: false } vlc
             && (pinned == VlcLink.AppId
-                || ((vlc.Playing || _followingVlc) && !anotherPlays && !all.Any(s => s.SourceAppUserModelId == pinned))))
+                || ((vlc.Playing || _followingVlc) && !anotherPlays && !all.Any(s => s.Id == pinned))))
         {
             if (!_followingVlc) FollowVlc(vlc);
             return;
         }
         if (_followingVlc) _followingVlc = false;
 
-        GlobalSystemMediaTransportControlsSession? target = null;
-        if (pinned.Length > 0) target = all.FirstOrDefault(s => s.SourceAppUserModelId == pinned);
+        SessionRead? target = null;
+        if (pinned.Length > 0) target = all.FirstOrDefault(s => s.Id == pinned);
 
         if (target == null)
         {
-            var mine = _session == null ? null : all.FirstOrDefault(s => Same(s, _session));
-            if (current != null && IsPlayingSession(current)) target = current;
-            else if (mine != null && IsPlayingSession(mine)) target = mine;
-            else target = all.FirstOrDefault(IsPlayingSession) ?? mine ?? current ?? all.FirstOrDefault();
+            var mine = _session == null ? null : all.FirstOrDefault(s => Same(s.Session, _session));
+            if (current != null && current.Playing) target = current;
+            else if (mine != null && mine.Playing) target = mine;
+            else target = all.FirstOrDefault(s => s.Playing) ?? mine ?? current ?? all.FirstOrDefault();
         }
         SetSession(target);
     }
+
+    /// <summary>Every session and the current one, with all PickSession and SetSession look at. Run as a read.</summary>
+    static SessionsRead? ReadSessions(GlobalSystemMediaTransportControlsSessionManager manager)
+    {
+        try
+        {
+            var all = manager.GetSessions();
+            var current = manager.GetCurrentSession();
+            return new SessionsRead(all.Select(ReadSession).ToList(), current == null ? null : ReadSession(current));
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Picking session failed", ex);
+            return null;
+        }
+    }
+
+    static SessionRead ReadSession(GlobalSystemMediaTransportControlsSession s)
+        => new(s, s.SourceAppUserModelId, IsPlayingSession(s), ReadPlayback(s), ReadTimeline(s));
 
     static bool Same(GlobalSystemMediaTransportControlsSession a, GlobalSystemMediaTransportControlsSession b)
         => ReferenceEquals(a, b) || a.SourceAppUserModelId == b.SourceAppUserModelId;
@@ -345,9 +393,9 @@ public sealed class MediaService : ObservableObject
 
     bool IsSelected(GlobalSystemMediaTransportControlsSession s) => _session != null && Same(s, _session);
 
-    void SetSession(GlobalSystemMediaTransportControlsSession? target)
+    void SetSession(SessionRead? read)
     {
-        if (target == null)
+        if (read == null)
         {
             if (_session == null && !HasSession) return;
             _session = null;
@@ -355,6 +403,7 @@ public sealed class MediaService : ObservableObject
             return;
         }
 
+        var target = read.Session;
         if (_session != null && Same(_session, target))
         {
             _session = target;
@@ -362,19 +411,40 @@ public sealed class MediaService : ObservableObject
         }
 
         _session = target;
-        var visual = AppVisualResolver.Resolve(target.SourceAppUserModelId);
         AppId = target.SourceAppUserModelId;
-        AppName = visual.Name;
-        AppIcon = visual.Icon;
-        AppColor = visual.Color;
+        ShowApp(AppId);
         _trackKey = "";
         _pendingKey = "";
         _lastTimelinePos = TimeSpan.MinValue;
         HasSession = true;
-        UpdatePlaybackInfo();
-        UpdateTimeline(force: true);
+        // Read with the sessions, so the new one shows its state at once.
+        ApplyPlayback(read.Playback);
+        ApplyTimeline(read.Timeline, force: true);
         _ = UpdateMediaAsync();
         Log.Info($"Following session {AppId}");
+    }
+
+    /// <summary>
+    /// The app's name, icon and colour: at once for an app looked up before, else what its id tells
+    /// until the lookup (processes, the player's icon on disk) is back from the thread pool, and then
+    /// only while that app is still the one shown.
+    /// </summary>
+    async void ShowApp(string appId)
+    {
+        if (!AppVisualResolver.TryGetCached(appId, out var visual))
+        {
+            Show(AppVisualResolver.Placeholder(appId));
+            visual = await AppVisualResolver.ResolveAsync(appId);
+            if (appId != AppId) return;
+        }
+        Show(visual);
+
+        void Show(AppVisual v)
+        {
+            AppName = v.Name;
+            AppIcon = v.Icon;
+            AppColor = v.Color;
+        }
     }
 
     void ClearState()
@@ -410,25 +480,42 @@ public sealed class MediaService : ObservableObject
         if (IsSelected(s)) UpdateTimeline(force: false);
     }
 
-    void Poll()
+    async void Poll()
     {
         // VLC every other second, every second while it is the one on the bar.
         if (_vlc != null && !_vlcBusy && (_followingVlc || _pollTicks % 2 == 0)) _ = PollVlcAsync();
-        if (_session == null)
+        bool pick = ++_pollTicks % 3 == 0;
+        // A read still out (a player or Windows' media service slow to answer): this look is skipped
+        // rather than queued behind it.
+        if (_readsPending > 0)
         {
-            if (++_pollTicks % 3 == 0) PickSession();
+            NoteStuckRead();
             return;
         }
-        UpdatePlaybackInfo();
-        UpdateTimeline(force: false);
-        if (++_pollTicks % 3 == 0) PickSession();
+        var s = _session;
+        if (s == null)
+        {
+            if (pick) PickSession();
+            return;
+        }
+        // A browser preview's timeline would move the song's playhead: it isn't read at all.
+        bool preview = _pendingKey.Length > 0;
+        var (playback, timeline) = await ReadAsync("the playback state", () => (ReadPlayback(s), preview ? null : ReadTimeline(s)));
+        if (ReferenceEquals(s, _session))
+        {
+            ApplyPlayback(playback);
+            ApplyTimeline(timeline, force: false);
+        }
+        if (pick) PickSession();
     }
 
     async Task CacheSessionTitleAsync(GlobalSystemMediaTransportControlsSession s)
     {
         try
         {
-            var p = await s.TryGetMediaPropertiesAsync();
+            // Asking is a call into the session too; only the answer is awaited here.
+            var asked = await ReadAsync("media properties", () => s.TryGetMediaPropertiesAsync().AsTask());
+            var p = await asked;
             if (p != null) _sessionTitles[s.SourceAppUserModelId] = p.Title ?? "";
         }
         catch (Exception)
@@ -438,17 +525,70 @@ public sealed class MediaService : ObservableObject
 
     // ------------------------------------------------------------------ state readers
 
-    void UpdatePlaybackInfo()
+    /// <summary>
+    /// Runs <paramref name="read"/> on the thread pool once the reads asked for before it are done, and comes
+    /// back with its answer. Called on the UI thread. A read that takes long is noted, at most once a minute.
+    /// </summary>
+    async Task<T> ReadAsync<T>(string what, Func<T> read)
+    {
+        _readsPending++;
+        try
+        {
+            return await Task.Factory.StartNew(() =>
+            {
+                _readWhat = what;
+                long started = Stopwatch.GetTimestamp();
+                Volatile.Write(ref _readSince, started);
+                try
+                {
+                    return read();
+                }
+                finally
+                {
+                    Volatile.Write(ref _readSince, 0);
+                    var took = Stopwatch.GetElapsedTime(started);
+                    if (took > SlowRead && DateTime.Now - _slowReadNoted > TimeSpan.FromMinutes(1))
+                    {
+                        _slowReadNoted = DateTime.Now;
+                        Log.Info($"Reading {what} took {took.TotalMilliseconds:0} ms");
+                    }
+                }
+            }, CancellationToken.None, TaskCreationOptions.DenyChildAttach, _reader);
+        }
+        finally
+        {
+            _readsPending--;
+        }
+    }
+
+    /// <summary>A read that never comes back is never noted by ReadAsync: the poll notes it, at most once a minute.</summary>
+    void NoteStuckRead()
+    {
+        long since = Volatile.Read(ref _readSince);
+        if (since == 0 || DateTime.Now - _stuckReadNoted < TimeSpan.FromMinutes(1)) return;
+        var running = Stopwatch.GetElapsedTime(since);
+        if (running < TimeSpan.FromSeconds(5)) return;
+        _stuckReadNoted = DateTime.Now;
+        Log.Info($"Reading {_readWhat} hasn't come back after {running.TotalSeconds:0} s; the sessions are not read meanwhile");
+    }
+
+    async void UpdatePlaybackInfo()
     {
         var s = _session;
         if (s == null) return;
+        var playback = await ReadAsync("the playback info", () => ReadPlayback(s));
+        if (ReferenceEquals(s, _session)) ApplyPlayback(playback);
+    }
+
+    static PlaybackRead? ReadPlayback(GlobalSystemMediaTransportControlsSession s)
+    {
         // A session going away answers null, or fails part way through being read: everything is read at once.
         bool canPlayPause, canNext, canPrevious, canSeek, playing;
         double rate;
         try
         {
             var info = s.GetPlaybackInfo();
-            if (info?.Controls is not { } c) return;
+            if (info?.Controls is not { } c) return null;
             canPlayPause = c.IsPlayPauseToggleEnabled || c.IsPlayEnabled || c.IsPauseEnabled;
             (canNext, canPrevious, canSeek) = (c.IsNextEnabled, c.IsPreviousEnabled, c.IsPlaybackPositionEnabled);
             rate = info.PlaybackRate ?? 1.0;
@@ -456,9 +596,15 @@ public sealed class MediaService : ObservableObject
         }
         catch (Exception)
         {
-            return;
+            return null;
         }
+        return new PlaybackRead(canPlayPause, canNext, canPrevious, canSeek, rate, playing);
+    }
 
+    void ApplyPlayback(PlaybackRead? read)
+    {
+        if (read == null) return;
+        var (canPlayPause, canNext, canPrevious, canSeek, rate, playing) = read;
         CanPlayPause = canPlayPause;
         CanNext = canNext;
         CanPrevious = canPrevious;
@@ -474,12 +620,18 @@ public sealed class MediaService : ObservableObject
         }
     }
 
-    void UpdateTimeline(bool force)
+    async void UpdateTimeline(bool force)
     {
         var s = _session;
         if (s == null) return;
         // A browser preview's timeline would move the song's playhead.
         if (_pendingKey.Length > 0 && !force) return;
+        var timeline = await ReadAsync("the timeline", () => ReadTimeline(s));
+        if (ReferenceEquals(s, _session)) ApplyTimeline(timeline, force);
+    }
+
+    static TimelineRead? ReadTimeline(GlobalSystemMediaTransportControlsSession s)
+    {
         // Every value is read at once and guarded: when an app closes its media session (a browser tab, a
         // player quitting), Windows announces the change while the session is going, and reading its timeline
         // then threw a NullReferenceException out of the session refresh.
@@ -488,13 +640,22 @@ public sealed class MediaService : ObservableObject
         try
         {
             var t = s.GetTimelineProperties();
-            if (t == null) return;
+            if (t == null) return null;
             (start, end, minSeek, maxSeek, position, updated) = (t.StartTime, t.EndTime, t.MinSeekTime, t.MaxSeekTime, t.Position, t.LastUpdatedTime);
         }
         catch (Exception)
         {
-            return;
+            return null;
         }
+        return new TimelineRead(start, end, minSeek, maxSeek, position, updated, DateTimeOffset.Now);
+    }
+
+    void ApplyTimeline(TimelineRead? read, bool force)
+    {
+        // Asked again here: a browser preview may have begun while the timeline was read.
+        if (_pendingKey.Length > 0 && !force) return;
+        if (read == null) return;
+        var (start, end, minSeek, maxSeek, position, updated, _) = read;
 
         _timelineStart = start;
         var duration = end - start;
@@ -506,7 +667,8 @@ public sealed class MediaService : ObservableObject
         _lastTimelinePos = pos;
         _lastTimelineUpdate = updated;
 
-        var now = DateTimeOffset.Now;
+        // The position held when it was read; the UI thread may get to it a moment later.
+        var now = read.ReadAt;
         bool sane = updated.Year > 2000 && updated <= now.AddSeconds(2) && now - updated < TimeSpan.FromHours(6);
         // From the last stretch of the song back to its first seconds: it is playing again.
         var before = force ? TimeSpan.Zero : GetPosition();
@@ -530,9 +692,18 @@ public sealed class MediaService : ObservableObject
         int request = ++_mediaRequest;
 
         GlobalSystemMediaTransportControlsSessionMediaProperties? p = null;
-        try { p = await s.TryGetMediaPropertiesAsync(); }
+        try
+        {
+            // Asking is a call into the session like the other reads; the answer is awaited outside them,
+            // so a player slow to give it holds up nothing else.
+            var asked = await ReadAsync("media properties", () => s.TryGetMediaPropertiesAsync().AsTask());
+            p = await asked;
+        }
         catch (Exception ex) { Log.Error("Reading media properties failed", ex); }
         if (p == null || request != _mediaRequest || !ReferenceEquals(s, _session)) return;
+        // Read once the details are in, as before, so a new song's length comes with them.
+        var timeline = await ReadAsync("the timeline", () => ReadTimeline(s));
+        if (request != _mediaRequest || !ReferenceEquals(s, _session)) return;
 
         var title = (p.Title ?? "").Trim();
         var artist = (p.Artist ?? "").Trim();
@@ -575,15 +746,17 @@ public sealed class MediaService : ObservableObject
                 Thumbnail = null;
                 ThumbnailChanged?.Invoke(this, EventArgs.Empty);
             }
-            UpdateTimeline(force: true);
+            ApplyTimeline(timeline, force: true);
             TrackChanged?.Invoke(this, EventArgs.Empty);
         }
 
         // Spotify and browsers often show their own logo first and the cover a moment later, on the
         // same song: every picture is looked at, and one that differs replaces what is shown.
-        if (p.Thumbnail != null)
+        if (p.Thumbnail is { } picture)
         {
-            var (bmp, hash) = await LoadThumbnailAsync(p.Thumbnail, trackChanged || Thumbnail == null ? "" : _thumbnailHash);
+            var skipHash = trackChanged || Thumbnail == null ? "" : _thumbnailHash;
+            // The picture's bytes come from the player as well: they are read on the thread pool.
+            var (bmp, hash) = await Task.Run(() => LoadThumbnailAsync(picture, skipHash));
             if (bmp != null && key == _trackKey)
             {
                 _thumbnailHash = hash;
@@ -753,6 +926,8 @@ public sealed class MediaService : ObservableObject
         _preview = true;
         _session = null;
         _followingVlc = false;
+        // A cover still loading for the player's song must not land on the demo song.
+        _trackKey = "";
         StartDemo();
         Log.Info("Welcome tour: the demo song plays meanwhile");
     }
@@ -867,11 +1042,8 @@ public sealed class MediaService : ObservableObject
         _session = null;
         _pendingKey = "";
         _trackKey = "";
-        var visual = AppVisualResolver.Resolve(VlcLink.AppId);
         AppId = VlcLink.AppId;
-        AppName = visual.Name;
-        AppIcon = visual.Icon;
-        AppColor = visual.Color;
+        ShowApp(AppId);
         CanPlayPause = CanNext = CanPrevious = CanSeek = true;
         HasSession = true;
         Log.Info("Following VLC");

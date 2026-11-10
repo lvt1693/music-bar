@@ -14,7 +14,9 @@ hoặc [bản portable](https://github.com/lvt1693/music-bar/releases/latest/dow
 **Trang web:** [musicbar.truclv.com](https://musicbar.truclv.com), có **kho giao diện** của cộng đồng
 (skin, visualizer, dải LED) để tải về hoặc đăng giao diện của bạn.
 
-**Có gì mới:** bản 1.8.3 chạy được **skin lớn** bằng Direct3D 11, thêm **ô tìm kiếm** giao diện, bấm được
+**Có gì mới:** bản 1.8.4 bật sẵn **lời từ NetEase** cho người mới cài, dùng được bằng **phím Tab và
+trình đọc màn hình**, cửa sổ tự vừa màn hình nhỏ, và **không gửi tên cuộc họp hay tab web** đi tìm lời.
+Bản 1.8.3 chạy được **skin lớn** bằng Direct3D 11, thêm **ô tìm kiếm** giao diện, bấm được
 vào lời ở khoảng trống lớn nhất, sửa ảnh bìa ra logo Spotify. Bản 1.8.2 làm **taskbar trong suốt trên mọi
 màn hình** cả lúc không phát nhạc, hết **khựng mỗi vài giây** và hết **chậm khi mở Cài đặt**. Bản 1.8.1 thêm **log để gửi** đã che tên bài hát,
 **chế độ an toàn** cho Explorer, nút tắt tăng tốc phần cứng. Bản 1.8 có **kho giao diện trực tuyến** ngay trong app, **phần hướng dẫn lần đầu mở** (chọn gì thấy ngay trên taskbar), sửa vụ
@@ -326,7 +328,7 @@ Anh em xem video giới thiệu thích cái mặt quá, nên giờ nó ở hẳn
 
 Tìm theo thứ tự: file `.lrc` trong thư mục lời (`%LOCALAPPDATA%\MusicBar\Lyrics`, tên
 `Ca sĩ - Tên bài.lrc`, tự thả file của mình vào cũng được), rồi tới LRCLIB theo tên bài, ca sĩ,
-album và thời lượng, rồi tới NetEase nếu bạn bật. Bài không có lời được nhớ 1 ngày để khỏi hỏi lại (bật NetEase thì hỏi lại ngay).
+album và thời lượng, rồi tới NetEase (bật sẵn, tắt được). Bài không có lời được nhớ 1 ngày để khỏi hỏi lại (bật NetEase thì hỏi lại ngay).
 Mạng cần proxy thì điền ở **Cài đặt → Lời bài hát → Proxy**.
 
 - **Đúng nghệ sĩ:** bài trùng tên mà khác ca sĩ thì bị loại, trừ khi dài đúng bằng bài đang phát
@@ -337,10 +339,11 @@ Mạng cần proxy thì điền ở **Cài đặt → Lời bài hát → Proxy*
   thì trong bảng lời bấm *Gửi lên LRCLIB*. Sửa tên bài, ca sĩ nếu cần, bấm *Gửi*. MusicBar tự giải
   bài toán chống spam của LRCLIB (vài giây) rồi gửi; bản đã chỉnh giờ thành bản mới của đúng bài
   đó trên LRCLIB, không đẻ thêm bài trùng. Từ đó ai dùng LRCLIB cũng có.
-- **NetEase dự phòng:** bật ở **Cài đặt → Lời bài hát → Tìm thêm trên NetEase**. Khi LRCLIB không
+- **NetEase dự phòng:** công tắc **Cài đặt → Lời bài hát → Tìm thêm trên NetEase**. Khi LRCLIB không
   có lời chạy theo nhạc (hay đang sập), MusicBar hỏi NetEase Cloud Music, mạnh nhạc Hàn, Hoa,
   Nhật. Chỉ nhận đúng ca sĩ, đúng độ dài, không lấy bản live / remix / cover. Kết quả NetEase cũng
-  hiện trong ô tìm tay. Đây là nguồn không chính thức nên mặc định tắt.
+  hiện trong ô tìm tay. Cài mới thì bật sẵn; ai cài từ bản cũ vẫn giữ như đã chọn (trước là tắt).
+  Đây là nguồn không chính thức, có thể ngừng chạy bất cứ lúc nào.
 
 - **Title YouTube dài cỡ nào cũng dọn được:** kiểu "HIEUTHUHAI - Không Thể Say (prod. by
   Kewtiie) | Album 'Ai Cũng Phải Bắt Đầu Từ Đâu Đó'" được tách theo dấu `-` và `|`, bỏ phần

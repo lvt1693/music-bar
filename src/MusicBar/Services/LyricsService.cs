@@ -75,16 +75,14 @@ public sealed partial class LyricsService
         if (q.AppId == DemoContent.AppId) return DemoContent.GetLyrics(q.Title);
         if (string.IsNullOrWhiteSpace(q.Title)) return new LyricsResult(LyricsStatus.None, null, "", null);
 
-        Directory.CreateDirectory(Folder);
         var (artist, title) = TitleCleaner.Clean(q.Artist, q.Title);
         // A miss with NetEase off says nothing about NetEase: turning it on asks again.
         var key = MissKey(artist, title) + (_settings.LyricsFromNetEase ? NetEaseMiss : "");
+        bool song = force || SongGuess.IsLikelySong(q.Title, q.Artist, q.Duration, q.AppId);
 
-        if (!force)
-        {
-            if (TryLoadLocal(q, artist, title) is { } local) return local;
-            if (IsRecentMiss(key)) return new LyricsResult(LyricsStatus.NotFound, null, "cache", null);
-        }
+        // The folder, the saved lyrics and the misses are on disk; the caller is the UI thread, so it waits
+        // for them on the pool. The miss list is only touched under _missLock, so the pool is safe for it.
+        if (await Task.Run(() => FromDisk(q, artist, title, key, force, song), ct) is { } stored) return stored;
         if (!_settings.FetchOnline) return new LyricsResult(LyricsStatus.NotFound, null, "offline", null);
 
         LrclibTrack? found = null;
@@ -134,6 +132,21 @@ public sealed partial class LyricsService
         var plainPath = Path.ChangeExtension(path, ".txt");
         if (!string.IsNullOrWhiteSpace(found.PlainLyrics)) Save(plainPath, found.PlainLyrics);
         return new LyricsResult(LyricsStatus.PlainOnly, null, "LRCLIB", plainPath);
+    }
+
+    /// <summary>
+    /// What needs no network: a lyrics file the user or an earlier download saved, then, for something that
+    /// is not a song, nothing (no lookup, and not an error, which would be retried), then a recent miss.
+    /// Null when the lyrics have to be fetched. A hand-typed search (<paramref name="force"/>) skips all but the folder.
+    /// </summary>
+    LyricsResult? FromDisk(TrackQuery q, string artist, string title, string key, bool force, bool song)
+    {
+        Directory.CreateDirectory(Folder);
+        if (force) return null;
+        if (TryLoadLocal(q, artist, title) is { } local) return local;
+        if (!song) return new LyricsResult(LyricsStatus.None, null, "not a song", null);
+        if (IsRecentMiss(key)) return new LyricsResult(LyricsStatus.NotFound, null, "cache", null);
+        return null;
     }
 
     /// <summary>

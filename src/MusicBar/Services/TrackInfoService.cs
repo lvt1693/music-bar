@@ -47,9 +47,11 @@ public sealed class TrackInfoService
     public bool TryGetCached(string artist, string title, out TrackDetails? details)
         => _cache.TryGetValue(Key(artist, title), out details);
 
-    public async Task<TrackDetails?> LookupAsync(string artist, string title, TimeSpan duration, CancellationToken ct)
+    /// <param name="appId">The app playing it, which helps tell a song from a meeting or a web page; empty when unknown.</param>
+    public async Task<TrackDetails?> LookupAsync(string artist, string title, TimeSpan duration, CancellationToken ct, string appId = "")
     {
         if (!_settings.OnlineTrackInfo || string.IsNullOrWhiteSpace(title)) return null;
+        if (!SongGuess.IsLikelySong(title, artist, duration, appId)) return null;
         var key = Key(artist, title);
         if (_cache.TryGetValue(key, out var cached)) return cached;
 

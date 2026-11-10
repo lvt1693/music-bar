@@ -30,7 +30,9 @@ public sealed class AudioMeter : IDisposable
     volatile bool _run;
     // Bumped on every start: a capture thread from an earlier start ends even if capture was turned straight back on.
     volatile int _generation;
-    bool _loggedFailure;
+    // Failures since capture last ran, and the causes already logged: a cause again is only counted.
+    int _failures;
+    readonly System.Collections.Generic.HashSet<string> _failureCauses = [];
 
     public bool IsCapturing { get; private set; }
 
@@ -116,11 +118,10 @@ public sealed class AudioMeter : IDisposable
             catch (Exception ex)
             {
                 IsCapturing = false;
-                if (!_loggedFailure)
-                {
+                _failures++;
+                var cause = $"{ex.GetType().Name} {ex.HResult:X8}";
+                if (_failureCauses.Add(cause))
                     Log.Error("Audio capture failed; seekbar falls back to synthetic motion", ex);
-                    _loggedFailure = true;
-                }
                 for (int i = 0; i < 30 && _run && generation == _generation; i++) Thread.Sleep(100);
             }
         }
@@ -157,8 +158,10 @@ public sealed class AudioMeter : IDisposable
             capture = (IAudioCaptureClient)captureObj;
             Check(client.Start());
             IsCapturing = true;
-            _loggedFailure = false;
-            Log.Info($"Audio capture started: {sampleRate} Hz, {channels} ch, {(isFloat ? "float" : bits + "-bit")}");
+            Log.Info($"Audio capture started: {sampleRate} Hz, {channels} ch, {(isFloat ? "float" : bits + "-bit")}"
+                     + (_failures > 0 ? $" (after {_failures} failed attempt{(_failures == 1 ? "" : "s")})" : ""));
+            _failures = 0;
+            _failureCauses.Clear();
 
             var analyzer = new Analyzer(sampleRate);
             var ring = new float[analyzer.Size];
