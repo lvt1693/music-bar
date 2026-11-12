@@ -4,8 +4,8 @@
 
 Thanh taskbar nằm im ba mươi năm rồi. Cho nó hát đi.
 
-**Tải về:** [bản cài đặt](https://github.com/lvt1693/music-bar/releases/latest/download/MusicBar-1.8.0-Setup.exe)
-hoặc [bản portable](https://github.com/lvt1693/music-bar/releases/latest/download/MusicBar-1.8.0-portable.zip)
+**Tải về:** [bản cài đặt](https://github.com/lvt1693/music-bar/releases/latest/download/MusicBar-1.8.5-Setup.exe)
+hoặc [bản portable](https://github.com/lvt1693/music-bar/releases/latest/download/MusicBar-1.8.5-portable.zip)
 (Windows 10 2004 trở lên hoặc Windows 11, 64-bit, không cần cài .NET).
 
 **Hướng dẫn dùng:** [wiki tiếng Việt](https://github.com/lvt1693/music-bar/wiki), có ảnh từng tab cài
@@ -14,7 +14,8 @@ hoặc [bản portable](https://github.com/lvt1693/music-bar/releases/latest/dow
 **Trang web:** [musicbar.truclv.com](https://musicbar.truclv.com), có **kho giao diện** của cộng đồng
 (skin, visualizer, dải LED) để tải về hoặc đăng giao diện của bạn.
 
-**Có gì mới:** bản 1.8.4 bật sẵn **lời từ NetEase** cho người mới cài, dùng được bằng **phím Tab và
+**Có gì mới:** bản 1.8.5 cho **đăng giao diện bằng tài khoản Google** (xem lại các giao diện đã gửi
+và lý do bị từ chối trên web), kho nhận **skin tới 4 MB**. Bản 1.8.4 bật sẵn **lời từ NetEase** cho người mới cài, dùng được bằng **phím Tab và
 trình đọc màn hình**, cửa sổ tự vừa màn hình nhỏ, và **không gửi tên cuộc họp hay tab web** đi tìm lời.
 Bản 1.8.3 chạy được **skin lớn** bằng Direct3D 11, thêm **ô tìm kiếm** giao diện, bấm được
 vào lời ở khoảng trống lớn nhất, sửa ảnh bìa ra logo Spotify. Bản 1.8.2 làm **taskbar trong suốt trên mọi

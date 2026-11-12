@@ -20,7 +20,8 @@ namespace MusicBar.Views;
 
 /// <summary>
 /// The online gallery page: what others shared (live previews, one click to keep), the presets kept
-/// here, and sharing one's own look or skin under a nickname. Also the sponsor's banner under the pages.
+/// here, and sharing one's own look or skin (uploaded here, finished in the browser with a Google account).
+/// Also the sponsor's banner under the pages.
 /// </summary>
 public partial class SettingsWindow
 {
@@ -434,10 +435,13 @@ public partial class SettingsWindow
         ShareWhat.SelectedItem = choices.FirstOrDefault(c => c.Label == was) ?? choices.FirstOrDefault();
     }
 
+    /// <summary>
+    /// Uploads the look as a draft, then opens the gallery's page for it in the browser: the person signs in with Google
+    /// there and sends it for review, under their account's name. No nickname is needed here any more.
+    /// </summary>
     async void Share_Click(object sender, RoutedEventArgs e)
     {
-        string nick = _s.CommunityNickname.Trim(), name = ShareName.Text.Trim(), about = ShareDesc.Text.Trim();
-        if (nick.Length < 2) { ShowShare(Loc.T("Set_Gal_NeedNick"), false); return; }
+        string name = ShareName.Text.Trim(), about = ShareDesc.Text.Trim();
         if (name.Length < 2) { ShowShare(Loc.T("Set_Gal_NeedName"), false); return; }
         if (ShareWhat.SelectedItem is not ShareChoice choice) return;
 
@@ -466,7 +470,16 @@ public partial class SettingsWindow
         ShowShare(Loc.T("Set_Gal_Sending"), true);
         var result = await Hub.SubmitAsync(fileName, file, name, about, category, picture, CancellationToken.None);
         ShareButton.IsEnabled = true;
-        if (result.Ok) ShowShare(Loc.T("Set_Gal_Sent", name) + (result.Findings.Count > 0 ? "\n" + string.Join("\n", result.Findings) : ""), true);
+        if (result is { Ok: true, FinishUrl: { } page })
+        {
+            Open(page);
+            ShowShare(Loc.T("Set_Gal_Finish", name) + (result.Findings.Count > 0 ? "\n" + string.Join("\n", result.Findings) : ""), true);
+            // The browser may not have come to the front, or the tab got closed: the same page again, a click away.
+            var again = new System.Windows.Documents.Hyperlink(new System.Windows.Documents.Run(Loc.T("Set_Gal_FinishAgain"))) { NavigateUri = new Uri(page) };
+            again.RequestNavigate += Link_RequestNavigate;
+            ShareStatus.Inlines.Add(new System.Windows.Documents.LineBreak());
+            ShareStatus.Inlines.Add(again);
+        }
         else ShowShare(Loc.T(result.Message switch { "rate" => "Set_Gal_TooMany", "network" => "Set_Gal_Offline", _ => "Set_Gal_Refused" })
                        + (result.Findings.Count > 0 && result.Message != "network" ? "\n" + string.Join("\n", result.Findings) : ""), false);
     }

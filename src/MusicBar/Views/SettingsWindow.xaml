@@ -753,11 +753,8 @@
                     <TextBlock x:Name="PresetsEmpty" Text="{l:Tr Set_Gal_NoPresets}" FontSize="12" Opacity="0.55" Margin="2,0,0,8" TextWrapping="Wrap" />
                     <UniformGrid x:Name="PresetGrid" Columns="4" Margin="0,0,-8,0" />
 
+                    <!-- Sharing finishes in the browser with a Google account, whose display name the gallery shows: no nickname here. -->
                     <TextBlock Text="{l:Tr Set_Gal_GroupShare}" Style="{StaticResource Group}" />
-                    <v:SettingCard Glyph="&#xE77B;" Header="{l:Tr Set_Gal_Nickname}" Description="{l:Tr Set_Gal_Nickname_Desc}">
-                        <TextBox Width="220" MaxLength="24" Text="{Binding CommunityNickname, UpdateSourceTrigger=LostFocus}"
-                                 AutomationProperties.Name="{Binding Header, RelativeSource={RelativeSource AncestorType=v:SettingCard}}" />
-                    </v:SettingCard>
                     <v:SettingCard Glyph="&#xE898;" Header="{l:Tr Set_Gal_Share}" Description="{l:Tr Set_Gal_Share_Desc}">
                         <ComboBox x:Name="ShareWhat" MinWidth="260" DisplayMemberPath="Label"
                                   AutomationProperties.Name="{Binding Header, RelativeSource={RelativeSource AncestorType=v:SettingCard}}" />

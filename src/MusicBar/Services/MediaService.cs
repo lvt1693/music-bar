@@ -142,6 +142,12 @@ public sealed class MediaService : ObservableObject
     string _thumbnailHash = "";
     public BitmapSource? Thumbnail { get => _thumbnail; private set => Set(ref _thumbnail, value); }
 
+    // Whether the player handed over any picture for the song on the bar, and when a song without a cover was last
+    // noted per player: a log sent in then says whether a missing cover is the player's doing or MusicBar's.
+    bool _pictureOffered;
+    readonly Dictionary<string, DateTime> _noCoverNoted = new();
+    static readonly TimeSpan NoCoverWait = TimeSpan.FromSeconds(8);
+
     TimeSpan _duration;
     public TimeSpan Duration { get => _duration; private set => Set(ref _duration, value); }
 
@@ -748,12 +754,15 @@ public sealed class MediaService : ObservableObject
             }
             ApplyTimeline(timeline, force: true);
             TrackChanged?.Invoke(this, EventArgs.Empty);
+            _pictureOffered = false;
+            _ = NoteMissingCoverAsync(key);
         }
 
         // Spotify and browsers often show their own logo first and the cover a moment later, on the
         // same song: every picture is looked at, and one that differs replaces what is shown.
         if (p.Thumbnail is { } picture)
         {
+            if (key == _trackKey) _pictureOffered = true;
             var skipHash = trackChanged || Thumbnail == null ? "" : _thumbnailHash;
             // The picture's bytes come from the player as well: they are read on the thread pool.
             var (bmp, hash) = await Task.Run(() => LoadThumbnailAsync(picture, skipHash));
@@ -764,6 +773,21 @@ public sealed class MediaService : ObservableObject
                 ThumbnailChanged?.Invoke(this, EventArgs.Empty);
             }
         }
+    }
+
+    /// <summary>
+    /// A song still without a cover a few seconds in is noted, with whether the player sent no picture at all or
+    /// one that could not be read (that one also logs its own error). At most once in 10 minutes per player.
+    /// </summary>
+    async Task NoteMissingCoverAsync(string key)
+    {
+        await Task.Delay(NoCoverWait);
+        if (_demo || key != _trackKey || Thumbnail != null) return;
+        var app = AppId;
+        if (_noCoverNoted.TryGetValue(app, out var last) && DateTime.Now - last < TimeSpan.FromMinutes(10)) return;
+        _noCoverNoted[app] = DateTime.Now;
+        Log.Info($"No cover for the song playing in {app} after {NoCoverWait.TotalSeconds:0} s: "
+                 + (_pictureOffered ? "the picture it sent could not be read" : "the player sent no picture (Windows' own media controls get none either)"));
     }
 
     /// <summary>Once the hold is over, takes the browser's new track if it is still the one playing.</summary>

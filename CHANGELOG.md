@@ -3,6 +3,24 @@
 Mới nhất ở trên. Bản cài và bản portable của từng bản có ở trang
 [Releases](https://github.com/lvt1693/music-bar/releases).
 
+## 1.8.5 · 12/11/2026
+
+**Mới**
+
+- **Đăng giao diện bằng tài khoản Google:** bấm Gửi duyệt trong app thì giao diện được tải lên và quét
+  như cũ, rồi trình duyệt mở trang của nó; đăng nhập Google ở đó và bấm Gửi duyệt là xong. Tên hiện
+  trên kho là tên trong tài khoản (đổi được trên web), nên app không cần đặt nickname nữa. Trang Tài
+  khoản trên [musicbar.truclv.com](https://musicbar.truclv.com) cho xem các giao diện đã gửi, cái nào
+  đang chờ, đã lên kho hay bị từ chối và vì sao.
+- **Skin trên kho lớn tới 4 MB** (trước chỉ 64 KB). Bản 1.8.4 trở về trước chỉ thấy các skin từ 64 KB
+  trở xuống.
+
+**Sửa lỗi**
+
+- Bài hát không có ảnh bìa thì nhật ký ghi rõ là trình phát không gửi ảnh hay MusicBar không đọc được
+  ảnh, để gửi log là biết lỗi ở đâu.
+- Link tải trong README trỏ đúng bản mới nhất (trước đó vẫn trỏ tên file 1.8.0 nên không tải được).
+
 ## 1.8.4 · 10/11/2026
 
 **Mới**

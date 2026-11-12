@@ -25,7 +25,8 @@ public sealed record GalleryItem(int Id, string Slug, string Type, string Catego
 /// <summary>A banner for the settings window: its picture and where a click goes (through the server, which counts it).</summary>
 public sealed record AdBanner(int Id, string Title, string Alt, string ImageUrl, string ClickUrl, int Width, int Height);
 
-public sealed record SubmitResult(bool Ok, string Message, IReadOnlyList<string> Findings);
+/// <summary>What the gallery said to a look sent to it: when it took it, the page where its sender finishes it in the browser.</summary>
+public sealed record SubmitResult(bool Ok, string Message, IReadOnlyList<string> Findings, string? FinishUrl = null);
 
 /// <summary>
 /// MusicBar's website: the online gallery (browse, install, share) and the banners shown in the settings.
@@ -107,7 +108,8 @@ public sealed class Community(AppSettings settings)
     {
         using var http = Client(TimeSpan.FromSeconds(20));
         var bytes = await http.GetByteArrayAsync(preview ? item.DownloadUrl + "?preview=1" : item.DownloadUrl, ct);
-        if (bytes.Length > 64 * 1024) throw new InvalidDataException("file too large");
+        // The gallery takes skins up to 4 MB since 1.8.5 (64 KB before; older apps aren't shown the bigger ones).
+        if (bytes.Length > 4 * 1024 * 1024) throw new InvalidDataException("file too large");
         var sha = Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
         if (item.Sha256.Length > 0 && sha != item.Sha256) throw new InvalidDataException("the file doesn't match the gallery's checksum");
         return new UTF8Encoding(false, true).GetString(bytes);
@@ -179,7 +181,12 @@ public sealed class Community(AppSettings settings)
 
     // ------------------------------------------------------------------ sharing
 
-    /// <summary>Sends a skin or a preset for review, with the nickname set in the settings.</summary>
+    /// <summary>
+    /// Uploads a skin or a preset to the gallery as a draft. The server scans it as it always did, keeps it for a day
+    /// and answers with a page of its own: the person finishes there in the browser, signed in with their Google account,
+    /// and only then does the look wait for review. So nothing is shared under a name typed into the app any more; the
+    /// nickname, if one was set before, still goes along for the page to offer while the site has no accounts.
+    /// </summary>
     public async Task<SubmitResult> SubmitAsync(string fileName, byte[] file, string name, string description, string category,
         byte[]? previewPng, CancellationToken ct)
     {
@@ -196,15 +203,18 @@ public sealed class Community(AppSettings settings)
         if (previewPng != null) form.Add(new ByteArrayContent(previewPng), "preview", "preview.png");
         try
         {
-            using var response = await http.PostAsync($"{Server}/api/v1/submit", form, ct);
+            using var response = await http.PostAsync($"{Server}/api/v1/drafts", form, ct);
             var body = await response.Content.ReadAsStringAsync(ct);
             using var doc = JsonDocument.Parse(body);
             var findings = doc.RootElement.TryGetProperty("findings", out var f) && f.ValueKind == JsonValueKind.Array
                 ? f.EnumerateArray().Select(x => Str(x, "message") + (Str(x, "where") is { Length: > 0 } w ? $" ({w})" : "")).ToList()
                 : [];
-            bool ok = doc.RootElement.TryGetProperty("ok", out var o) && o.GetBoolean();
-            Log.Info($"Gallery submission '{name}': {(ok ? "received" : "refused")} {(int)response.StatusCode}");
-            return new SubmitResult(ok, ok ? "" : response.StatusCode == HttpStatusCode.TooManyRequests ? "rate" : "refused", findings);
+            bool ok = doc.RootElement.TryGetProperty("ok", out var o) && o.ValueKind == JsonValueKind.True;
+            var url = ok ? FinishPage(Str(doc.RootElement, "url")) : null;
+            Log.Info($"Gallery draft '{name}': {(url != null ? "uploaded" : "refused")} {(int)response.StatusCode}");
+            if (url == null)
+                return new SubmitResult(false, response.StatusCode == HttpStatusCode.TooManyRequests ? "rate" : "refused", findings);
+            return new SubmitResult(true, "", findings, url);
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
         {
@@ -250,6 +260,19 @@ public sealed class Community(AppSettings settings)
 
     static string Str(JsonElement e, string key) =>
         e.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
+
+    /// <summary>
+    /// The draft's finishing page, on the server this app talks to. The browser is only ever sent to that one kind of
+    /// page, whatever else an answer might hold; its path is taken even from a full address, so a test server that
+    /// calls itself by another name still works.
+    /// </summary>
+    static string? FinishPage(string link)
+    {
+        var path = link.StartsWith('/') ? link
+            : Uri.TryCreate(link, UriKind.Absolute, out var uri) && (uri.Scheme == Uri.UriSchemeHttps || uri.Scheme == Uri.UriSchemeHttp) ? uri.AbsolutePath
+            : "";
+        return System.Text.RegularExpressions.Regex.IsMatch(path, "^/submit/finish/[A-Za-z0-9_-]{20,64}$") ? Server + path : null;
+    }
 
     /// <summary>A link from the server made absolute; only links to the server itself are kept.</summary>
     static string? Absolute(string link)
