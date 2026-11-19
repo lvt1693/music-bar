@@ -447,13 +447,15 @@ public partial class SettingsWindow
 
         byte[] file;
         string fileName, category;
-        byte[]? picture = null;
+        byte[]? picture = null, clip = null;
         if (choice.Skin is { } skin)
         {
             file = await File.ReadAllBytesAsync(Path.Combine(SkinLibrary.Folder, skin.File));
             fileName = skin.File;
             category = skin.Visualizer ? "visualizer" : "progress";
-            picture = await SkinPreviewPng(skin);
+            ShareButton.IsEnabled = false;
+            ShowShare(Loc.T("Set_Gal_Preparing"), true);
+            (picture, clip) = await SkinPreviewAsync(skin);
         }
         else
         {
@@ -463,12 +465,16 @@ public partial class SettingsWindow
             file = Encoding.UTF8.GetBytes(json);
             fileName = LookPresets.SafeName(name) + ".json";
             category = SeekRenderer.IsLedStrip(_s.SeekStyle) ? "led" : SeekRenderer.IsVisualizer(_s.SeekStyle) ? "visualizer" : "progress";
-            picture = PreviewPng(LookPresets.Parse(json, fileName));
+            ShareButton.IsEnabled = false;
+            ShowShare(Loc.T("Set_Gal_Preparing"), true);
+            var preset = LookPresets.Parse(json, fileName);
+            picture = PreviewPng(preset);
+            clip = await PresetClipAsync(preset);
         }
 
         ShareButton.IsEnabled = false;
         ShowShare(Loc.T("Set_Gal_Sending"), true);
-        var result = await Hub.SubmitAsync(fileName, file, name, about, category, picture, CancellationToken.None);
+        var result = await Hub.SubmitAsync(fileName, file, name, about, category, picture, clip, CancellationToken.None);
         ShareButton.IsEnabled = true;
         if (result is { Ok: true, FinishUrl: { } page })
         {
@@ -536,11 +542,71 @@ public partial class SettingsWindow
         }
     }
 
+    // The gallery's animated preview, made as the admin's capture tool makes them: 6 s at 30 frames a second, 760 × 84,
+    // the made-up song moving from 18 % to 82 % of the way through.
+    const int ClipW = 760, ClipH = 84, ClipFps = 30, ClipFrames = 6 * ClipFps;
+
+    /// <summary>A grabbed picture as one frame of the clip: ClipW × ClipH BGRA, top row first, whatever the screen's scale.</summary>
+    static byte[] ClipPixels(BitmapSource shot)
+    {
+        BitmapSource source = shot;
+        if (source.PixelWidth != ClipW || source.PixelHeight != ClipH)
+            source = new TransformedBitmap(source, new ScaleTransform((double)ClipW / source.PixelWidth, (double)ClipH / source.PixelHeight));
+        if (source.Format != PixelFormats.Bgra32) source = new FormatConvertedBitmap(source, PixelFormats.Bgra32, null, 0);
+        var pixels = new byte[ClipW * ClipH * 4];
+        source.CopyPixels(new Int32Rect(0, 0, ClipW, ClipH), pixels, ClipW * 4, 0);
+        return pixels;
+    }
+
+    /// <summary>A shared look (a preset) as the gallery's 6 s clip, drawn by the engine; null if Windows can't encode it.</summary>
+    static async Task<byte[]?> PresetClipAsync(LookPreset? preset)
+    {
+        if (preset == null) return null;
+        double time = 0;
+        var engine = new SeekRenderer { Look = preset.Style, Intensity = preset.Intensity, Direction = preset.Direction, Width = ClipW, Height = ClipH, Clock = () => time };
+        engine.SetEdge(true);
+        engine.SetColors(preset.Colors[0], preset.Colors[1], animate: false, preset.Colors[2]);
+        var host = new Grid { Width = ClipW, Height = ClipH, Background = new SolidColorBrush(Color.FromRgb(0x0B, 0x0B, 0x0F)) };
+        host.Children.Add(engine);
+        var stage = new Window
+        {
+            WindowStyle = WindowStyle.None, ShowInTaskbar = false, ShowActivated = false, Left = -20000, Top = -20000,
+            SizeToContent = SizeToContent.WidthAndHeight, Content = host,
+        };
+        try
+        {
+            stage.Show();
+            var frames = new List<byte[]>(ClipFrames);
+            for (int i = 0; i < ClipFrames; i++)
+            {
+                time = 20 + i / (double)ClipFps;
+                engine.SetState(0.18 + 0.64 * i / (ClipFrames - 1), timeline: true, playing: true);
+                engine.Tick();
+                host.UpdateLayout();
+                var rtb = new RenderTargetBitmap(ClipW, ClipH, 96, 96, PixelFormats.Pbgra32);
+                rtb.Render(host);
+                frames.Add(ClipPixels(rtb));
+                if (i % 30 == 0) await Dispatcher.Yield(DispatcherPriority.Background);
+            }
+            return await ClipEncoder.Mp4Async(frames, ClipW, ClipH, ClipFps);
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Drawing the preset's clip failed", ex);
+            return null;
+        }
+        finally
+        {
+            stage.Close();
+        }
+    }
+
     /// <summary>
-    /// A skin a moment into the song, for the gallery. A shader only draws on the graphics card, so the
-    /// skin runs in a window off screen (on the card) and the window's picture is taken as Windows composed it.
+    /// A skin for the gallery: its picture a moment into the song, and its 6 s animated clip (since 1.8.6, so a skin's
+    /// author no longer has to make one). A shader only draws on the graphics card, so the skin runs in a window off
+    /// screen (on the card) and each picture is taken as Windows composed it. Either may come back null.
     /// </summary>
-    async Task<byte[]?> SkinPreviewPng(SkinInfo skin)
+    async Task<(byte[]? Png, byte[]? Mp4)> SkinPreviewAsync(SkinInfo skin)
     {
         const double w = 760, h = 84;
         double time = 0;
@@ -572,7 +638,7 @@ public partial class SettingsWindow
             }
             await Task.Delay(150);
             var hwnd = new System.Windows.Interop.WindowInteropHelper(stage).Handle;
-            if (!Interop.Native.GetWindowRect(hwnd, out var r) || r.Width <= 0 || r.Height <= 0) return null;
+            if (!Interop.Native.GetWindowRect(hwnd, out var r) || r.Width <= 0 || r.Height <= 0) return (null, null);
             // A heavy skin may not have drawn its first frame yet: the picture then comes back black, without
             // even the window's dark ground. Keep it running and look again; a black picture is never sent.
             BitmapSource? source = null;
@@ -595,18 +661,42 @@ public partial class SettingsWindow
             if (source == null)
             {
                 Log.Info($"The preview of {skin.File} stayed black: shared without a picture");
-                return null;
+                return (null, null);
             }
             var encoder = new PngBitmapEncoder();
             encoder.Frames.Add(BitmapFrame.Create(source));
             using var stream = new MemoryStream();
             encoder.Save(stream);
-            return stream.ToArray();
+            var png = stream.ToArray();
+
+            // The clip: a frame on each step of a steady clock, each one waited for so it shows its own moment.
+            var frames = new List<byte[]>(ClipFrames);
+            for (int i = 0; i < ClipFrames; i++)
+            {
+                time = 20 + i / (double)ClipFps;
+                engine.SetState(0.18 + 0.64 * i / (ClipFrames - 1), timeline: true, playing: true);
+                engine.Tick();
+                shader.Update(engine);
+                await Dispatcher.Yield(DispatcherPriority.Background);
+                await Task.Delay(30);
+                frames.Add(ClipPixels(GrabWindow(hwnd, r.Width, r.Height)));
+            }
+            byte[]? mp4 = null;
+            try
+            {
+                mp4 = await ClipEncoder.Mp4Async(frames, ClipW, ClipH, ClipFps);
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Encoding the skin's clip failed", ex);
+            }
+            Log.Info($"The preview of {skin.File}: picture {png.Length / 1024} KB, clip {(mp4 == null ? "none" : $"{mp4.Length / 1024} KB")}");
+            return (png, mp4);
         }
         catch (Exception ex)
         {
             Log.Error("Drawing the skin's preview failed", ex);
-            return null;
+            return (null, null);
         }
         finally
         {

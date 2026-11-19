@@ -51,6 +51,22 @@ public partial class App : Application
         if (e.Args.Any(a => a.Equals("--uninstall", StringComparison.OrdinalIgnoreCase)))
         {
             PutWindowsBack();
+            await PackageIdentity.UnregisterAsync();
+            Shutdown();
+            return;
+        }
+
+        // From setup on Windows 10, before MusicBar opens: the package identity that lets it read notifications (#21).
+        // Like --uninstall, this never reaches a MusicBar that is running.
+        if (e.Args.Any(a => a.Equals("--register-identity", StringComparison.OrdinalIgnoreCase)))
+        {
+            await PackageIdentity.RegisterAsync();
+            Shutdown();
+            return;
+        }
+        if (e.Args.Any(a => a.Equals("--identity-status", StringComparison.OrdinalIgnoreCase)))
+        {
+            Log.Info($"Package identity: {(PackageIdentity.Has ? "yes" : "no")}, registered: {PackageIdentity.Registered()}");
             Shutdown();
             return;
         }
@@ -118,6 +134,12 @@ public partial class App : Application
         };
 
         Log.Info($"MusicBar starting ({string.Join(" ", e.Args)})");
+        if (PackageIdentity.Wanted)
+        {
+            Log.Info($"Package identity: {(PackageIdentity.Has ? "yes" : "no")}");
+            // Not set up yet (the portable copy, or a setup that couldn't): try now, for the next start.
+            if (!PackageIdentity.Has && !PackageIdentity.Registered()) _ = PackageIdentity.RegisterAsync();
+        }
         CrashReport.Started();
         SafeStart.Detect(e.Args);
         // The website's switches as last read, before anything reaches into Explorer.

@@ -3,6 +3,25 @@
 Mới nhất ở trên. Bản cài và bản portable của từng bản có ở trang
 [Releases](https://github.com/lvt1693/music-bar/releases).
 
+## 1.8.6 · 19/11/2026
+
+**Mới**
+
+- **Preview động tự tạo khi gửi giao diện:** bấm Gửi duyệt trong app thì MusicBar tự quay 6 giây skin
+  hoặc kiểu thanh đang gửi chạy theo nhạc rồi gửi kèm, nên thẻ trên kho có hình động mà người làm không
+  phải tự dựng. Skin gửi từ web cũng được máy chủ tự dựng preview động.
+- **% pin thiết bị Bluetooth đang kết nối** (#20): trong trung tâm điều khiển, bấm mũi tên cạnh ô
+  Bluetooth, thiết bị nào báo pin cho Windows thì hiện kiểu "Đã kết nối · Pin 80%".
+
+**Sửa lỗi**
+
+- Bật "Ẩn khi không có nhạc" không còn làm taskbar trong suốt lúc không có nhạc (#20). Ai cố ý để nền
+  thanh trong suốt thì vẫn trong suốt như cũ.
+- Windows 10: khung Thông báo đọc được thông báo (#21). Windows 10 chỉ cho app có package identity đọc
+  thông báo, nên bản cài kèm một gói nhỏ cho MusicBar có identity. Gói đang ký bằng chứng chỉ tự tạo,
+  nên lúc cài trên Windows 10 sẽ hỏi quyền admin một lần để tin chứng chỉ "MusicBar Test". Windows 11
+  cài như bình thường.
+
 ## 1.8.5 · 12/11/2026
 
 **Mới**

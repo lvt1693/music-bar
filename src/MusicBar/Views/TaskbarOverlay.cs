@@ -286,17 +286,21 @@ public sealed class TaskbarOverlay : IDisposable, ILyricsHost
     bool _xamlBackground;
 
     /// <summary>
-    /// This overlay's taskbar goes see-through whenever the setting is on, as TranslucentTB does: also while
-    /// nothing plays and the layer is hidden, and on a screen without the progress bar (an overlay is kept
-    /// there for it). Tied to the layer, people with two screens saw one clear and one solid, and both
-    /// turn solid between songs (#6). Explorer resets the accent every now and then (Start menu, theme),
-    /// so this runs on every tick.
+    /// This overlay's taskbar goes see-through whenever the setting is on and the bar's look is see-through, as
+    /// TranslucentTB does: also while nothing plays and the layer is hidden, and on a screen without the progress
+    /// bar (an overlay is kept there for it). Tied to the layer, people with two screens saw one clear and one solid,
+    /// and both turn solid between songs (#6).
+    /// With a solid bar background (the usual one), the clear taskbar is only where the bar paints its own: once the
+    /// bar is away (Hide when no music is playing, a screen without the bar) it would just show the wallpaper, so the
+    /// taskbar gets its own background back (#20). A full-screen window keeps it clear: no back and forth behind games.
+    /// Explorer resets the accent every now and then (Start menu, theme), so this runs on every tick.
     /// </summary>
     void UpdateTransparency()
     {
         if (_disposed) return;
         if (_s.TransparentTaskbar && XamlBackground) XamlTaskbar.CheckHelper(_tracker.Handle);
-        var want = OwnsTransparency ? _tracker.Handle : IntPtr.Zero;
+        bool clear = OwnsTransparency && (BarIsSeeThrough || _layerShown || _fullscreen);
+        var want = clear ? _tracker.Handle : IntPtr.Zero;
         if (_clearedTaskbar != IntPtr.Zero && _clearedTaskbar != want) RestoreTransparency();
         _clearedTaskbar = want;
         if (want == IntPtr.Zero) return;
@@ -463,6 +467,14 @@ public sealed class TaskbarOverlay : IDisposable, ILyricsHost
     // ------------------------------------------------------------------ placement
 
     void Reposition()
+    {
+        bool layerWas = _layerShown;
+        PlaceAll();
+        // The bar came or went: a solid-looking bar's taskbar is cleared or given back its background now, not a tick later.
+        if (_layerShown != layerWas) UpdateTransparency();
+    }
+
+    void PlaceAll()
     {
         if (_disposed) return;
         bool show = (_showsBar || _showsPlayer) && _tracker.Shown && !_fullscreen && !_idle;
@@ -1245,8 +1257,10 @@ public sealed class TaskbarOverlay : IDisposable, ILyricsHost
     /// The wallpaper shows through behind the bar: the taskbar is see-through, the layer is under it,
     /// and the bar's own background is clear or faint.
     /// </summary>
-    bool WallpaperShows => !IsOverMode && (OwnsTransparency || TranslucentTaskbarDetected)
-        && (EffectiveBackground == BarBackground.Transparent || _s.BackgroundOpacity < 0.6);
+    bool WallpaperShows => !IsOverMode && (OwnsTransparency || TranslucentTaskbarDetected) && BarIsSeeThrough;
+
+    /// <summary>The bar's own background lets the wallpaper through: clear, or faint.</summary>
+    bool BarIsSeeThrough => EffectiveBackground == BarBackground.Transparent || _s.BackgroundOpacity < 0.6;
 
     /// <summary>
     /// Text and lines drawn straight on the taskbar go dark: on a light background, or where a light

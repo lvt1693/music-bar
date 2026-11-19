@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- MusicBar's identity package for Windows 10 (src\MusicBar\Infrastructure\PackageIdentity.cs, #21): a sparse
+     package with no files of its own, registered with the install folder as its external location, so that
+     MusicBar.exe runs with a package identity and Windows 10 lets it read notifications. build.ps1 fills in the
+     version and the publisher (the subject of the signing certificate), packs it and signs it. -->
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3"
+  xmlns:uap10="http://schemas.microsoft.com/appx/manifest/uap/windows10/10"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="uap uap3 uap10 rescap">
+  <Identity Name="MusicBar" Publisher="$PUBLISHER$" Version="$VERSION$" ProcessorArchitecture="neutral" />
+  <Properties>
+    <DisplayName>MusicBar</DisplayName>
+    <PublisherDisplayName>MusicBar</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+    <uap10:AllowExternalContent>true</uap10:AllowExternalContent>
+  </Properties>
+  <Resources>
+    <Resource Language="en-us" />
+  </Resources>
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.19041.0" MaxVersionTested="10.0.26100.0" />
+  </Dependencies>
+  <!-- What MusicBar uses that Windows checks once an app has an identity: the notification center, the radios
+       (Wi-Fi and Bluetooth switches) and Bluetooth devices. Full trust, as the program it is. -->
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust" />
+    <rescap:Capability Name="unvirtualizedResources" />
+    <uap3:Capability Name="userNotificationListener" />
+    <DeviceCapability Name="radios" />
+    <DeviceCapability Name="bluetooth" />
+  </Capabilities>
+  <Applications>
+    <Application Id="MusicBar" Executable="MusicBar.exe" uap10:TrustLevel="mediumIL" uap10:RuntimeBehavior="win32App">
+      <uap:VisualElements AppListEntry="none" DisplayName="MusicBar" Description="MusicBar"
+                          BackgroundColor="transparent" Square150x150Logo="Assets\Square150x150Logo.png" Square44x44Logo="Assets\Square44x44Logo.png" />
+    </Application>
+  </Applications>
+</Package>

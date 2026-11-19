@@ -102,6 +102,7 @@ static class Program
                     case "props": Props(args); break;
                     case "download": await Download(args); break;
                     case "clip": await Clip(args); break;
+                    case "encode": await Encode(args); break;
                     case "skinperf": await SkinPerf(args); break;
                     default: throw new ArgumentException("unknown mode " + args[0]);
                 }
@@ -174,6 +175,31 @@ static class Program
         }
         window.Close();
         Console.WriteLine($"{Path.GetFileName(input)}: {frames} frames → {outDir}");
+    }
+
+    /// <summary>
+    /// encode &lt;framesDir&gt; &lt;out.mp4&gt; [fps]: the app's own clip encoder (ClipEncoder, Windows' H.264 through WinRT) on
+    /// frames f0000.png… as `clip` writes them: checks what the app's Share sends.
+    /// </summary>
+    static async Task Encode(string[] a)
+    {
+        var files = Directory.GetFiles(a[1], "f*.png").OrderBy(f => f, StringComparer.Ordinal).ToList();
+        int fps = a.Length > 3 ? int.Parse(a[3]) : 30;
+        var frames = new List<byte[]>();
+        int w = 0, h = 0;
+        foreach (var f in files)
+        {
+            var src = new FormatConvertedBitmap(BitmapFrame.Create(new Uri(Path.GetFullPath(f)), BitmapCreateOptions.None, BitmapCacheOption.OnLoad), PixelFormats.Bgra32, null, 0);
+            w = src.PixelWidth; h = src.PixelHeight;
+            var px = new byte[w * h * 4];
+            src.CopyPixels(px, w * 4, 0);
+            frames.Add(px);
+        }
+        var sw = Stopwatch.StartNew();
+        var mp4 = await MusicBar.Services.ClipEncoder.Mp4Async(frames, w, h, fps);
+        if (mp4 == null) { Console.WriteLine("ENCODE FAILED (see the log)"); Environment.ExitCode = 1; return; }
+        File.WriteAllBytes(a[2], mp4);
+        Console.WriteLine($"{frames.Count} frames {w}x{h} -> {mp4.Length / 1024} KB in {sw.ElapsedMilliseconds} ms");
     }
 
     /// <summary>

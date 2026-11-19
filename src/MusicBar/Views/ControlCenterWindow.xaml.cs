@@ -689,6 +689,8 @@ public partial class ControlCenterWindow : Window
 
     void ClearAll_Click(object sender, RoutedEventArgs e) => _feed.ClearAll();
 
+    void EmptyLink_Click(object sender, RoutedEventArgs e) => OpenUri("ms-settings:privacy-notifications");
+
     void RenderNotifications()
     {
         var items = _feed.Items;
@@ -698,7 +700,11 @@ public partial class ControlCenterWindow : Window
         bool any = items.Count > 0;
         NotificationScroll.Visibility = any ? Visibility.Visible : Visibility.Collapsed;
         EmptyState.Visibility = any ? Visibility.Collapsed : Visibility.Visible;
-        EmptyText.Text = _feed.Available ? Loc.T("CC_NoNotifications") : Loc.T("CC_NotificationsDenied");
+        // Turned off on Windows 11 is a switch away; Windows 10 has no switch for MusicBar at all (#21).
+        EmptyText.Text = Loc.T(_feed.Available ? "CC_NoNotifications" : NotificationFeed.PackagedOnly ? "CC_NotificationsWin10" : "CC_NotificationsDenied");
+        bool offerSwitch = !_feed.Available && !NotificationFeed.PackagedOnly;
+        EmptyLink.Visibility = offerSwitch ? Visibility.Visible : Visibility.Collapsed;
+        if (offerSwitch) EmptyLink.Content = Loc.T("CC_NotificationsAllow");
         CountChip.Visibility = any ? Visibility.Visible : Visibility.Collapsed;
         CountText.Text = items.Count.ToString();
         ClearAllButton.Visibility = any ? Visibility.Visible : Visibility.Collapsed;

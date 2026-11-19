@@ -12,7 +12,8 @@ namespace MusicBar.Services;
 /// <summary>What a Bluetooth device is, for its icon and for whether it can be connected from here.</summary>
 public enum BluetoothKind { Audio, Keyboard, Mouse, Phone, Computer, Other }
 
-public sealed record BluetoothItem(string Id, string Name, string Address, bool Paired, bool Connected, BluetoothKind Kind);
+/// <param name="Battery">Percent left, for a connected device that tells Windows (see <see cref="BluetoothBattery"/>).</param>
+public sealed record BluetoothItem(string Id, string Name, string Address, bool Paired, bool Connected, BluetoothKind Kind, int? Battery = null);
 
 /// <summary>A pairing step that needs the user: what kind, and the PIN Windows shows (if any).</summary>
 public sealed record PairingPrompt(DevicePairingKinds Kind, string? Pin);
@@ -32,12 +33,22 @@ public sealed class BluetoothDevices
     const string Address = "System.Devices.Aep.DeviceAddress";
     const string Major = "System.Devices.Aep.Bluetooth.Cod.Major";
     const string Minor = "System.Devices.Aep.Bluetooth.Cod.Minor";
+    const string ContainerId = "System.Devices.Aep.ContainerId";
 
     readonly Dispatcher _ui;
     readonly Dictionary<string, DeviceInformation> _devices = [];
+    readonly DispatcherTimer _batteryPoll;
+    Dictionary<Guid, int> _battery = [];
+    bool _batteryFailed;
     DeviceWatcher? _watcher;
 
-    public BluetoothDevices(Dispatcher ui) => _ui = ui;
+    public BluetoothDevices(Dispatcher ui)
+    {
+        _ui = ui;
+        // Devices send their level now and then; Windows' own panel isn't faster either.
+        _batteryPoll = new DispatcherTimer(TimeSpan.FromSeconds(20), DispatcherPriority.Background, (_, _) => RefreshBattery(), ui);
+        _batteryPoll.Stop();
+    }
 
     /// <summary>The list changed; raised on the UI thread.</summary>
     public event Action? Changed;
@@ -48,14 +59,16 @@ public sealed class BluetoothDevices
         _devices.Clear();
         try
         {
-            _watcher = Watcher([IsPaired, IsConnected, IsPresent, Address, Major, Minor]);
+            _watcher = Watcher([IsPaired, IsConnected, IsPresent, Address, Major, Minor, ContainerId]);
         }
         catch (Exception ex)
         {
             // An older Windows without the class-of-device properties: names and states are enough.
             Log.Error("Bluetooth watcher with device classes failed", ex);
-            _watcher = Watcher([IsPaired, IsConnected, IsPresent, Address]);
+            _watcher = Watcher([IsPaired, IsConnected, IsPresent, Address, ContainerId]);
         }
+        RefreshBattery();
+        _batteryPoll.Start();
         _watcher.Added += (_, info) => OnUi(() => _devices[info.Id] = info);
         _watcher.Updated += (_, update) => OnUi(() =>
         {
@@ -67,6 +80,7 @@ public sealed class BluetoothDevices
 
     public void Stop()
     {
+        _batteryPoll.Stop();
         var watcher = _watcher;
         _watcher = null;
         if (watcher == null) return;
@@ -88,6 +102,23 @@ public sealed class BluetoothDevices
         change();
         Changed?.Invoke();
     });
+
+    /// <summary>The battery levels Windows holds, read on a pool thread (a walk over the Bluetooth device nodes).</summary>
+    async void RefreshBattery()
+    {
+        try
+        {
+            var levels = await Task.Run(BluetoothBattery.Read);
+            bool same = levels.Count == _battery.Count && levels.All(l => _battery.TryGetValue(l.Key, out int v) && v == l.Value);
+            _battery = levels;
+            if (!same) Changed?.Invoke();
+        }
+        catch (Exception ex)
+        {
+            if (!_batteryFailed) Log.Error("Reading Bluetooth battery levels failed", ex);
+            _batteryFailed = true;
+        }
+    }
 
     /// <summary>
     /// Paired devices (connected first), then named devices in range that could be paired. A device
@@ -114,7 +145,11 @@ public sealed class BluetoothDevices
         if (!paired && (info.Name.Length == 0 || !Flag(info, IsPresent) || !info.Pairing.CanPair)) return null;
         string name = info.Name.Length > 0 ? info.Name : Loc.T("BT_Unnamed");
         string address = info.Properties.TryGetValue(Address, out var a) ? a as string ?? "" : "";
-        return new BluetoothItem(info.Id, name, address, paired, Flag(info, IsConnected), KindOf(info));
+        bool connected = Flag(info, IsConnected);
+        // Windows keeps a device's last level after it leaves: only a connected one's is current.
+        int? battery = connected && info.Properties.TryGetValue(ContainerId, out var c) && c is Guid container
+                       && _battery.TryGetValue(container, out int level) ? level : null;
+        return new BluetoothItem(info.Id, name, address, paired, connected, KindOf(info), battery);
     }
 
     static bool Flag(DeviceInformation info, string key) => info.Properties.TryGetValue(key, out var v) && v is true;

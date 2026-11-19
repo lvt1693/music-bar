@@ -188,9 +188,9 @@ public sealed class Community(AppSettings settings)
     /// nickname, if one was set before, still goes along for the page to offer while the site has no accounts.
     /// </summary>
     public async Task<SubmitResult> SubmitAsync(string fileName, byte[] file, string name, string description, string category,
-        byte[]? previewPng, CancellationToken ct)
+        byte[]? previewPng, byte[]? clipMp4, CancellationToken ct)
     {
-        using var http = Client(TimeSpan.FromSeconds(30));
+        using var http = Client(TimeSpan.FromSeconds(60));
         using var form = new MultipartFormDataContent
         {
             { new StringContent(name), "name" },
@@ -201,6 +201,8 @@ public sealed class Community(AppSettings settings)
             { new ByteArrayContent(file), "file", fileName },
         };
         if (previewPng != null) form.Add(new ByteArrayContent(previewPng), "preview", "preview.png");
+        // The animated preview (since 1.8.6): the gallery shows it on the look's card; the server checks and cleans it.
+        if (clipMp4 != null) form.Add(new ByteArrayContent(clipMp4), "clip", "clip.mp4");
         try
         {
             using var response = await http.PostAsync($"{Server}/api/v1/drafts", form, ct);

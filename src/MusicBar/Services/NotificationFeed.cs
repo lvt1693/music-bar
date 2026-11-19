@@ -43,6 +43,14 @@ public sealed class NotificationFeed
     /// <summary>Windows lets MusicBar read notifications.</summary>
     public bool Available { get; private set; }
 
+    /// <summary>
+    /// Windows 10 lets only packaged apps (with package identity, as from the Store) read notifications: MusicBar
+    /// without its identity package (<see cref="PackageIdentity"/>) never shows up in the notification privacy list
+    /// and is refused without a prompt (#21). Windows 11 lets desktop apps in under its "Let apps access your
+    /// notifications" switch.
+    /// </summary>
+    public static bool PackagedOnly { get; } = Environment.OSVersion.Version.Build < 22000 && !PackageIdentity.Has;
+
     public IReadOnlyList<NotificationItem> Items { get; private set; } = [];
 
     /// <summary>Notifications that arrived since the control center was last opened.</summary>
@@ -50,24 +58,31 @@ public sealed class NotificationFeed
 
     public event Action? Changed;
 
-    public async Task StartAsync()
+    public Task StartAsync() => CheckAccessAsync(ask: true);
+
+    /// <summary>
+    /// Whether Windows lets MusicBar in: asked once at start (Windows may prompt), and looked at again each time the
+    /// control center opens while it doesn't, so access turned on in Settings works without restarting MusicBar.
+    /// </summary>
+    async Task CheckAccessAsync(bool ask)
     {
         try
         {
-            _listener = UserNotificationListener.Current;
+            _listener ??= UserNotificationListener.Current;
             var access = _listener.GetAccessStatus();
-            if (access == UserNotificationListenerAccessStatus.Unspecified) access = await _listener.RequestAccessAsync();
+            if (ask && access == UserNotificationListenerAccessStatus.Unspecified) access = await _listener.RequestAccessAsync();
             Available = access == UserNotificationListenerAccessStatus.Allowed;
-            Log.Info($"Notification access: {access}");
+            if (ask || Available)
+                Log.Info($"Notification access: {access}" + (!Available && PackagedOnly ? " (Windows 10 lets only packaged apps read notifications)" : ""));
         }
         catch (Exception ex)
         {
             Available = false;
-            Log.Error("Notification listener unavailable", ex);
+            if (ask) Log.Error("Notification listener unavailable", ex);
         }
         if (!Available) return;
 
-        // What is already there when MusicBar starts is not news.
+        // What is already there when MusicBar starts (or when access arrives) is not news.
         await RefreshAsync();
         foreach (var item in Items) _seen.Add(item.Id);
         Changed?.Invoke();
@@ -76,7 +91,11 @@ public sealed class NotificationFeed
 
     public void Stop() => _poll.Stop();
 
-    public void SetFastPolling(bool fast) => _poll.Interval = fast ? FastPoll : SlowPoll;
+    public void SetFastPolling(bool fast)
+    {
+        _poll.Interval = fast ? FastPoll : SlowPoll;
+        if (fast && !Available && _listener != null && !PackagedOnly) _ = CheckAccessAsync(ask: false);
+    }
 
     public void MarkAllSeen()
     {

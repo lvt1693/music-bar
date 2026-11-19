@@ -439,6 +439,9 @@
                                        HorizontalAlignment="Center" />
                             <TextBlock x:Name="EmptyText" FontSize="12" Opacity="0.5"
                                        Margin="0,8,0,0" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" />
+                            <!-- Access turned off on Windows 11: the page where it is turned on. -->
+                            <Button x:Name="EmptyLink" Style="{StaticResource TextButton}" Visibility="Collapsed"
+                                    HorizontalAlignment="Center" Margin="0,4,0,0" Click="EmptyLink_Click" />
                         </StackPanel>
                     </Grid>
                 </Grid>

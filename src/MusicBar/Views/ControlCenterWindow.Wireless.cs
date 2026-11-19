@@ -334,6 +334,7 @@ public partial class ControlCenterWindow
     void BluetoothRow(BluetoothItem item)
     {
         string detail = _btBusy == item.Id && _btBusyText != null ? _btBusyText
+            : item is { Connected: true, Battery: int battery } ? Loc.T("CC_BtConnectedBattery", battery)
             : Loc.T(item.Connected ? "CC_BtConnected" : item.Paired ? "CC_BtPaired" : "CC_BtReady");
         SideRow(BluetoothGlyph(item.Kind), item.Name, detail, item.Connected, () => ToggleBluetooth(item), () => BluetoothMenu(item));
         if (_btOpen == item.Id) SideList.Children.Add(BluetoothDetail(item));

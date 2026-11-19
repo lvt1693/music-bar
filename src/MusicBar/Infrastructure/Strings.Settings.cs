@@ -51,6 +51,7 @@ public static partial class Strings
         d.Add("Set_Gal_ShareSend", ("Send for review", "Gửi duyệt"));
         d.Add("Set_Gal_NeedName", ("Give it a name.", "Đặt tên cho nó đã."));
         d.Add("Set_Gal_Sending", ("Sending…", "Đang gửi…"));
+        d.Add("Set_Gal_Preparing", ("Making its animated preview (a few seconds)…", "Đang tạo preview động (vài giây)…"));
         d.Add("Set_Gal_Finish", ("“{0}” is uploaded and scanned. Your browser opened its page: sign in with Google there and press Send for review.", "Đã tải “{0}” lên và quét xong. Trình duyệt vừa mở trang của nó: đăng nhập Google ở đó rồi bấm Gửi duyệt nhé."));
         d.Add("Set_Gal_FinishAgain", ("Open the page again", "Mở lại trang đó"));
         d.Add("Set_Gal_TooMany", ("That's a lot of sharing: try again in a while.", "Bạn gửi hơi nhiều rồi, lát nữa gửi tiếp nhé."));

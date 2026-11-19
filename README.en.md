@@ -4,14 +4,16 @@
 
 The taskbar has sat still for thirty years. Let it sing.
 
-**Download:** [installer](https://github.com/lvt1693/music-bar/releases/latest/download/MusicBar-1.8.5-Setup.exe)
-or [portable zip](https://github.com/lvt1693/music-bar/releases/latest/download/MusicBar-1.8.5-portable.zip)
+**Download:** [installer](https://github.com/lvt1693/music-bar/releases/latest/download/MusicBar-1.8.6-Setup.exe)
+or [portable zip](https://github.com/lvt1693/music-bar/releases/latest/download/MusicBar-1.8.6-portable.zip)
 (Windows 10 2004 or later, or Windows 11, 64-bit; no .NET to install).
 
 **Website:** [musicbar.truclv.com](https://musicbar.truclv.com), with the community **gallery**
 (skins, visualizers, LED strips) to download from or share yours.
 
-**What's new:** 1.8.5 lets you **share looks with your Google account** (see what you sent and why
+**What's new:** 1.8.6 **makes the animated preview for you** when you share a look, shows **Bluetooth
+headset battery** in the control center, and on Windows 10 the **Notifications** panel can read notifications.
+1.8.5 lets you **share looks with your Google account** (see what you sent and why
 something was turned down on the website), and the gallery takes **skins up to 4 MB**. 1.8.4 turns **NetEase lyrics** on for new installs, works with the **Tab key and screen
 readers**, fits its windows on small screens, and **stops sending meeting names and web tabs** to the
 lyrics sites. 1.8.3 runs **big skins** on Direct3D 11, adds a **search box** for the looks, makes the

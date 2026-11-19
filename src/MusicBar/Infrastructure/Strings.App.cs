@@ -228,6 +228,9 @@ public static partial class Strings
         d.Add("CC_ClearAll", ("Clear all", "Xóa tất cả"));
         d.Add("CC_NoNotifications", ("No new notifications", "Không có thông báo mới"));
         d.Add("CC_NotificationsDenied", ("Windows hasn't let MusicBar read notifications", "Windows chưa cho MusicBar đọc thông báo"));
+        d.Add("CC_NotificationsAllow", ("Turn it on in Settings", "Bật trong Cài đặt"));
+        d.Add("CC_NotificationsWin10", ("Windows 10 lets only Store-style apps read notifications, so this part works on Windows 11",
+                                         "Windows 10 chỉ cho app dạng Store đọc thông báo, nên phần này chỉ chạy trên Windows 11"));
         d.Add("CC_DismissOne", ("Dismiss this notification", "Bỏ thông báo này"));
         d.Add("CC_JustNow", ("Just now", "Vừa xong"));
         d.Add("CC_MinutesAgo", ("{0} min", "{0} phút"));
@@ -292,6 +295,7 @@ public static partial class Strings
         d.Add("CC_BtNoAdapter", ("This PC has no Bluetooth.", "Máy không có Bluetooth."));
         d.Add("CC_BtRemoving", ("Removing…", "Đang gỡ…"));
         d.Add("CC_BtConnected", ("Connected", "Đã kết nối"));
+        d.Add("CC_BtConnectedBattery", ("Connected · {0}% battery", "Đã kết nối · Pin {0}%"));
         d.Add("CC_BtPaired", ("Paired", "Đã ghép đôi"));
         d.Add("CC_BtReady", ("Ready to pair", "Sẵn sàng ghép đôi"));
         d.Add("CC_BtPair", ("Pair", "Ghép đôi"));

@@ -59,6 +59,8 @@ Name: "desktopicon"; Description: "{cm:DesktopIcon}"; Flags: unchecked
 Source: "{#PublishDir}\MusicBar.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#PublishDir}\Assets\*"; DestDir: "{app}\Assets"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\LICENSE"; DestDir: "{app}"; DestName: "LICENSE.txt"; Flags: ignoreversion
+; Windows 10's identity package (build.ps1 -IdentityCert), when this build has one.
+Source: "{#PublishDir}\identity\*"; DestDir: "{app}\identity"; Flags: ignoreversion skipifsourcedoesntexist
 
 [Icons]
 Name: "{autoprograms}\MusicBar"; Filename: "{app}\MusicBar.exe"
@@ -69,6 +71,10 @@ Name: "{autodesktop}\MusicBar"; Filename: "{app}\MusicBar.exe"; Tasks: desktopic
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueName: "MusicBar"; ValueType: none; Flags: uninsdeletevalue
 
 [Run]
+; Windows 10, test builds only: trust the self-made certificate the identity package is signed with (an admin prompt).
+Filename: "{sys}\certutil.exe"; Parameters: "-addstore TrustedPeople ""{app}\identity\MusicBar-test.cer"""; Verb: "runas"; Flags: shellexec runhidden waituntilterminated; Check: NeedsTestCertificate
+; Windows 10: MusicBar's package identity, so that it may read notifications (#21). Before MusicBar opens.
+Filename: "{app}\MusicBar.exe"; Parameters: "--register-identity"; Flags: runhidden waituntilterminated; Check: HasIdentityPackage
 ; --updated: the new MusicBar restarts Explorer if Explorer still holds the old copy's taskbar helper.
 Filename: "{app}\MusicBar.exe"; Parameters: "--updated"; Description: "{cm:LaunchNow}"; Flags: nowait postinstall skipifsilent
 ; An update started from inside MusicBar runs silently: open the new version when it is done.
@@ -78,6 +84,31 @@ Filename: "{app}\MusicBar.exe"; Parameters: "--updated"; Flags: nowait; Check: W
 Filename: "{app}\MusicBar.exe"; Parameters: "--uninstall"; Flags: runhidden waituntilterminated; RunOnceId: "PutWindowsBack"
 
 [Code]
+function IsWindows10(): Boolean;
+var
+  Version: TWindowsVersion;
+begin
+  GetWindowsVersionEx(Version);
+  Result := Version.Build < 22000;
+end;
+
+{ Windows 10 and a build that ships the identity package (Windows 11 lets MusicBar read notifications without it). }
+function HasIdentityPackage(): Boolean;
+begin
+  Result := IsWindows10() and FileExists(ExpandConstant('{app}\identity\MusicBar.Identity.msix'));
+end;
+
+{ A test build's certificate, not yet in the machine's Trusted People store. }
+function NeedsTestCertificate(): Boolean;
+begin
+#ifdef TestCertThumb
+  Result := HasIdentityPackage() and FileExists(ExpandConstant('{app}\identity\MusicBar-test.cer'))
+    and not RegKeyExists(HKLM, 'SOFTWARE\Microsoft\SystemCertificates\TrustedPeople\Certificates\{#TestCertThumb}');
+#else
+  Result := False;
+#endif
+end;
+
 function MusicBarRunning(): Boolean;
 var
   Locator, Wmi, Procs: Variant;
