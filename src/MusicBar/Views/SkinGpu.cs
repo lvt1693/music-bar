@@ -15,9 +15,10 @@ using MapFlags = Vortice.Direct3D11.MapFlags;
 namespace MusicBar.Views;
 
 /// <summary>What a skin is told for one frame, laid out register by register as WPF fills them (see SkinLibrary.Prelude11).</summary>
-[StructLayout(LayoutKind.Explicit, Size = 176)]
+[StructLayout(LayoutKind.Explicit, Size = 192)]
 public struct SkinInputs
 {
+    // c11 is read only by skins with headroom (SkinLibrary.HeadroomPrelude11); the others never declare it.
     [FieldOffset(0)] public float Time;
     [FieldOffset(16)] public float Progress;
     [FieldOffset(32)] public float Level;
@@ -29,6 +30,8 @@ public struct SkinInputs
     [FieldOffset(128)] public float Beat;
     [FieldOffset(144)] public float BottomEdge;
     [FieldOffset(160)] public Vector2 Span;
+    /// <summary>Where the bar is in the part drawn (x start, y height, as shares of it) and the headroom shown (z).</summary>
+    [FieldOffset(176)] public Vector4 Bar;
 
     /// <summary>A color as WPF hands it to a shader: its sRGB channels from 0 to 1, as they are (measured).</summary>
     public static Vector4 From(Color c) => new(c.R / 255f, c.G / 255f, c.B / 255f, c.A / 255f);

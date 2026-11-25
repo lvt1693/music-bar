@@ -31,6 +31,8 @@ public sealed partial class SkinEffect : ShaderEffect
     public static readonly DependencyProperty BeatProperty = Constant("Beat", 0.0, 8);
     public static readonly DependencyProperty BottomEdgeProperty = Constant("BottomEdge", 1.0, 9);
     public static readonly DependencyProperty SpanProperty = Constant("Span", new Point(0, 1), 10);
+    // Read only by skins with headroom: where the bar is in this part, and the headroom on screen (SkinLibrary.HeadroomPrelude).
+    public static readonly DependencyProperty BarProperty = Constant("Bar", new System.Windows.Media.Media3D.Point4D(0, 1, 0, 0), 11);
 
     static DependencyProperty Constant(string name, object initial, int register)
         => DependencyProperty.Register(name, initial.GetType(), typeof(SkinEffect), new UIPropertyMetadata(initial, PixelShaderConstantCallback(register)));
@@ -41,7 +43,7 @@ public sealed partial class SkinEffect : ShaderEffect
         shader.SetStreamSource(new MemoryStream(bytecode));
         PixelShader = shader;
         foreach (var p in new[] { InputProperty, AudioProperty, TimeProperty, ProgressProperty, LevelProperty, PlayingProperty, SizeProperty,
-                     ColorAProperty, ColorBProperty, ColorCProperty, BeatProperty, BottomEdgeProperty, SpanProperty })
+                     ColorAProperty, ColorBProperty, ColorCProperty, BeatProperty, BottomEdgeProperty, SpanProperty, BarProperty })
             UpdateShaderValue(p);
     }
 }
@@ -126,6 +128,23 @@ public sealed class SkinView : Border
         part.Canvas.Effect = part.Effect;
     }
 
+    double _headroomShown, _barHeight;
+    bool _isHeadroom, _headroomAbove = true;
+
+    /// <summary>
+    /// For a skin with headroom (SkinInfo.Headroom): <paramref name="shown"/> is how much of it is on screen now
+    /// (DIPs, 0 while hidden), which the skin reads as headroom() to lay itself out. With
+    /// <paramref name="isHeadroom"/> this view draws the headroom itself, the strip <paramref name="barHeight"/>
+    /// DIPs tall taskbar being below it (<paramref name="above"/>) or above it (a taskbar at the top).
+    /// </summary>
+    public void SetHeadroom(double shown, bool isHeadroom = false, double barHeight = 0, bool above = true)
+    {
+        _headroomShown = shown;
+        _isHeadroom = isHeadroom;
+        _barHeight = barHeight;
+        _headroomAbove = above;
+    }
+
     /// <summary>The stretches (in this element's units) the bar keeps to; empty for the whole width.</summary>
     public void SetPieces(IReadOnlyList<(double Left, double Right)> pieces)
     {
@@ -179,9 +198,17 @@ public sealed class SkinView : Border
     {
         if (Skin?.Bytecode is not { } code) return;
         var (a, b, c) = engine.ColorsNow();
-        double full = _pieces.Count == 0 ? ActualWidth : _pieces.Sum(p => p.Right - p.Left);
+        // A skin with headroom is laid out on the screen's own x, the icons only cutting it: what it draws above
+        // the taskbar has to line up with what it draws on it. Others run across the stretches end to end.
+        bool screenX = Skin.Headroom > 0;
+        double full = _pieces.Count == 0 || screenX ? ActualWidth : _pieces.Sum(p => p.Right - p.Left);
         full = Math.Max(1, full);
         double height = Math.Max(1, ActualHeight);
+        // The skin measures on the bar: drawing the headroom, it is still told the bar's height.
+        double barHeight = _isHeadroom ? Math.Max(1, _barHeight) : height;
+        var bar = !_isHeadroom ? new System.Numerics.Vector4(0, 1, (float)_headroomShown, 0)
+            : _headroomAbove ? new System.Numerics.Vector4(1, (float)(barHeight / height), (float)_headroomShown, 0)
+            : new System.Numerics.Vector4((float)(-barHeight / height), (float)(barHeight / height), (float)_headroomShown, 0);
 
         // Row one, the spectrum (low notes on the left); row two, the waveform around the middle grey.
         var wave = engine.WaveNow;
@@ -202,11 +229,12 @@ public sealed class SkinView : Border
             Level = (float)engine.LevelNow,
             Beat = (float)engine.BeatNow,
             Playing = engine.PlayingNow ? 1 : 0,
-            Size = new System.Numerics.Vector2((float)full, (float)height),
+            Size = new System.Numerics.Vector2((float)full, (float)barHeight),
             ColorA = SkinInputs.From(a),
             ColorB = SkinInputs.From(b),
             ColorC = SkinInputs.From(c),
             BottomEdge = engine.EdgeAtTop ? 1 : 0,
+            Bar = bar,
         };
         var dpi = VisualTreeHelper.GetDpi(this);
         double at = 0;
@@ -214,6 +242,7 @@ public sealed class SkinView : Border
         {
             // Where this rectangle's part starts along the whole bar, and how much of it it is.
             double width = _pieces.Count == 0 ? full : _pieces[i].Right - _pieces[i].Left;
+            if (screenX && _pieces.Count > 0) at = _pieces[i].Left;
             inputs.Span = new System.Numerics.Vector2((float)(at / full), (float)(width / full));
             at += width;
             if (_parts[i].Target is { } target && SkinGpu.Shared is { } gpu)
@@ -228,12 +257,13 @@ public sealed class SkinView : Border
             e.Level = inputs.Level;
             e.Beat = inputs.Beat;
             e.Playing = inputs.Playing;
-            e.Size = new Point(full, height);
+            e.Size = new Point(full, barHeight);
             e.ColorA = a;
             e.ColorB = b;
             e.ColorC = c;
             e.BottomEdge = inputs.BottomEdge;
             e.Span = new Point(inputs.Span.X, inputs.Span.Y);
+            e.Bar = new System.Windows.Media.Media3D.Point4D(bar.X, bar.Y, bar.Z, bar.W);
         }
         if (!OnGpu) _audio.WritePixels(new Int32Rect(0, 0, 256, 2), _pixels, 256 * 4, 0);
     }
@@ -265,5 +295,6 @@ public partial class SkinEffect
     public double Beat { get => (double)GetValue(BeatProperty); set => SetValue(BeatProperty, value); }
     public double BottomEdge { get => (double)GetValue(BottomEdgeProperty); set => SetValue(BottomEdgeProperty, value); }
     public Point Span { get => (Point)GetValue(SpanProperty); set => SetValue(SpanProperty, value); }
+    public System.Windows.Media.Media3D.Point4D Bar { get => (System.Windows.Media.Media3D.Point4D)GetValue(BarProperty); set => SetValue(BarProperty, value); }
     public Brush Audio { get => (Brush)GetValue(AudioProperty); set => SetValue(AudioProperty, value); }
 }

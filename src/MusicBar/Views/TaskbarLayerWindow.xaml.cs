@@ -183,4 +183,13 @@ public partial class TaskbarLayerWindow : Window
 
     /// <summary>A skin is on: it wants a frame for every display frame, like the visualizers.</summary>
     public bool Skinned => Seek.Skinned;
+
+    /// <summary>The skin on, when it asks to draw above the taskbar too (SkinInfo.Headroom); else null.</summary>
+    public SkinInfo? HeadroomSkin => Seek.Skinned && SkinHost.Skin is { Headroom: > 0 } skin ? skin : null;
+
+    /// <summary>The engine keeping the bar's clock, audio and colours (the headroom window draws from it too).</summary>
+    public SeekRenderer Engine => Seek;
+
+    /// <summary>How much headroom is on screen now (DIPs, 0 when none): the skin lays itself out for it.</summary>
+    public void SetHeadroomShown(double shown) => SkinHost.SetHeadroom(shown);
 }

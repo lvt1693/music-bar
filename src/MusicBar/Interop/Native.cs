@@ -155,6 +155,10 @@ internal static class Native
     [DllImport("user32.dll")]
     public static extern IntPtr GetAncestor(IntPtr hWnd, uint flags);
 
+    /// <summary>The window under a point of the screen (click-through windows, like MusicBar's layers, are passed over).</summary>
+    [DllImport("user32.dll")]
+    public static extern IntPtr WindowFromPoint(POINT point);
+
     [DllImport("user32.dll")]
     public static extern IntPtr GetWindow(IntPtr hWnd, uint cmd);
 

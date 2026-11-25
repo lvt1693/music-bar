@@ -103,6 +103,7 @@ static class Program
                     case "download": await Download(args); break;
                     case "clip": await Clip(args); break;
                     case "encode": await Encode(args); break;
+                    case "compile": CompileBoth(args); break;
                     case "skinperf": await SkinPerf(args); break;
                     default: throw new ArgumentException("unknown mode " + args[0]);
                 }
@@ -131,7 +132,7 @@ static class Program
         double time = 0;
         var engine = new SeekRenderer { Width = w, Height = h, Clock = () => time };
         engine.SetEdge(true);
-        SkinView? view = null;
+        SkinView? view = null, above = null;
         var host = new Grid { Width = w, Height = h, Background = new SolidColorBrush(Color.FromRgb(0x0B, 0x0B, 0x0F)) };
         if (input.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
         {
@@ -152,7 +153,35 @@ static class Program
             engine.Visibility = Visibility.Hidden;
             engine.SetColors(C(a.Length > 6 ? a[6] : "#FF5F6D"), C(a.Length > 7 ? a[7] : "#47A9FF"), animate: false, C(a.Length > 8 ? a[8] : "#FFC371"));
             view = new SkinView();
-            view.SetSkin(new SkinInfo(Path.GetFileName(input), "", "", "", visualizer, bytecode, null));
+            var info = new SkinInfo(Path.GetFileName(input), "", "", "", visualizer, bytecode, null, SkinLibrary.HeadroomOf(text));
+            view.SetSkin(info);
+            // A skin with headroom: its part above the taskbar too, over a desktop-like ground, scaled with the bar
+            // (the headroom is in DIPs; a clip taller than a 48 DIP taskbar scales it up). "nohead" as the 10th argument leaves
+            // it off (the bar alone).
+            double room = info.Headroom > 0 && !(a.Length > 9 && a[9] == "nohead") ? Math.Round(info.Headroom * Math.Max(1.0, h / 48.0)) : 0;
+            if (room > 0)
+            {
+                host.Height = h + room;
+                // The desktop behind it: a dark blue-grey gradient, or a colour given as the 11th argument (a wallpaper's).
+                var desk = new Border
+                {
+                    Height = room, VerticalAlignment = VerticalAlignment.Top,
+                    Background = a.Length > 10 ? new SolidColorBrush(C(a[10]))
+                        : new LinearGradientBrush(Color.FromRgb(0x2A, 0x36, 0x4A), Color.FromRgb(0x1A, 0x22, 0x30), 90),
+                };
+                above = new SkinView { Height = room, VerticalAlignment = VerticalAlignment.Top };
+                above.SetSkin(info);
+                above.SetHeadroom(room, isHeadroom: true, h, above: true);
+                view.SetHeadroom(room);
+                view.Height = h;
+                view.VerticalAlignment = VerticalAlignment.Bottom;
+                engine.VerticalAlignment = VerticalAlignment.Bottom;
+                var bar = new Border { Height = h, VerticalAlignment = VerticalAlignment.Bottom, Background = host.Background };
+                host.Background = null;
+                host.Children.Add(desk);
+                host.Children.Add(bar);
+                host.Children.Add(above);
+            }
             host.Children.Add(engine);
             host.Children.Add(view);
         }
@@ -169,12 +198,27 @@ static class Program
             engine.SetState(0.18 + 0.64 * i / Math.Max(1, frames - 1), timeline: true, playing: true);
             engine.Tick();
             view?.Update(engine);
+            above?.Update(engine);
             await Dispatcher.Yield(DispatcherPriority.Background);
             await Task.Delay(30);
             SavePng(Grab(window, 1), Path.Combine(outDir, $"f{i:0000}.png"));
         }
         window.Close();
         Console.WriteLine($"{Path.GetFileName(input)}: {frames} frames → {outDir}");
+    }
+
+    /// <summary>
+    /// compile &lt;skin.hlsl&gt;: the skin for both renderers: ps_3_0 (WPF; its instruction count against the 2800 Auto keeps
+    /// there) and shader model 5 (Direct3D 11), each ok or its error. A skin that should run everywhere passes both.
+    /// </summary>
+    static void CompileBoth(string[] a)
+    {
+        var text = File.ReadAllText(Path.GetFullPath(a[1]));
+        var wpf = SkinLibrary.Compile(text, false, out var wpfError);
+        Console.WriteLine(wpf != null ? $"ps_3_0: ok, {SkinLibrary.Instructions(wpf)} instructions (Auto keeps it on WPF up to 2800)" : $"ps_3_0: {wpfError}");
+        var d3d = SkinLibrary.Compile(text, true, out var d3dError);
+        Console.WriteLine(d3d != null ? $"Direct3D 11: ok, {d3d.Length} bytes" : $"Direct3D 11: {d3dError}");
+        if (wpf == null && d3d == null) Environment.ExitCode = 1;
     }
 
     /// <summary>
@@ -220,8 +264,25 @@ static class Program
         engine.SetEdge(true);
         engine.SetColors(C("#FF6B6B"), C("#47A9FF"), animate: false, C("#FFC371"));
         var view = new SkinView();
-        view.SetSkin(new SkinInfo(Path.GetFileName(a[1]), "", "", "", false, bytecode, null));
+        var info = new SkinInfo(Path.GetFileName(a[1]), "", "", "", false, bytecode, null, SkinLibrary.HeadroomOf(text));
+        view.SetSkin(info);
         var host = new Grid { Width = w, Height = h, Background = new SolidColorBrush(Color.FromRgb(0x0B, 0x0B, 0x0F)) };
+        // A skin with headroom costs its part above the taskbar too: drawn by a second view as the app does
+        // ("nohead" as the 6th argument leaves it off).
+        SkinView? above = null;
+        double room = info.Headroom > 0 && !(a.Length > 5 && a[5] == "nohead") ? info.Headroom : 0;
+        if (room > 0)
+        {
+            host.Height = h + room;
+            above = new SkinView { Height = room, VerticalAlignment = VerticalAlignment.Top };
+            above.SetSkin(info);
+            above.SetHeadroom(room, isHeadroom: true, h, above: true);
+            view.SetHeadroom(room);
+            view.Height = h;
+            view.VerticalAlignment = VerticalAlignment.Bottom;
+            engine.VerticalAlignment = VerticalAlignment.Bottom;
+            host.Children.Add(above);
+        }
         host.Children.Add(engine);
         host.Children.Add(view);
         var window = new Window
@@ -245,6 +306,7 @@ static class Program
             engine.Tick();
             inUpdate.Start();
             view.Update(engine);
+            above?.Update(engine);
             inUpdate.Stop();
             frames++;
         };
@@ -280,7 +342,7 @@ static class Program
             Console.WriteLine($"idle: private {busyMb} MB while drawing, {Process.GetCurrentProcess().PrivateMemorySize64 >> 20} MB after 32 s idle");
         }
         window.Close();
-        Console.WriteLine($"{(SkinLibrary.IsDirect3D11(bytecode) ? "Direct3D 11" : "WPF effect")}: {frames / wall:0} frames/s, CPU {cpu / wall * 100:0.0}% of one core, {Process.GetCurrentProcess().PrivateMemorySize64 >> 20} MB private, Update {inUpdate.Elapsed.TotalMilliseconds / Math.Max(1, frames):0.00} ms a frame");
+        Console.WriteLine($"{(SkinLibrary.IsDirect3D11(bytecode) ? "Direct3D 11" : "WPF effect")}{(room > 0 ? $" + {room} DIP headroom" : "")}: {frames / wall:0} frames/s, CPU {cpu / wall * 100:0.0}% of one core, {Process.GetCurrentProcess().PrivateMemorySize64 >> 20} MB private, Update {inUpdate.Elapsed.TotalMilliseconds / Math.Max(1, frames):0.00} ms a frame");
     }
 
     static double D(string s) => double.Parse(s, Inv);

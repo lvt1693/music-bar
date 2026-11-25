@@ -133,6 +133,13 @@ public sealed class AppSettings : ObservableObject
     SkinRenderer _skinRenderer = SkinRenderer.Auto;
     public SkinRenderer SkinRenderer { get => _skinRenderer; set => Set(ref _skinRenderer, value); }
 
+    /// <summary>
+    /// A skin that draws above the taskbar (//! headroom) keeps drawing there over app windows too, not only while
+    /// the desktop is all there is in that strip. Never over a full-screen app, the Start menu or the shell's flyouts.
+    /// </summary>
+    bool _skinOverWindows;
+    public bool SkinOverWindows { get => _skinOverWindows; set => Set(ref _skinOverWindows, value); }
+
     /// <summary>Win + A opens MusicBar's control center (while it is on) instead of Windows' Quick Settings.</summary>
     bool _winAOpensControlCenter = true;
     public bool WinAOpensControlCenter { get => _winAOpensControlCenter; set => Set(ref _winAOpensControlCenter, value); }

@@ -35,6 +35,12 @@ public sealed class TaskbarOverlay : IDisposable, ILyricsHost
     readonly TrackInfoService _trackInfo;
     readonly TaskbarTracker _tracker;
     readonly TaskbarLayerWindow _layer;
+    // A skin with headroom draws above the taskbar here, while only the desktop is there to draw over.
+    readonly TaskbarHeadroomWindow _headroom = new();
+    bool _headroomShown;
+    bool _headroomClear = true;
+    Native.RECT _headroomArea;
+    SkinInfo? _headroomFor;
     readonly WidgetWindow _widget;
     readonly InfoPopupWindow _popup;
     readonly LyricsBandWindow _band;
@@ -334,6 +340,7 @@ public sealed class TaskbarOverlay : IDisposable, ILyricsHost
     public void Start()
     {
         new WindowInteropHelper(_layer).EnsureHandle();
+        new WindowInteropHelper(_headroom).EnsureHandle();
         new WindowInteropHelper(_widget).EnsureHandle();
         new WindowInteropHelper(_popup).EnsureHandle();
         new WindowInteropHelper(_band).EnsureHandle();
@@ -456,6 +463,7 @@ public sealed class TaskbarOverlay : IDisposable, ILyricsHost
         _lyricsCts?.Cancel();
         _detailsCts?.Cancel();
         _layer.Close();
+        _headroom.Close();
         _widget.Close();
         _popup.Close();
         _band.Close();
@@ -521,11 +529,13 @@ public sealed class TaskbarOverlay : IDisposable, ILyricsHost
             Native.SetWindowPos(_layer.Hwnd, Native.HWND_TOPMOST, rc.Left, rc.Top, rc.Width, rc.Height, Native.SWP_NOACTIVATE);
             if (!over) Native.SetWindowPos(_layer.Hwnd, _tracker.Handle, 0, 0, 0, 0, KeepPlace);
             EnsureDpi(_layer, _layer.Hwnd, rc, scale, "layer");
+            PlaceHeadroom(rc, scale, edge);
         }
         else if (_layerShown)
         {
             _layer.Hide();
             _layerShown = false;
+            HideHeadroom();
         }
 
         // A minimal taskbar has no player: only the progress, and the lyrics in a gap of their own if wanted.
@@ -645,9 +655,92 @@ public sealed class TaskbarOverlay : IDisposable, ILyricsHost
     string _coveredBy = "";
     IntPtr _coveredWindow;
 
+    /// <summary>
+    /// The strip of desktop beside the taskbar a skin with headroom draws in, shown while nothing else is there
+    /// (see <see cref="HeadroomClear"/>); horizontal taskbars only. The bar's half is told how much is on screen.
+    /// </summary>
+    void PlaceHeadroom(Native.RECT rc, double scale, TaskbarEdge edge)
+    {
+        var skin = _layer.HeadroomSkin;
+        _headroomFor = skin;
+        int px = skin != null && edge is TaskbarEdge.Bottom or TaskbarEdge.Top ? (int)Math.Round(skin.Headroom * scale) : 0;
+        var b = _tracker.Monitor?.Bounds;
+        _headroomArea = px <= 0 || b is not { } m ? default
+            : edge == TaskbarEdge.Bottom ? new Native.RECT(rc.Left, Math.Max(m.Top, rc.Top - px), rc.Right, rc.Top)
+            : new Native.RECT(rc.Left, rc.Bottom, rc.Right, Math.Min(m.Bottom, rc.Bottom + px));
+        if (skin == null || _headroomArea.Height <= 0 || !_headroomClear)
+        {
+            HideHeadroom();
+            return;
+        }
+        double room = _headroomArea.Height / scale;
+        _headroom.Configure(skin, rc.Height / scale, room, above: edge == TaskbarEdge.Bottom);
+        if (!_headroomShown)
+        {
+            _headroom.Show();
+            _headroomShown = true;
+            Log.Info($"Headroom shown for {skin.File}: {_headroomArea}");
+        }
+        var a = _headroomArea;
+        Native.SetWindowPos(_headroom.Hwnd, Native.HWND_TOPMOST, a.Left, a.Top, a.Width, a.Height, Native.SWP_NOACTIVATE);
+        EnsureDpi(_headroom, _headroom.Hwnd, a, scale, "headroom");
+        _layer.SetHeadroomShown(room);
+    }
+
+    void HideHeadroom()
+    {
+        if (!_layerShown) _headroomFor = null;
+        if (_headroomShown)
+        {
+            _headroom.Hide();
+            _headroomShown = false;
+        }
+        _layer.SetHeadroomShown(0);
+    }
+
+    /// <summary>
+    /// Only the desktop (or MusicBar, or the taskbar) shows in the headroom's strip: looked at in a grid of points,
+    /// so a window, the Start menu, a notification or a game there keeps the skin on the taskbar alone. With
+    /// <see cref="AppSettings.SkinOverWindows"/> app windows don't count, only the shell's own surfaces (a full-screen
+    /// app hides the whole bar anyway, see <see cref="TaskbarCovered"/>).
+    /// </summary>
+    bool HeadroomClear()
+    {
+        var a = _headroomArea;
+        if (a.Width <= 0 || a.Height <= 0) return true;
+        bool overWindows = _s.SkinOverWindows;
+        for (int i = 0; i < 12; i++)
+        {
+            for (int j = 0; j < 2; j++)
+            {
+                var p = new Native.POINT { X = a.Left + (int)((i + 0.5) * a.Width / 12), Y = a.Top + (int)((j + 0.5) * a.Height / 2) };
+                var hit = Native.WindowFromPoint(p);
+                if (hit == IntPtr.Zero) continue;
+                var root = Native.GetAncestor(hit, Native.GA_ROOT);
+                if (root == IntPtr.Zero) root = hit;
+                Native.GetWindowThreadProcessId(root, out var pid);
+                if (pid == Environment.ProcessId) continue;
+                var cls = Native.ClassName(root);
+                if (cls is "Progman" or "WorkerW" or "Shell_TrayWnd" or "Shell_SecondaryTrayWnd") continue;
+                if (overWindows && !IsShellSurface(cls)) continue;
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /// <summary>
+    /// What a skin never draws over, even when allowed over windows: Start, Search, notifications and the Action
+    /// Center (CoreWindow, XAML islands), menus, the tray's overflow, the taskbar's thumbnails and popups.
+    /// </summary>
+    static bool IsShellSurface(string cls) => cls is "Windows.UI.Core.CoreWindow" or "XamlExplorerHostIslandWindow"
+        or "#32768" or "NotifyIconOverflowWindow" or "TopLevelWindowForOverflowXamlIsland" or "Xaml_WindowedPopupClass"
+        or "TaskListThumbnailWnd" or "Shell_InputSwitchTopLevelWindow";
+
     /// <param name="slidAway">The taskbar hid itself: the pointer has just left it, maybe for the song card.</param>
     void HideAll(bool keepFace = false, bool slidAway = false)
     {
+        HideHeadroom();
         if (_layerShown) _layer.Hide();
         if (_widgetShown) _widget.Hide();
         if (_faceShown && !keepFace)
@@ -984,6 +1077,15 @@ public sealed class TaskbarOverlay : IDisposable, ILyricsHost
         bool idle = _s.HideWhenIdle && _noSessionSince != DateTime.MinValue
                     && (DateTime.Now - _noSessionSince).TotalSeconds > 2;
         bool fullscreen = TaskbarCovered();
+        // A skin drawing above the taskbar steps back onto it while anything but the desktop is in its way; and a
+        // skin put on (or compiled on a pool thread, or taken off) gets or gives up its headroom here.
+        bool clear = HeadroomClear();
+        if (clear != _headroomClear || !ReferenceEquals(_layerShown ? _layer.HeadroomSkin : null, _headroomFor))
+        {
+            _headroomClear = clear;
+            if (_layerShown) PlaceHeadroom(_tracker.Rect, _tracker.Scale, _tracker.Edge);
+            else HideHeadroom();
+        }
         if (_controlCenter != null && _controlCenter.Covered != fullscreen)
         {
             _controlCenter.Covered = fullscreen;
@@ -1101,6 +1203,7 @@ public sealed class TaskbarOverlay : IDisposable, ILyricsHost
         // A live stream (or radio) has no length to run along: the bar shows full instead of empty.
         bool live = _media.HasSession && !timeline;
         _layer.SetProgress(live ? 1 : progress, timeline || live, _media.IsPlaying);
+        if (_headroomShown) _headroom.Update(_layer.Engine);
         _widget.SetProgress(progress);
         if (_popup.IsOpen) _popup.SetProgress(pos, dur);
 
@@ -1212,7 +1315,7 @@ public sealed class TaskbarOverlay : IDisposable, ILyricsHost
                 ApplyAppearance();
                 Watch();
                 break;
-            case nameof(AppSettings.HideWhenIdle) or nameof(AppSettings.AudioReactive):
+            case nameof(AppSettings.HideWhenIdle) or nameof(AppSettings.AudioReactive) or nameof(AppSettings.SkinOverWindows):
                 Watch();
                 break;
             case nameof(AppSettings.LyricsEnabled) or nameof(AppSettings.FetchOnline) or nameof(AppSettings.LyricsFolder):

@@ -660,6 +660,11 @@
                         </WrapPanel>
                         <TextBlock x:Name="SkinStatus" FontSize="12" Opacity="0.8" TextWrapping="Wrap" Margin="2,0,0,8" Visibility="Collapsed" />
                         <Button x:Name="SkinCopyError" Content="{l:Tr Set_Skin_CopyError}" HorizontalAlignment="Left" Padding="14,5" Margin="0,0,0,8" Visibility="Collapsed" Click="SkinCopyError_Click" />
+                        <!-- Skins with headroom: over app windows too, not only over the desktop. -->
+                        <v:SettingCard Glyph="&#xE737;" Header="{l:Tr Set_SkinOverWindows}" Description="{l:Tr Set_SkinOverWindows_Desc}">
+                            <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding SkinOverWindows}"
+                                      AutomationProperties.Name="{Binding Header, RelativeSource={RelativeSource AncestorType=v:SettingCard}}" />
+                        </v:SettingCard>
                     </StackPanel>
                     <Border CornerRadius="8" Padding="12,8" Margin="0,0,0,12" Background="#0AFFFFFF">
                         <TextBlock x:Name="LookDetail" FontSize="12" TextWrapping="Wrap" />

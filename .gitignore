@@ -15,3 +15,6 @@ promo/.hyperframes/
 promo/.capture/
 promo/.thumbnails/
 promo/renders/
+
+# skin art: the private style research, toolbox and art guide for making skins (kept off the public repo)
+docs/skin-art/

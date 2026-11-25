@@ -278,6 +278,9 @@ public static partial class Strings
         d.Add("Set_Skin_CopiedError", ("Copied: paste it to whoever fixes the skin, or to an AI.", "Đã chép: dán cho người sửa skin hoặc cho AI là được."));
         d.Add("Set_Skin_SamplesAdded", ("Added {0} sample skins.", "Đã thêm {0} skin mẫu."));
         d.Add("Set_Skin_SamplesThere", ("The sample skins are already here.", "Các skin mẫu đã có sẵn rồi."));
+        d.Add("Set_SkinOverWindows", ("Let skins draw over windows", "Cho skin vẽ tràn lên trên cửa sổ"));
+        d.Add("Set_SkinOverWindows_Desc", ("Skins that rise above the taskbar (a beam, sparks, fire) keep drawing there over your apps too, not only over the desktop. Clicks still go through to the app. Never over a full-screen app, a game or the Start menu.",
+            "Skin vươn lên khỏi taskbar (tia laser, tia lửa, lửa) vẫn vẽ ở đó khi có cửa sổ app, không chỉ trên màn hình nền. Chuột vẫn bấm xuyên xuống app. Không bao giờ vẽ lên app toàn màn hình, game hay menu Start."));
         d.Add("Pal_Song", ("The song's", "Theo bài hát"));
         d.Add("Pal_Custom", ("Your own", "Tự chọn"));
         d.Add("Pal_CustomHint", ("Three colors (#RRGGBB):", "Ba màu (#RRGGBB):"));

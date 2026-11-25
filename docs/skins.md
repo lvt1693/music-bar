@@ -82,6 +82,31 @@ Ngoài ra dùng được mọi hàm của HLSL: `sin`, `cos`, `frac`, `floor`, `
    chỗ tối hoặc trong suốt. Một dải màu đặc kín cả thanh sẽ khó nhìn.
 7. Kiểu `progress` nên thể hiện được `progress`. Kiểu `visualizer` thì không bắt buộc.
 
+## Vẽ tràn lên trên taskbar (headroom)
+
+Skin có thể xin thêm một khoảng phía trên taskbar (lửa bốc lên, tia lửa bay, một thanh kiếm nằm trên mép taskbar)
+bằng một dòng ở đầu file:
+
+```hlsl
+//! headroom: 160
+```
+
+- Số là chiều cao xin thêm, đơn vị DIP như `size`, tối đa 200. Taskbar nằm ngang mới có (trên hoặc dưới màn hình).
+- Vùng này trong suốt và chuột bấm xuyên qua. MusicBar chỉ hiện nó khi phía đó **chỉ có màn hình nền**: có cửa sổ,
+  menu Start, thông báo hay game ở đó thì nó tự ẩn, skin chỉ còn trên thanh. Người dùng bật **Cho skin vẽ tràn lên
+  trên cửa sổ** (Cài đặt → Thanh tiến trình → Skin) thì nó vẽ cả lên cửa sổ app, chỉ còn ẩn khi có app toàn màn
+  hình, game, menu Start, thông báo hay menu chuột phải.
+- `uv` vẫn đo theo thanh: trong vùng headroom `rise(uv)` lớn hơn 1. Độ cao tính bằng pixel từ mép màn hình là
+  `rise(uv) * size.y`, đi từ 0 đến `size.y` trên thanh rồi tiếp lên trên.
+- `headroom()` cho biết khoảng đang hiện (cùng đơn vị với `size`), **0 khi bị ẩn**, và cũng là 0 trong các ô xem
+  trước. Skin nên tự xếp lại khi nó bằng 0 (ví dụ thu hình vào trong thanh), để lúc nào cũng đẹp.
+- Skin có headroom dùng trục x của màn hình: thanh bị cắt quanh các icon chứ không bị dồn lại, nên phần trên và phần
+  dưới luôn khớp nhau.
+- Vùng headroom không có nền: chỗ nào không vẽ thì trả độ đậm 0 để màn hình nền lộ ra. Ánh sáng (lửa, quầng) nên
+  lấy độ đậm theo độ sáng, ví dụ `a = max(c.r, max(c.g, c.b)); return paint(c / max(a, 1e-3), a);`.
+- `main` phải đúng dạng `float4 main(float2 uv : TEXCOORD) : COLOR`, vì MusicBar bọc nó để đo `uv` theo thanh. Skin
+  quá lớn cho WPF (ps_3_0 hết thanh ghi) sẽ tự chạy bằng Direct3D 11 khi để chế độ Tự động.
+
 ## Mẹo cho đẹp
 
 - Mọc từ mép màn hình: dùng `rise(uv)` làm "độ cao".
@@ -90,6 +115,15 @@ Ngoài ra dùng được mọi hàm của HLSL: `sin`, `cos`, `frac`, `floor`, `
 - Chuyển màu mượt: `lerp(colorB.rgb, colorA.rgb, t)`, rồi điểm `colorC` ở chỗ sáng nhất.
 - Phát sáng: `exp(-khoảng_cách / bán_kính)` cho quầng sáng mềm.
 - Đơn vị pixel giúp hình không bị kéo giãn: `float2 px = uv * size;`.
+- Skin có nền (mặt nước, kim loại, hồ...) nên **phủ kín cả thanh**, từ mép này sang mép kia, góc vuông. Đừng vẽ khung
+  bo góc hay chừa viền: thanh đã nằm sẵn trên taskbar, khung thừa trông như một miếng dán.
+- Ảnh mẫu (ảnh AI, ảnh minh họa) thường vẽ cả một trình phát nhạc: chỉ lấy phần thanh, bỏ khung, nút, chữ, bìa đĩa.
+- Vật chính (con cá, con thuyền, thanh kiếm) phải có khối: sáng tối theo mặt, viền sáng phía có đèn, bóng mờ ở chỗ hai
+  lớp chồng nhau. Mảng màu phẳng chồng lên nhau trông như giấy cắt dán.
+- Quầng sáng cộng **quanh** vật, không cộng đè lên vật (không thì giữa vật cháy trắng).
+- Taskbar chỉ cao 32 đến 48 điểm ảnh: chi tiết nhỏ hơn khoảng 2 điểm ảnh sẽ nhấp nháy, bỏ đi hoặc làm mờ dần theo cỡ.
+- Thứ chuyển động nên trôi theo một nhịp đều (ví dụ `x - time * tốc_độ`); thay hình dạng theo phổ âm từng khung dễ
+  bị giật. Nhịp nhạc hợp với sự kiện rời: một vòng sóng, một chùm tia lửa, một lần lóe.
 
 ## Ví dụ: visualizer cột đối xứng
 

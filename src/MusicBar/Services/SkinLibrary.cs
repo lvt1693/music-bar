@@ -11,8 +11,11 @@ using MusicBar.Models;
 
 namespace MusicBar.Services;
 
-/// <summary>A skin as MusicBar knows it: what its header says, and its compiled shader (or why it didn't compile).</summary>
-public sealed record SkinInfo(string File, string Name, string Author, string Description, bool Visualizer, byte[]? Bytecode, string? Error)
+/// <summary>
+/// A skin as MusicBar knows it: what its header says, and its compiled shader (or why it didn't compile).
+/// <paramref name="Headroom"/>: how far (DIPs) it may draw above the taskbar, from "//! headroom: N"; 0 for most.
+/// </summary>
+public sealed record SkinInfo(string File, string Name, string Author, string Description, bool Visualizer, byte[]? Bytecode, string? Error, int Headroom = 0)
 {
     public bool Works => Bytecode != null;
 }
@@ -78,6 +81,43 @@ public static class SkinLibrary
         float4 paint(float3 rgb, float alpha) { alpha = saturate(alpha); return float4(saturate(rgb) * alpha, alpha); }
 
         """;
+
+    /// <summary>
+    /// What a skin with headroom gets on top of the prelude: where the bar is in the part being drawn
+    /// (musicbarBar: x the bar's start and y its height, as shares of the part; z the headroom on screen now,
+    /// in the units of size, 0 while it is hidden). Skins without headroom never see it, so they compile to
+    /// exactly what they did before and the kept shaders stay good.
+    /// </summary>
+    static readonly string HeadroomPrelude = Prelude + """
+        float4 musicbarBar : register(c11);
+        float headroom() { return musicbarBar.z; }
+
+        """;
+
+    // The same register in the one constant buffer (SkinInputs.Bar).
+    static readonly string HeadroomPrelude11 = Prelude11.Replace(
+        "float2 musicbarSpan : packoffset(c10);",
+        "float2 musicbarSpan : packoffset(c10);\n    float4 musicbarBar : packoffset(c11);") + """
+        float headroom() { return musicbarBar.z; }
+
+        """;
+
+    /// <summary>The most a skin may ask to draw above the taskbar, in DIPs.</summary>
+    public const int MaxHeadroom = 200;
+
+    /// <summary>What "//! headroom: N" in the first lines asks for, clamped to 0..<see cref="MaxHeadroom"/>.</summary>
+    public static int HeadroomOf(string source)
+    {
+        foreach (var raw in source.Split('\n').Take(40))
+        {
+            var line = raw.Trim();
+            if (!line.StartsWith("//!", StringComparison.Ordinal)) continue;
+            int colon = line.IndexOf(':');
+            if (colon < 0 || !line[3..colon].Trim().Equals("headroom", StringComparison.OrdinalIgnoreCase)) continue;
+            return int.TryParse(line[(colon + 1)..].Trim(), out var n) ? Math.Clamp(n, 0, MaxHeadroom) : 0;
+        }
+        return 0;
+    }
 
     /// <summary>
     /// What skins are compiled for, chosen once at start before the first skin compiles: WPF's ps_3_0
@@ -226,16 +266,21 @@ public static class SkinLibrary
         string? error = null;
         var bytecode = Kept(source) ?? (compile ? CompileKept(source, out error) : null);
         if (bytecode == null && !compile) return null;
-        return new SkinInfo(file, name, author, description, visualizer, bytecode, error);
+        return new SkinInfo(file, name, author, description, visualizer, bytecode, error, HeadroomOf(source));
     }
 
     static string KeptFolder => Path.Combine(AppPaths.DataDir, "Cache", "Skins");
 
     // Kept shaders are filed by what they were compiled for, not by the renderer chosen: a skin that stays a WPF
-    // effect under Auto finds the very file 1.8.2 kept for it, so updating compiles nothing again.
-    static string WpfKey => $"{TargetWpf}-{Hash(Prelude + Entry)}";
+    // effect under Auto finds the very file 1.8.2 kept for it, so updating compiles nothing again. A skin with
+    // headroom is compiled with more around it, so it has keys of its own.
+    static string WpfKey(bool headroom) => headroom
+        ? $"{TargetWpf}-{Hash(HeadroomPrelude + HeadroomEntry)}"
+        : $"{TargetWpf}-{Hash(Prelude + Entry)}";
 
-    static string? Direct3DKey => _target11 == null ? null : $"{_target11}-{Hash(Prelude11 + Entry11)}";
+    static string? Direct3DKey(bool headroom) => _target11 == null ? null : headroom
+        ? $"{_target11}-{Hash(HeadroomPrelude11 + HeadroomEntry11)}"
+        : $"{_target11}-{Hash(Prelude11 + Entry11)}";
 
     static string KeptPath(string source, string key) => Path.Combine(KeptFolder,
         $"{Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(source)))[..32]}-{key}.cso");
@@ -246,11 +291,12 @@ public static class SkinLibrary
         try
         {
             byte[]? Read(string? key) => key != null && File.Exists(KeptPath(source, key)) ? File.ReadAllBytes(KeptPath(source, key)) : null;
-            if (_renderer == SkinRenderer.Wpf) return Read(WpfKey);
-            if (_renderer == SkinRenderer.Direct3D11) return Read(Direct3DKey);
+            bool headroom = HeadroomOf(source) > 0;
+            if (_renderer == SkinRenderer.Wpf) return Read(WpfKey(headroom));
+            if (_renderer == SkinRenderer.Direct3D11) return Read(Direct3DKey(headroom));
             // Auto: the WPF effect when it fits, else the Direct3D 11 shader (kept only for skins that don't).
-            var wpf = Read(WpfKey);
-            return wpf != null && Instructions(wpf) <= WpfInstructionBudget ? wpf : Read(Direct3DKey);
+            var wpf = Read(WpfKey(headroom));
+            return wpf != null && Instructions(wpf) <= WpfInstructionBudget ? wpf : Read(Direct3DKey(headroom));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -269,7 +315,8 @@ public static class SkinLibrary
         error = null;
         if (kept != null) return kept;
         var bytecode = Compile(source, out error);
-        var key = IsDirect3D11(bytecode) ? Direct3DKey : WpfKey;
+        bool headroom = HeadroomOf(source) > 0;
+        var key = IsDirect3D11(bytecode) ? Direct3DKey(headroom) : WpfKey(headroom);
         if (bytecode != null && key != null) Keep(KeptPath(source, key), bytecode);
         return bytecode;
     }
@@ -311,6 +358,23 @@ public static class SkinLibrary
         """;
 
     /// <summary>
+    /// The entry point of a skin with headroom: y measured on the bar too, so it runs past 0 or 1 above the
+    /// taskbar (rise(uv) &gt; 1 there) when the part being drawn is the headroom. A bar never told where it is
+    /// (musicbarBar all 0) is the whole part.
+    /// </summary>
+    const string HeadroomEntry = """
+
+        #line 1 "musicbar"
+        float4 musicbarMain(float2 uv : TEXCOORD) : COLOR { float musicbarH = musicbarBar.y > 0 ? musicbarBar.y : 1; return main(float2(musicbarSpan.x + uv.x * musicbarSpan.y, (uv.y - musicbarBar.x) / musicbarH)); }
+        """;
+
+    const string HeadroomEntry11 = """
+
+        #line 1 "musicbar"
+        float4 musicbarMain(float2 uv : TEXCOORD0, float4 musicbarPosition : SV_Position) : SV_Target { float musicbarH = musicbarBar.y > 0 ? musicbarBar.y : 1; return main(float2(musicbarSpan.x + uv.x * musicbarSpan.y, (uv.y - musicbarBar.x) / musicbarH)); }
+        """;
+
+    /// <summary>
     /// Compiles a skin as a pixel shader (ps_3_0, or ps_2_0 where the GPU has nothing newer; or shader model 5
     /// once skins go to Direct3D 11), with the prelude in front and line numbers that still point into the
     /// skin's own file.
@@ -340,9 +404,15 @@ public static class SkinLibrary
     /// <summary>The same, for the target asked for whichever is in use (for comparing the two).</summary>
     public static byte[]? Compile(string source, bool direct3D11, out string? error)
     {
-        // A main of another shape won't take the entry point; on its own, its errors are its own.
-        return Compile(source + (direct3D11 ? Entry11 : Entry), "musicbarMain", direct3D11, out error)
-               ?? Compile(source, "main", direct3D11, out error);
+        bool headroom = HeadroomOf(source) > 0;
+        var entry = headroom ? (direct3D11 ? HeadroomEntry11 : HeadroomEntry) : (direct3D11 ? Entry11 : Entry);
+        var wrapped = Compile(source + entry, "musicbarMain", direct3D11, out error);
+        // A main of another shape won't take the entry point; on its own, its errors are its own. Never for a skin
+        // with headroom: without the entry its y isn't measured on the bar, and the part above the taskbar would show
+        // the bar stretched. When the entry doesn't fit (ps_3_0 out of temp registers, a few more than the bare main
+        // needs), that error stands and Auto takes Direct3D 11.
+        if (wrapped != null || headroom) return wrapped;
+        return Compile(source, "main", direct3D11, out error);
     }
 
     static string TargetWpf => _target ??= RenderCapability.IsPixelShaderVersionSupported(3, 0) ? "ps_3_0" : "ps_2_0";
@@ -369,7 +439,9 @@ public static class SkinLibrary
     {
         error = null;
         var target = direct3D11 ? _target11 ?? "ps_5_0" : TargetWpf;
-        var text = Encoding.UTF8.GetBytes((direct3D11 ? Prelude11 : Prelude) + "#line 1 \"skin\"\n" + source);
+        bool headroom = HeadroomOf(source) > 0;
+        var prelude = headroom ? (direct3D11 ? HeadroomPrelude11 : HeadroomPrelude) : (direct3D11 ? Prelude11 : Prelude);
+        var text = Encoding.UTF8.GetBytes(prelude + "#line 1 \"skin\"\n" + source);
         // Shader model 5 takes the older syntax skins are written in (COLOR, TEXCOORD) only when asked to.
         uint flags = OptimizationLevel3 | (direct3D11 ? BackwardsCompatibility : 0);
         try
