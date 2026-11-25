@@ -4,8 +4,8 @@
 
 Thanh taskbar nằm im ba mươi năm rồi. Cho nó hát đi.
 
-**Tải về:** [bản cài đặt](https://github.com/lvt1693/music-bar/releases/latest/download/MusicBar-1.8.6-Setup.exe)
-hoặc [bản portable](https://github.com/lvt1693/music-bar/releases/latest/download/MusicBar-1.8.6-portable.zip)
+**Tải về:** [bản cài đặt](https://github.com/lvt1693/music-bar/releases/latest/download/MusicBar-2.0.0-Setup.exe)
+hoặc [bản portable](https://github.com/lvt1693/music-bar/releases/latest/download/MusicBar-2.0.0-portable.zip)
 (Windows 10 2004 trở lên hoặc Windows 11, 64-bit, không cần cài .NET).
 
 **Hướng dẫn dùng:** [wiki tiếng Việt](https://github.com/lvt1693/music-bar/wiki), có ảnh từng tab cài
@@ -14,7 +14,10 @@ hoặc [bản portable](https://github.com/lvt1693/music-bar/releases/latest/dow
 **Trang web:** [musicbar.truclv.com](https://musicbar.truclv.com), có **kho giao diện** của cộng đồng
 (skin, visualizer, dải LED) để tải về hoặc đăng giao diện của bạn.
 
-**Có gì mới:** bản 1.8.6 **tự tạo preview động** khi gửi giao diện lên kho, hiện **% pin tai nghe
+**Có gì mới:** bản 2.0 cho **skin tràn ra khỏi taskbar** (lửa, tia laser, đèn ông sao vươn lên màn hình
+nền, bật thêm được cả lên trên cửa sổ), kèm **6 skin mới** trên kho như Katana Forge và Đêm Hoa Đăng;
+**Tổng kết năm chỉ đếm nhạc** (không tính tab Facebook, TikTok) và có **hơn 30 danh hiệu** mới; người làm skin
+có **engine 2.0** (khung hình trước, ảnh bìa, bloom). Bản 1.8.6 **tự tạo preview động** khi gửi giao diện lên kho, hiện **% pin tai nghe
 Bluetooth** trong trung tâm điều khiển, và trên Windows 10 khung **Thông báo** đọc được thông báo. Bản 1.8.5
 cho **đăng giao diện bằng tài khoản Google** (xem lại các giao diện đã gửi
 và lý do bị từ chối trên web), kho nhận **skin tới 4 MB**. Bản 1.8.4 bật sẵn **lời từ NetEase** cho người mới cài, dùng được bằng **phím Tab và

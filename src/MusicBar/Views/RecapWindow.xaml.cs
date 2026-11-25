@@ -116,27 +116,50 @@ public partial class RecapWindow : Window
         Facts.Children.Add(Fact(Loc.T("Rec_App"), r.TopApp ?? "—", r.TopApp != null ? $"{Math.Round(r.TopAppShare * 100)}%" : ""));
 
         KindLabel.Text = Loc.T("Rec_YouAre");
-        KindName.Text = Loc.T("Rec_Kind_" + r.Kind);
-        KindLine.Text = Loc.T("Rec_KindLine_" + r.Kind);
+        var main = r.Titles[0];
+        KindName.Text = Loc.T($"RecT_{main.Key}_{main.Variant}", main.Args);
+        KindLine.Text = Loc.T($"RecL_{main.Key}_{main.Variant}", main.Args);
+        foreach (var badge in r.Titles.Skip(1).Where(x => x.Score >= 0.3).Take(3))
+            Badges.Children.Add(Badge(Loc.T($"RecBadge_{badge.Key}", badge.Args)));
+        Badges.Visibility = Badges.Children.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
     }
+
+    Border Badge(string text) => new()
+    {
+        CornerRadius = new CornerRadius(9),
+        Background = new SolidColorBrush(Color.FromArgb(0x22, 0xFF, 0xFF, 0xFF)),
+        BorderBrush = (Brush)Resources["Accent"],
+        BorderThickness = new Thickness(1),
+        Padding = new Thickness(8, 2, 9, 3),
+        Margin = new Thickness(0, 0, 6, 4),
+        Child = new TextBlock
+        {
+            Text = "#" + text,
+            FontSize = 11,
+            FontWeight = FontWeights.SemiBold,
+            MaxWidth = 200,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+        },
+    };
 
     FrameworkElement SongRow(int rank, RecapSong song)
     {
-        var grid = new Grid { Margin = new Thickness(0, 0, 0, 3) };
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(30) });
+        // one line a song (title, then its artist dimmer), so the titles at the bottom have room
+        var grid = new Grid { Margin = new Thickness(0, 0, 0, 2) };
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(26) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         var number = new TextBlock
         {
             Text = rank.ToString(CultureInfo.InvariantCulture),
-            FontSize = 18,
+            FontSize = 16,
             FontWeight = FontWeights.Black,
             Foreground = (Brush)Resources["Accent"],
             VerticalAlignment = VerticalAlignment.Center,
         };
-        var text = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
-        text.Children.Add(new TextBlock { Text = song.Title, FontSize = 13.5, FontWeight = FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis });
-        text.Children.Add(new TextBlock { Text = song.Artist, FontSize = 11, Opacity = 0.6, TextTrimming = TextTrimming.CharacterEllipsis });
+        var text = new TextBlock { VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
+        text.Inlines.Add(new System.Windows.Documents.Run(song.Title) { FontSize = 13.5, FontWeight = FontWeights.SemiBold });
+        text.Inlines.Add(new System.Windows.Documents.Run("  " + song.Artist) { FontSize = 11.5, Foreground = new SolidColorBrush(Color.FromArgb(0x99, 0xFF, 0xFF, 0xFF)) });
         var plays = new TextBlock
         {
             Text = Loc.T("Rec_Plays", N(song.Plays)),

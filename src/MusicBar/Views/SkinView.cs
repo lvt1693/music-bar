@@ -193,14 +193,27 @@ public sealed class SkinView : Border
         }
     }
 
+    double _lastStyleTime = double.NaN, _lastProgress = double.NaN;
+
     /// <summary>One frame: the time, the song and the sound, as the engine has them now.</summary>
     public void Update(SeekRenderer engine)
     {
         if (Skin?.Bytecode is not { } code) return;
         var (a, b, c) = engine.ColorsNow();
+        // For the 2.0 engine: the time since the last frame (the skin's own clock, which slows when paused), and a
+        // clean slate for skins that keep a state when the song changes (its progress falls back a long way).
+        double styleTime = engine.StyleTime;
+        double dt = double.IsNaN(_lastStyleTime) ? 1.0 / 60 : styleTime - _lastStyleTime;
+        if (dt < 0 || dt > 0.25) dt = 1.0 / 60;
+        _lastStyleTime = styleTime;
+        double progressNow = engine.ProgressNow;
+        if (!double.IsNaN(_lastProgress) && progressNow < _lastProgress - 0.3)
+            foreach (var part in _parts) part.Target?.ResetState();
+        _lastProgress = progressNow;
         // A skin with headroom is laid out on the screen's own x, the icons only cutting it: what it draws above
-        // the taskbar has to line up with what it draws on it. Others run across the stretches end to end.
-        bool screenX = Skin.Headroom > 0;
+        // the taskbar has to line up with what it draws on it (and a 2.0 skin's kept picture with the screen).
+        // Others run across the stretches end to end.
+        bool screenX = Skin.Headroom > 0 || Skin.Features != null;
         double full = _pieces.Count == 0 || screenX ? ActualWidth : _pieces.Sum(p => p.Right - p.Left);
         full = Math.Max(1, full);
         double height = Math.Max(1, ActualHeight);
@@ -235,6 +248,7 @@ public sealed class SkinView : Border
             ColorC = SkinInputs.From(c),
             BottomEdge = engine.EdgeAtTop ? 1 : 0,
             Bar = bar,
+            Engine = new System.Numerics.Vector4((float)dt, 1, SkinGpu.CoverAspect, SkinGpu.HasCover ? 1 : 0),
         };
         var dpi = VisualTreeHelper.GetDpi(this);
         double at = 0;
@@ -248,7 +262,7 @@ public sealed class SkinView : Border
             if (_parts[i].Target is { } target && SkinGpu.Shared is { } gpu)
             {
                 // Drawn at the screen's own pixels; the skin still measures in the units WPF gives it.
-                gpu.Draw(target, code, inputs, _pixels, (int)Math.Round(width * dpi.DpiScaleX), (int)Math.Round(height * dpi.DpiScaleY));
+                gpu.Draw(target, code, inputs, _pixels, (int)Math.Round(width * dpi.DpiScaleX), (int)Math.Round(height * dpi.DpiScaleY), Skin.Features);
                 continue;
             }
             if (_parts[i].Effect is not { } e) continue;

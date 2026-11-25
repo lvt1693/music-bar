@@ -40,10 +40,12 @@ public sealed class YearTally
 }
 
 /// <summary>
-/// Counts what is listened to, for the year in music: every few seconds while something plays,
-/// the song, its artist, the day, the hour and the app get the time. A song counts as played once
-/// it has been heard for half a minute (or half of a short one), again on each repeat. Kept on
-/// this computer only, a small JSON file per year.
+/// Counts what is listened to, for the year in music: every few seconds while music plays, the song, its
+/// artist, the day, the hour and the app get the time. Only music: <see cref="MusicCheck"/> leaves out pages,
+/// videos and launchers; time it can't place yet (a browser tab waiting for the catalogue's answer) is held
+/// and counted once it turns out to be a song, or dropped. A song counts as played once it has been heard
+/// for half a minute (or half of a short one), again on each repeat. Kept on this computer only, a small
+/// JSON file per year.
 /// </summary>
 public sealed class ListeningStats : IDisposable
 {
@@ -52,6 +54,8 @@ public sealed class ListeningStats : IDisposable
 
     readonly AppSettings _s;
     readonly MediaService _media;
+    // Whether the iTunes catalogue knows a song (true, false), or hasn't been asked (null): the song card's cache.
+    readonly Func<string, string, bool?> _inCatalogue;
     readonly DispatcherTimer _timer = new() { Interval = Step };
     readonly Dictionary<int, YearTally> _years = new();
     DateTime _lastTick = DateTime.Now;
@@ -61,10 +65,15 @@ public sealed class ListeningStats : IDisposable
     double _stint;
     bool _counted;
 
-    public ListeningStats(AppSettings settings, MediaService media)
+    // Time held while it isn't known whether this is music, with what it would be counted as.
+    readonly List<(DateTime When, double Seconds)> _held = [];
+    (string Title, string Artist, string RawArtist, string App, TimeSpan Duration) _heldFor;
+
+    public ListeningStats(AppSettings settings, MediaService media, Func<string, string, bool?>? inCatalogue = null)
     {
         _s = settings;
         _media = media;
+        _inCatalogue = inCatalogue ?? ((_, _) => null);
         _timer.Tick += (_, _) => Tick();
         _media.TrackChanged += (_, _) => NewStint();
         _media.Restarted += (_, _) => NewStint();
@@ -84,9 +93,25 @@ public sealed class ListeningStats : IDisposable
 
     void NewStint()
     {
+        SettleHeld();
         _stint = 0;
         _counted = false;
         _songKey = "";
+    }
+
+    /// <summary>The song is over and still unplaced: a song-length piece with an artist from the player counts.</summary>
+    void SettleHeld()
+    {
+        if (_held.Count == 0) return;
+        if (MusicCheck.CountsWhenUnsure(_heldFor.RawArtist, _heldFor.Duration)) Release();
+        _held.Clear();
+    }
+
+    void Release()
+    {
+        var (title, artist, _, app, duration) = _heldFor;
+        foreach (var (when, seconds) in _held) Add(when, seconds, title, artist, app, duration);
+        _held.Clear();
     }
 
     void Tick()
@@ -101,28 +126,49 @@ public sealed class ListeningStats : IDisposable
         var key = $"{TitleCleaner.Loose(artist)}|{TitleCleaner.Loose(title)}";
         if (key != _songKey)
         {
+            SettleHeld();
             _songKey = key;
             _stint = 0;
             _counted = false;
         }
-        var year = Year(now.Year);
+        var app = _media.AppName.Length > 0 ? _media.AppName : "?";
+        var verdict = MusicCheck.Judge(_media.AppId, _media.Title, _media.Artist, _media.Album, _media.Duration, _media.Kind,
+            _inCatalogue(_media.Artist, _media.Title));
+        switch (verdict)
+        {
+            case ListenVerdict.NotMusic:
+                _held.Clear();
+                return;
+            case ListenVerdict.Unsure:
+                // Held (at most a few hours of it) until the catalogue answers or the song ends.
+                _heldFor = (title, artist, _media.Artist, app, _media.Duration);
+                if (_held.Count < 3000) _held.Add((now, seconds));
+                return;
+        }
+        if (_held.Count > 0) Release();
+        Add(now, seconds, title, artist, app, _media.Duration);
+    }
+
+    void Add(DateTime when, double seconds, string title, string artist, string app, TimeSpan duration)
+    {
+        var key = $"{TitleCleaner.Loose(artist)}|{TitleCleaner.Loose(title)}";
+        var year = Year(when.Year);
         if (!year.Songs.TryGetValue(key, out var song))
         {
-            song = new SongTally { Title = title, Artist = artist, First = now };
+            song = new SongTally { Title = title, Artist = artist, First = when };
             year.Songs[key] = song;
         }
         song.Seconds += seconds;
         _stint += seconds;
-        double needed = _media.Duration > TimeSpan.Zero ? Math.Min(30, _media.Duration.TotalSeconds / 2) : 30;
+        double needed = duration > TimeSpan.Zero ? Math.Min(30, duration.TotalSeconds / 2) : 30;
         if (!_counted && _stint >= needed)
         {
             _counted = true;
             song.Plays++;
         }
-        var day = now.ToString("yyyy-MM-dd");
+        var day = when.ToString("yyyy-MM-dd");
         year.Days[day] = year.Days.GetValueOrDefault(day) + seconds;
-        year.Hours[now.Hour] += seconds;
-        var app = _media.AppName.Length > 0 ? _media.AppName : "?";
+        year.Hours[when.Hour] += seconds;
         year.Apps[app] = year.Apps.GetValueOrDefault(app) + seconds;
         _dirty = true;
     }

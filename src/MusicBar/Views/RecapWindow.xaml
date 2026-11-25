@@ -113,8 +113,10 @@
                         <Grid>
                             <StackPanel Margin="0,0,10,0">
                                 <TextBlock x:Name="KindLabel" Style="{StaticResource Label}" Opacity="0.75" />
-                                <TextBlock x:Name="KindName" FontSize="19" FontWeight="Bold" Margin="0,1,0,0" />
+                                <TextBlock x:Name="KindName" FontSize="19" FontWeight="Bold" Margin="0,1,0,0" MaxWidth="470" HorizontalAlignment="Left" TextTrimming="CharacterEllipsis" />
                                 <TextBlock x:Name="KindLine" FontSize="12" Opacity="0.78" TextWrapping="Wrap" Margin="0,2,0,0" MaxWidth="300" HorizontalAlignment="Left" />
+                                <!-- The year's other titles, as small badges -->
+                                <WrapPanel x:Name="Badges" Margin="0,7,0,-4" MaxWidth="305" HorizontalAlignment="Left" />
                             </StackPanel>
                             <StackPanel HorizontalAlignment="Right" VerticalAlignment="Bottom">
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">

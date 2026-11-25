@@ -3,6 +3,30 @@
 Mới nhất ở trên. Bản cài và bản portable của từng bản có ở trang
 [Releases](https://github.com/lvt1693/music-bar/releases).
 
+## 2.0.0 · 26/11/2026
+
+**Mới**
+
+- **Skin tràn ra khỏi taskbar:** skin giờ vẽ được cả lên khoảng màn hình nền ngay phía trên taskbar: lửa bốc
+  lên, tia laser bắn xuống, đèn ông sao nhô lên. Phần đó không chặn chuột, và mặc định chỉ hiện khi chỗ đó là
+  màn hình nền. Muốn nó hiện cả khi có cửa sổ app thì bật **Cho skin vẽ tràn lên trên cửa sổ** trong Cài đặt;
+  dù bật vẫn không bao giờ vẽ lên game, app toàn màn hình hay menu Start.
+- **6 skin mới trên kho** để khoe khả năng này: Katana Forge, Đêm Hoa Đăng, Laser Engraver, Magma Crust, Koi
+  Pond Ripples và Iridescent Liquid Chrome. Chúng cần bản 2.0, bản cũ hơn không thấy chúng trong kho.
+- **Danh hiệu mới cho Tổng kết năm:** hơn 30 danh hiệu tuỳ cách bạn nghe, kèm tối đa 3 hashtag, ví dụ
+  "Phụ huynh hệ Baby Shark", "70% cơ thể là nhạc", "Wibu có gu", "Rap Việt chảy trong máu". Mỗi năm một kiểu,
+  có bản tiếng Anh riêng.
+- **Engine skin 2.0** cho người làm skin: skin nhớ được khung hình trước (vệt mờ, mực loang, chất lỏng), lấy
+  ảnh bìa bài đang phát làm chất liệu, và có bloom nhiều lớp cho ánh sáng mềm. Cách dùng ở
+  [docs/skins.md](docs/skins.md).
+
+**Sửa lỗi**
+
+- Tổng kết năm chỉ đếm nhạc: tab trình duyệt kiểu "Facebook" hay "TikTok - Make Your Day", video và cuộc họp
+  không còn bị tính là bài hát. Cái gì chưa chắc là nhạc thì chờ biết rõ rồi mới tính; số liệu cũ cũng được lọc
+  lại.
+- Danh sách bài trong thẻ Tổng kết năm gọn mỗi bài một dòng, không còn tràn khỏi thẻ.
+
 ## 1.8.6 · 19/11/2026
 
 **Mới**

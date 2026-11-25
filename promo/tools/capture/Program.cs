@@ -13,6 +13,7 @@ using System.Windows.Media;
 using System.Windows.Media.Effects;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using MusicBar.Infrastructure;
 using MusicBar.Models;
 using MusicBar.Services;
 using MusicBar.Views;
@@ -105,6 +106,9 @@ static class Program
                     case "encode": await Encode(args); break;
                     case "compile": CompileBoth(args); break;
                     case "skinperf": await SkinPerf(args); break;
+                    case "musiccheck": MusicCheckRun(args); break;
+                    case "recap": await RecapCard(args); break;
+                    case "recapwords": RecapWords(args); break;
                     default: throw new ArgumentException("unknown mode " + args[0]);
                 }
             }
@@ -153,7 +157,8 @@ static class Program
             engine.Visibility = Visibility.Hidden;
             engine.SetColors(C(a.Length > 6 ? a[6] : "#FF5F6D"), C(a.Length > 7 ? a[7] : "#47A9FF"), animate: false, C(a.Length > 8 ? a[8] : "#FFC371"));
             view = new SkinView();
-            var info = new SkinInfo(Path.GetFileName(input), "", "", "", visualizer, bytecode, null, SkinLibrary.HeadroomOf(text));
+            UseTestCover();
+            var info = new SkinInfo(Path.GetFileName(input), "", "", "", visualizer, bytecode, null, SkinLibrary.HeadroomOf(text), SkinLibrary.FeaturesOf(text));
             view.SetSkin(info);
             // A skin with headroom: its part above the taskbar too, over a desktop-like ground, scaled with the bar
             // (the headroom is in DIPs; a clip taller than a 48 DIP taskbar scales it up). "nohead" as the 10th argument leaves
@@ -264,7 +269,8 @@ static class Program
         engine.SetEdge(true);
         engine.SetColors(C("#FF6B6B"), C("#47A9FF"), animate: false, C("#FFC371"));
         var view = new SkinView();
-        var info = new SkinInfo(Path.GetFileName(a[1]), "", "", "", false, bytecode, null, SkinLibrary.HeadroomOf(text));
+        UseTestCover();
+        var info = new SkinInfo(Path.GetFileName(a[1]), "", "", "", false, bytecode, null, SkinLibrary.HeadroomOf(text), SkinLibrary.FeaturesOf(text));
         view.SetSkin(info);
         var host = new Grid { Width = w, Height = h, Background = new SolidColorBrush(Color.FromRgb(0x0B, 0x0B, 0x0F)) };
         // A skin with headroom costs its part above the taskbar too: drawn by a second view as the app does
@@ -343,6 +349,110 @@ static class Program
         }
         window.Close();
         Console.WriteLine($"{(SkinLibrary.IsDirect3D11(bytecode) ? "Direct3D 11" : "WPF effect")}{(room > 0 ? $" + {room} DIP headroom" : "")}: {frames / wall:0} frames/s, CPU {cpu / wall * 100:0.0}% of one core, {Process.GetCurrentProcess().PrivateMemorySize64 >> 20} MB private, Update {inUpdate.Elapsed.TotalMilliseconds / Math.Max(1, frames):0.00} ms a frame");
+    }
+
+    /// <summary>
+    /// musiccheck [stats.json]: MusicCheck on the cases it has to get right (each must print ok), then, given a year's
+    /// stats file, what the recap now leaves out of it and its top songs and minutes.
+    /// </summary>
+    static void MusicCheckRun(string[] a)
+    {
+        var m = MusicBar.Services.MediaKind.Music;
+        var v = MusicBar.Services.MediaKind.Video;
+        var none = TimeSpan.Zero;
+        var cases = new (string Name, string App, string Title, string Artist, string Album, TimeSpan Len, MusicBar.Services.MediaKind Kind, bool? Cat, MusicBar.Services.ListenVerdict Want)[]
+        {
+            ("TikTok tab", "Chrome", "TikTok - Make Your Day", "", "", TimeSpan.FromSeconds(25), m, null, MusicBar.Services.ListenVerdict.NotMusic),
+            ("Facebook tab", "Chrome", "(1) Facebook", "", "", TimeSpan.FromSeconds(90), m, null, MusicBar.Services.ListenVerdict.NotMusic),
+            ("Preview page", "Chrome", "Xem trước — Pika lấy lại đồ ăn", "", "", TimeSpan.FromSeconds(80), m, null, MusicBar.Services.ListenVerdict.NotMusic),
+            ("Spotify song", "Spotify.exe", "Nàng Thơ", "Hoàng Dũng", "Nàng Thơ", TimeSpan.FromSeconds(254), m, null, MusicBar.Services.ListenVerdict.Music),
+            ("Spotify ad", "Spotify.exe", "Advertisement", "Spotify", "", TimeSpan.FromSeconds(30), m, null, MusicBar.Services.ListenVerdict.NotMusic),
+            ("YouTube MV, catalogue knows it", "Chrome", "Lạc Trôi | Official Music Video", "Sơn Tùng M-TP", "", TimeSpan.FromSeconds(270), m, true, MusicBar.Services.ListenVerdict.Music),
+            ("YouTube vlog, catalogue doesn't", "Chrome", "A day in Hanoi", "Some Vlogger", "", TimeSpan.FromSeconds(600), m, false, MusicBar.Services.ListenVerdict.NotMusic),
+            ("YouTube, not looked up yet", "Chrome", "Hero", "Cash Cash", "", TimeSpan.FromSeconds(220), m, null, MusicBar.Services.ListenVerdict.Unsure),
+            ("YouTube Music in a browser", "msedge", "Hero", "Cash Cash", "Blood, Sweat & 3 Years", TimeSpan.FromSeconds(220), m, null, MusicBar.Services.ListenVerdict.Music),
+            ("Video file in Media Player", "Microsoft.ZuneMusic_8wekyb3d8bbwe!Microsoft.ZuneMusic", "musicbar-promo-v2-draft", "", "", TimeSpan.FromSeconds(65), v, null, MusicBar.Services.ListenVerdict.NotMusic),
+            ("Untagged mp3 in Media Player", "Microsoft.ZuneMusic_8wekyb3d8bbwe!Microsoft.ZuneMusic", "Sơn Tùng M-TP - Lạc Trôi", "", "", TimeSpan.FromSeconds(233), m, true, MusicBar.Services.ListenVerdict.Music),
+            ("Riot Client", "com.riotgames.RiotGames", "Riot Client", "", "", none, MusicBar.Services.MediaKind.Unknown, null, MusicBar.Services.ListenVerdict.NotMusic),
+            ("Teams call", "MSTeams_8wekyb3d8bbwe!MSTeams", "Daily standup", "", "", none, m, null, MusicBar.Services.ListenVerdict.NotMusic),
+            ("Zing MP3 page, catalogue knows it", "Chrome", "Lạc Trôi - Sơn Tùng M-TP | Zing MP3", "", "", TimeSpan.FromSeconds(233), m, true, MusicBar.Services.ListenVerdict.Music),
+        };
+        int bad = 0;
+        foreach (var c in cases)
+        {
+            var got = MusicBar.Services.MusicCheck.Judge(c.App, c.Title, c.Artist, c.Album, c.Len, c.Kind, c.Cat);
+            bool ok = got == c.Want;
+            if (!ok) bad++;
+            Console.WriteLine($"{(ok ? "ok  " : "FAIL")} {c.Name}: {got}{(ok ? "" : $" (want {c.Want})")}");
+        }
+        if (bad > 0) Environment.ExitCode = 1;
+        if (a.Length < 2) return;
+
+        var tally = System.Text.Json.JsonSerializer.Deserialize<MusicBar.Services.YearTally>(File.ReadAllText(a[1]))!;
+        Console.WriteLine();
+        Console.WriteLine("Left out of the recap:");
+        foreach (var s in tally.Songs.Values.Where(s => !MusicBar.Services.MusicCheck.LooksLikeSongEntry(s.Title, s.Artist)).OrderByDescending(s => s.Seconds))
+            Console.WriteLine($"  {s.Seconds / 60,6:0.0} min  [{s.Artist}] {s.Title}");
+        var recap = MusicBar.Services.YearRecap.From(tally);
+        Console.WriteLine($"Minutes: {tally.TotalSeconds / 60:0} counted, {recap.Minutes:0} in the recap; {recap.Songs} songs, {recap.Artists} artists");
+        foreach (var s in recap.TopSongs) Console.WriteLine($"  top song: {s.Artist} - {s.Title} ({s.Plays}x)");
+        foreach (var r in recap.TopArtists) Console.WriteLine($"  top artist: {r.Name} ({r.Minutes:0} min)");
+    }
+
+    /// <summary>
+    /// recap &lt;stats.json&gt; &lt;out.png&gt; [vi|en] [#accent]: the year-in-music card for a year's stats file, as the app's
+    /// Save button writes it (1080 x 1350), drawn off screen; prints the titles it earned with their scores.
+    /// </summary>
+    static async Task RecapCard(string[] a)
+    {
+        bool vi = a.Length > 3 && a[3] == "vi";
+        Loc.Instance.Language = vi ? AppLanguage.Vietnamese : AppLanguage.English;
+        var tally = System.Text.Json.JsonSerializer.Deserialize<MusicBar.Services.YearTally>(File.ReadAllText(a[1]))!;
+        var recap = MusicBar.Services.YearRecap.From(tally);
+        foreach (var t in recap.Titles)
+            Console.WriteLine($"  {t.Score:0.00} [{t.Group}] {Loc.T($"RecT_{t.Key}_{t.Variant}", t.Args)} | {Loc.T($"RecL_{t.Key}_{t.Variant}", t.Args)} | #{Loc.T($"RecBadge_{t.Key}", t.Args)}");
+        var settings = new AppSettings { Language = vi ? AppLanguage.Vietnamese : AppLanguage.English };
+        var window = new RecapWindow(recap, settings, C(a.Length > 4 ? a[4] : "#FF6B6B"))
+        {
+            WindowStartupLocation = WindowStartupLocation.Manual, Left = -20000, Top = -20000, ShowActivated = false, ShowInTaskbar = false,
+        };
+        window.Show();
+        await Task.Delay(400);
+        SavePng(window.Picture(), Path.GetFullPath(a[2]));
+        window.Close();
+    }
+
+    /// <summary>
+    /// recapwords [vi|en]: every title, line and badge the recap can show, with placeholder values; fails on any
+    /// missing string (a title whose variant count says more than the strings have).
+    /// </summary>
+    static void RecapWords(string[] a)
+    {
+        Loc.Instance.Language = a.Length > 1 && a[1] == "vi" ? AppLanguage.Vietnamese : AppLanguage.English;
+        object[] sample = ["{A}", "{B}", "{C}"];
+        int missing = 0;
+        string Say(string key)
+        {
+            var text = Loc.T(key, sample);
+            if (text == key) { missing++; return "MISSING " + key; }
+            return text;
+        }
+        foreach (var (key, n) in RecapTitles.Variants)
+        {
+            for (int v = 0; v < n; v++) Console.WriteLine($"{key}/{v}: {Say($"RecT_{key}_{v}")}  |  {Say($"RecL_{key}_{v}")}");
+            Console.WriteLine($"{key}: #{Say($"RecBadge_{key}")}");
+        }
+        Console.WriteLine(missing == 0 ? "all strings present" : $"{missing} MISSING");
+        if (missing > 0) Environment.ExitCode = 1;
+    }
+
+    /// <summary>MUSICBAR_COVER=path: a picture to stand in for the song's cover, for skins that paint with it.</summary>
+    static void UseTestCover()
+    {
+        var path = Environment.GetEnvironmentVariable("MUSICBAR_COVER");
+        if (string.IsNullOrEmpty(path) || !File.Exists(path)) return;
+        var cover = BitmapFrame.Create(new Uri(Path.GetFullPath(path)), BitmapCreateOptions.None, BitmapCacheOption.OnLoad);
+        SkinGpu.SetCover(cover);
     }
 
     static double D(string s) => double.Parse(s, Inv);

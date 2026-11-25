@@ -211,7 +211,9 @@ public partial class App : Application
         if (e.Args.Any(a => a.Equals("--demo", StringComparison.OrdinalIgnoreCase))) _media.StartDemo();
         // Not awaited: right after signing in it may take a few tries, and nothing else waits on it.
         else _ = _media.InitializeAsync();
-        _stats = new ListeningStats(settings, _media);
+        var info = _bars.TrackInfo;
+        _stats = new ListeningStats(settings, _media,
+            (artist, title) => info.TryGetCached(artist, title, out var found) ? found != null : null);
 
         // The first time, the welcome tour instead of the settings window.
         if (_settings.IsFirstRun || e.Args.Any(a => a.Equals("--welcome", StringComparison.OrdinalIgnoreCase)))

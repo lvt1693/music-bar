@@ -31,12 +31,17 @@ public sealed class TaskbarOverlays : IDisposable
     readonly Dispatcher _ui = Dispatcher.CurrentDispatcher;
     string _lastPlan = "";
 
+    /// <summary>The shared track-info lookups (the iTunes catalogue), also asked by the listening stats.</summary>
+    public TrackInfoService TrackInfo => _trackInfo;
+
     public TaskbarOverlays(AppSettings settings, MediaService media, LyricsService lyrics)
     {
         _s = settings;
         _media = media;
         _lyrics = lyrics;
         _trackInfo = new TrackInfoService(settings);
+        // The song's cover, for skins that paint with it ("//! cover").
+        media.ThumbnailChanged += (_, _) => SkinGpu.SetCover(media.Thumbnail);
         Main = new TaskbarOverlay(settings, media, lyrics, _audio, _trackInfo, monitorDevice: null);
         _sync.Tick += (_, _) => Sync();
         _refresh.Tick += (_, _) =>

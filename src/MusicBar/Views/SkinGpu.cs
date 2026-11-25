@@ -15,9 +15,12 @@ using MapFlags = Vortice.Direct3D11.MapFlags;
 namespace MusicBar.Views;
 
 /// <summary>What a skin is told for one frame, laid out register by register as WPF fills them (see SkinLibrary.Prelude11).</summary>
-[StructLayout(LayoutKind.Explicit, Size = 192)]
+[StructLayout(LayoutKind.Explicit, Size = 208)]
 public struct SkinInputs
 {
+    /// <summary>The 2.0 engine's inputs (c12): x the seconds since the last frame, y the pass (0 the state pass, 1 the
+    /// picture), z the cover's width over its height, w 1 while there is a cover.</summary>
+    [FieldOffset(192)] public Vector4 Engine;
     // c11 is read only by skins with headroom (SkinLibrary.HeadroomPrelude11); the others never declare it.
     [FieldOffset(0)] public float Time;
     [FieldOffset(16)] public float Progress;
@@ -60,8 +63,115 @@ public sealed class SkinGpu : IDisposable
         """;
 
 
+    // The 2.0 engine's own passes: bloom (a bright pass while halving, halvings, tent upsamples added back up the
+    // chain) and the last pass that lays the glow on the picture and writes what WPF shows.
+    const string PassCommon = """
+        Texture2D src : register(t0);
+        Texture2D extra : register(t1);
+        SamplerState linearClamp : register(s0);
+        cbuffer EngineInputs : register(b0) { float4 p0; float4 p1; };
+        float3 down13(float2 uv, float2 t)
+        {
+            float3 a = src.SampleLevel(linearClamp, uv + t * float2(-2, -2), 0).rgb;
+            float3 b = src.SampleLevel(linearClamp, uv + t * float2( 0, -2), 0).rgb;
+            float3 c = src.SampleLevel(linearClamp, uv + t * float2( 2, -2), 0).rgb;
+            float3 d = src.SampleLevel(linearClamp, uv + t * float2(-1, -1), 0).rgb;
+            float3 e = src.SampleLevel(linearClamp, uv, 0).rgb;
+            float3 f = src.SampleLevel(linearClamp, uv + t * float2( 1, -1), 0).rgb;
+            float3 g = src.SampleLevel(linearClamp, uv + t * float2(-2,  0), 0).rgb;
+            float3 h = src.SampleLevel(linearClamp, uv + t * float2( 2,  0), 0).rgb;
+            float3 i = src.SampleLevel(linearClamp, uv + t * float2(-1,  1), 0).rgb;
+            float3 j = src.SampleLevel(linearClamp, uv + t * float2( 1,  1), 0).rgb;
+            float3 k = src.SampleLevel(linearClamp, uv + t * float2(-2,  2), 0).rgb;
+            float3 l = src.SampleLevel(linearClamp, uv + t * float2( 0,  2), 0).rgb;
+            float3 m = src.SampleLevel(linearClamp, uv + t * float2( 2,  2), 0).rgb;
+            return e * 0.125 + (a + c + k + m) * 0.03125 + (b + g + h + l) * 0.0625 + (d + f + i + j) * 0.125;
+        }
+
+        """;
+
+    // p0: the source's texel (xy), the threshold (z), its soft knee (w).
+    const string BrightSource = PassCommon + """
+        float4 main(float2 uv : TEXCOORD0, float4 pos : SV_Position) : SV_Target
+        {
+            float3 o = down13(uv, p0.xy);
+            float br = max(o.r, max(o.g, o.b));
+            float knee = max(p0.w, 1e-4);
+            float soft = clamp(br - p0.z + knee, 0, 2 * knee);
+            soft = soft * soft / (4 * knee);
+            return float4(o * (max(soft, br - p0.z) / max(br, 1e-4)), 1);
+        }
+        """;
+
+    const string DownSource = PassCommon + """
+        float4 main(float2 uv : TEXCOORD0, float4 pos : SV_Position) : SV_Target { return float4(down13(uv, p0.xy), 1); }
+        """;
+
+    // A 3x3 tent over the smaller level, added (blending) onto the larger one.
+    const string UpSource = PassCommon + """
+        float4 main(float2 uv : TEXCOORD0, float4 pos : SV_Position) : SV_Target
+        {
+            float2 t = p0.xy;
+            float3 o = src.SampleLevel(linearClamp, uv, 0).rgb * 4
+                + (src.SampleLevel(linearClamp, uv + t * float2(0, -1), 0).rgb + src.SampleLevel(linearClamp, uv + t * float2(-1, 0), 0).rgb
+                 + src.SampleLevel(linearClamp, uv + t * float2(1, 0), 0).rgb + src.SampleLevel(linearClamp, uv + t * float2(0, 1), 0).rgb) * 2
+                + src.SampleLevel(linearClamp, uv + t * float2(-1, -1), 0).rgb + src.SampleLevel(linearClamp, uv + t * float2(1, -1), 0).rgb
+                + src.SampleLevel(linearClamp, uv + t * float2(-1, 1), 0).rgb + src.SampleLevel(linearClamp, uv + t * float2(1, 1), 0).rgb;
+            return float4(o / 16, 0);
+        }
+        """;
+
+    // The picture (premultiplied) plus the glow times p1.x; the alpha rises where the glow lands, so it shows on the
+    // desktop too, and the color never exceeds it (a valid premultiplied pixel).
+    const string CompositeSource = PassCommon + """
+        float4 main(float2 uv : TEXCOORD0, float4 pos : SV_Position) : SV_Target
+        {
+            float4 c = src.Load(int3(pos.xy, 0));
+            float3 rgb = max(c.rgb, 0) + extra.SampleLevel(linearClamp, uv, 0).rgb * p1.x;
+            float a = saturate(max(c.a, max(rgb.r, max(rgb.g, rgb.b))));
+            return float4(min(rgb, a), a);
+        }
+        """;
+
     /// <summary>The app's one renderer, once <see cref="Start"/> has succeeded.</summary>
     public static SkinGpu? Shared { get; private set; }
+
+    // The song's cover for skins that ask for it ("//! cover"): its pixels, set on the UI thread, uploaded (with a
+    // chain of smaller copies for blurred reads) when a skin needs them and they changed.
+    static byte[]? _coverPixels;
+    static int _coverWidth, _coverHeight, _coverVersion;
+
+    /// <summary>There is a cover to show, and its width over its height.</summary>
+    public static bool HasCover => _coverPixels != null;
+    public static float CoverAspect => _coverHeight > 0 ? (float)_coverWidth / _coverHeight : 1;
+
+    /// <summary>The cover skins may sample (null: none). Kept at 512 pixels at most.</summary>
+    public static void SetCover(BitmapSource? cover)
+    {
+        if (cover == null)
+        {
+            if (_coverPixels == null) return;
+            _coverPixels = null;
+            _coverVersion++;
+            return;
+        }
+        try
+        {
+            BitmapSource src = cover;
+            double longest = Math.Max(src.PixelWidth, src.PixelHeight);
+            if (longest > 512) src = new TransformedBitmap(src, new ScaleTransform(512 / longest, 512 / longest));
+            var bgra = new FormatConvertedBitmap(src, PixelFormats.Pbgra32, null, 0);
+            int w = bgra.PixelWidth, h = bgra.PixelHeight;
+            var pixels = new byte[w * h * 4];
+            bgra.CopyPixels(pixels, w * 4, 0);
+            (_coverPixels, _coverWidth, _coverHeight) = (pixels, w, h);
+            _coverVersion++;
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Reading the cover for skins failed", ex);
+        }
+    }
 
     /// <summary>
     /// Brings up Direct3D 11 on the default graphics card. False, with the reason logged, when there is
@@ -91,9 +201,17 @@ public sealed class SkinGpu : IDisposable
     ID3D11Texture2D? _audio;
     ID3D11ShaderResourceView? _audioView;
     ID3D11SamplerState? _sampler;
+    // The 2.0 engine's passes, their constants, the additive blend of the upsamples, and the cover on the card.
+    ID3D11PixelShader? _bright, _down, _up, _composite;
+    ID3D11Buffer? _passInputs;
+    ID3D11BlendState? _additive;
+    ID3D11Texture2D? _cover;
+    ID3D11ShaderResourceView? _coverView;
+    int _coverUploaded = -1;
     readonly Dictionary<byte[], ID3D11PixelShader?> _shaders = new(ReferenceEqualityComparer.Instance);
     readonly System.Runtime.CompilerServices.ConditionalWeakTable<SkinTarget, object> _targets = new();
     readonly byte[] _vertexCode;
+    readonly byte[] _brightCode, _downCode, _upCode, _compositeCode;
     readonly System.Windows.Threading.DispatcherTimer _idle = new() { Interval = TimeSpan.FromSeconds(10) };
     DateTime _lastDraw;
     bool _lost;
@@ -101,6 +219,10 @@ public sealed class SkinGpu : IDisposable
     SkinGpu()
     {
         _vertexCode = SkinLibrary.CompileOwn(VertexSource, "main", "vs_4_0");
+        _brightCode = SkinLibrary.CompileOwn(BrightSource, "main", "ps_4_0");
+        _downCode = SkinLibrary.CompileOwn(DownSource, "main", "ps_4_0");
+        _upCode = SkinLibrary.CompileOwn(UpSource, "main", "ps_4_0");
+        _compositeCode = SkinLibrary.CompileOwn(CompositeSource, "main", "ps_4_0");
         // Made once to learn what the card can do, then put to sleep until a skin is drawn: a device costs the
         // process 30 MB or so (measured on an RTX 2060), wasted on everyone who uses the built-in styles.
         CreateDevice();
@@ -163,6 +285,14 @@ public sealed class SkinGpu : IDisposable
         _audioView = _device.CreateShaderResourceView(_audio);
         _sampler = _device.CreateSamplerState(new SamplerDescription(Filter.MinMagMipLinear, TextureAddressMode.Clamp,
             TextureAddressMode.Clamp, TextureAddressMode.Clamp, 0, 1, ComparisonFunction.Never, new Vortice.Mathematics.Color4(0, 0, 0, 0), 0, float.MaxValue));
+        _bright = _device.CreatePixelShader(_brightCode);
+        _down = _device.CreatePixelShader(_downCode);
+        _up = _device.CreatePixelShader(_upCode);
+        _composite = _device.CreatePixelShader(_compositeCode);
+        _passInputs = _device.CreateBuffer(new BufferDescription(32, BindFlags.ConstantBuffer, ResourceUsage.Dynamic, CpuAccessFlags.Write,
+            ResourceOptionFlags.None, 0));
+        _additive = _device.CreateBlendState(new BlendDescription(Blend.One, Blend.One));
+        _coverUploaded = -1;
         Generation++;
     }
 
@@ -170,6 +300,15 @@ public sealed class SkinGpu : IDisposable
     {
         foreach (var s in _shaders.Values) s?.Dispose();
         _shaders.Clear();
+        _coverView?.Dispose();
+        _cover?.Dispose();
+        _additive?.Dispose();
+        _passInputs?.Dispose();
+        _composite?.Dispose();
+        _up?.Dispose();
+        _down?.Dispose();
+        _bright?.Dispose();
+        (_coverView, _cover, _additive, _passInputs, _composite, _up, _down, _bright) = (null, null, null, null, null, null, null, null);
         _sampler?.Dispose();
         _audioView?.Dispose();
         _audio?.Dispose();
@@ -237,7 +376,8 @@ public sealed class SkinGpu : IDisposable
     /// Draws one frame of a skin into a target of the given size in pixels, and brings the frame before it
     /// to the target's bitmap. False when it can't be drawn (no device, a shader the card refuses).
     /// </summary>
-    public bool Draw(SkinTarget target, byte[] code, in SkinInputs inputs, ReadOnlySpan<byte> audio, int width, int height)
+    public bool Draw(SkinTarget target, byte[] code, in SkinInputs inputs, ReadOnlySpan<byte> audio, int width, int height,
+                     SkinFeatures? features = null)
     {
         if (!Ready()) return false;
         _lastDraw = DateTime.Now;
@@ -249,6 +389,11 @@ public sealed class SkinGpu : IDisposable
             var shader = Shader(code);
             if (shader == null) return false;
             target.Fit(this, device, width, height);
+            if (features is { Any: true })
+            {
+                DrawEngine(target, shader, inputs, audio, width, height, features);
+                return true;
+            }
 
             var mapped = context.Map(inputBuffer, MapMode.WriteDiscard, MapFlags.None);
             Marshal.StructureToPtr(inputs, mapped.DataPointer, false);
@@ -285,10 +430,219 @@ public sealed class SkinGpu : IDisposable
         }
     }
 
+    void WriteInputs(in SkinInputs inputs)
+    {
+        var mapped = _context!.Map(_inputs!, MapMode.WriteDiscard, MapFlags.None);
+        Marshal.StructureToPtr(inputs, mapped.DataPointer, false);
+        _context.Unmap(_inputs!, 0);
+    }
+
+    void WritePass(float a, float b, float c, float d, float strength)
+    {
+        var mapped = _context!.Map(_passInputs!, MapMode.WriteDiscard, MapFlags.None);
+        unsafe
+        {
+            var p = (float*)mapped.DataPointer;
+            p[0] = a; p[1] = b; p[2] = c; p[3] = d;
+            p[4] = strength; p[5] = p[6] = p[7] = 0;
+        }
+        _context.Unmap(_passInputs!, 0);
+    }
+
+    /// <summary>The cover on the card, uploaded again when it changed, with its smaller copies made; null when there is none.</summary>
+    ID3D11ShaderResourceView? CoverView()
+    {
+        var pixels = _coverPixels;
+        if (pixels == null) return null;
+        if (_coverUploaded == _coverVersion && _coverView != null) return _coverView;
+        _coverView?.Dispose();
+        _cover?.Dispose();
+        int w = _coverWidth, h = _coverHeight;
+        _cover = _device!.CreateTexture2D(new Texture2DDescription(Format.B8G8R8A8_UNorm, (uint)w, (uint)h, 1, 0,
+            BindFlags.ShaderResource | BindFlags.RenderTarget, ResourceUsage.Default, CpuAccessFlags.None, 1, 0, ResourceOptionFlags.GenerateMips));
+        unsafe
+        {
+            fixed (byte* p = pixels)
+                _context!.UpdateSubresource(_cover, 0, null, (IntPtr)p, (uint)(w * 4), (uint)(w * h * 4));
+        }
+        _coverView = _device.CreateShaderResourceView(_cover);
+        _context!.GenerateMips(_coverView);
+        _coverUploaded = _coverVersion;
+        return _coverView;
+    }
+
+    /// <summary>One full-target draw of the shader bound with whatever is bound.</summary>
+    void Fill(ID3D11RenderTargetView view, int width, int height, ID3D11PixelShader shader, bool clear = true)
+    {
+        var context = _context!;
+        context.OMSetRenderTargets(view, null);
+        context.RSSetViewport(0, 0, width, height, 0, 1);
+        if (clear) context.ClearRenderTargetView(view, new Vortice.Mathematics.Color4(0, 0, 0, 0));
+        context.PSSetShader(shader);
+        context.Draw(3, 0);
+    }
+
+    /// <summary>
+    /// The 2.0 engine's frame. The skin draws into a 16-bit float picture: with feedback it reads its last frame
+    /// (t2) and its frame is kept for the next (two pictures taking turns); with a state pass it draws twice, the
+    /// state (pass 0, reading the last state) and then the picture (pass 1, reading the state just made). Then the
+    /// bloom chain, and the last pass that writes the picture and its glow for WPF.
+    /// </summary>
+    void DrawEngine(SkinTarget target, ID3D11PixelShader shader, SkinInputs inputs, ReadOnlySpan<byte> audio, int width, int height,
+                    SkinFeatures features)
+    {
+        var (device, context) = (_device!, _context!);
+        target.FitEngine(device, width, height, features);
+
+        var mapped = context.Map(_audio!, 0, MapMode.WriteDiscard, MapFlags.None);
+        unsafe
+        {
+            fixed (byte* src = audio)
+                for (int y = 0; y < 2; y++)
+                    Buffer.MemoryCopy(src + y * 256 * 4, (byte*)mapped.DataPointer + y * mapped.RowPitch, 256 * 4, 256 * 4);
+        }
+        context.Unmap(_audio!, 0);
+
+        var cover = features.Cover ? CoverView() : null;
+        inputs.Engine.Z = cover != null ? CoverAspect : 1;
+        inputs.Engine.W = cover != null ? 1 : 0;
+
+        context.IASetPrimitiveTopology(PrimitiveTopology.TriangleList);
+        context.VSSetShader(_vertex!);
+        context.PSSetConstantBuffer(0, _inputs!);
+        context.PSSetShaderResource(1, _audioView!);
+        context.PSSetSampler(1, _sampler!);
+        context.PSSetSampler(2, _sampler!);
+        context.PSSetShaderResource(3, cover!);
+        context.OMSetBlendState(null);
+
+        if (target.StateNeedsClear)
+        {
+            foreach (var s in target.States) if (s != null) context.ClearRenderTargetView(s.View, new Vortice.Mathematics.Color4(0, 0, 0, 0));
+            target.StateNeedsClear = false;
+        }
+
+        ID3D11ShaderResourceView picture;
+        if (features.Feedback)
+        {
+            var (last, now) = (target.States[target.Turn ^ 1]!, target.States[target.Turn]!);
+            if (features.StatePass)
+            {
+                inputs.Engine.Y = 0;
+                WriteInputs(inputs);
+                context.OMSetRenderTargets(now.View, null);
+                context.PSSetShaderResource(2, last.Resource);
+                Fill(now.View, width, height, shader);
+                inputs.Engine.Y = 1;
+                WriteInputs(inputs);
+                context.OMSetRenderTargets(target.Scene!.View, null);
+                context.PSSetShaderResource(2, now.Resource);
+                Fill(target.Scene.View, width, height, shader);
+                picture = target.Scene.Resource;
+            }
+            else
+            {
+                inputs.Engine.Y = 1;
+                WriteInputs(inputs);
+                context.OMSetRenderTargets(now.View, null);
+                context.PSSetShaderResource(2, last.Resource);
+                Fill(now.View, width, height, shader);
+                picture = now.Resource;
+            }
+            target.Turn ^= 1;
+        }
+        else
+        {
+            inputs.Engine.Y = 1;
+            WriteInputs(inputs);
+            context.PSSetShaderResource(2, null!);
+            Fill(target.Scene!.View, width, height, shader);
+            picture = target.Scene.Resource;
+        }
+        context.PSSetShaderResource(2, null!);
+        context.PSSetShaderResource(3, null!);
+
+        // Bloom: bright pass while halving into level 1, halvings down the chain, then each level's tent upsample
+        // added onto the one above it; level 1 ends up with the glow.
+        context.PSSetConstantBuffer(0, _passInputs!);
+        context.PSSetSampler(0, _sampler!);
+        ID3D11ShaderResourceView? glow = null;
+        var levels = target.Bloom;
+        if (features.Bloom > 0 && levels.Length > 0)
+        {
+            WritePass(1f / width, 1f / height, features.BloomThreshold, Math.Max(0.05f, features.BloomThreshold * 0.5f), 0);
+            context.OMSetRenderTargets(levels[0].View, null);
+            context.PSSetShaderResource(0, picture);
+            Fill(levels[0].View, levels[0].Width, levels[0].Height, _bright!);
+            for (int i = 1; i < levels.Length; i++)
+            {
+                WritePass(1f / levels[i - 1].Width, 1f / levels[i - 1].Height, 0, 0, 0);
+                context.OMSetRenderTargets(levels[i].View, null);
+                context.PSSetShaderResource(0, levels[i - 1].Resource);
+                Fill(levels[i].View, levels[i].Width, levels[i].Height, _down!);
+            }
+            context.OMSetBlendState(_additive);
+            for (int i = levels.Length - 1; i > 0; i--)
+            {
+                WritePass(1f / levels[i].Width, 1f / levels[i].Height, 0, 0, 0);
+                context.PSSetShaderResource(0, null!);
+                context.OMSetRenderTargets(levels[i - 1].View, null);
+                context.PSSetShaderResource(0, levels[i].Resource);
+                Fill(levels[i - 1].View, levels[i - 1].Width, levels[i - 1].Height, _up!, clear: false);
+            }
+            context.OMSetBlendState(null);
+            glow = levels[0].Resource;
+        }
+
+        WritePass(0, 0, 0, 0, glow != null ? features.Bloom : 0);
+        context.PSSetShaderResource(0, null!);
+        context.OMSetRenderTargets(target.View!, null);
+        context.PSSetShaderResource(0, picture);
+        context.PSSetShaderResource(1, glow!);
+        Fill(target.View!, width, height, _composite!);
+        context.PSSetShaderResource(0, null!);
+        context.PSSetShaderResource(1, null!);
+
+        target.Capture(context);
+        context.Flush();
+        target.Collect(context, WaitForFrames);
+    }
+
     public void Dispose()
     {
         ReleaseDevice();
         if (ReferenceEquals(Shared, this)) Shared = null;
+    }
+}
+
+/// <summary>A 16-bit float picture the 2.0 engine draws into and reads from.</summary>
+internal sealed class EngineSurface : IDisposable
+{
+    public required ID3D11Texture2D Texture { get; init; }
+    public required ID3D11RenderTargetView View { get; init; }
+    public required ID3D11ShaderResourceView Resource { get; init; }
+    public int Width { get; init; }
+    public int Height { get; init; }
+
+    public static EngineSurface Make(ID3D11Device device, int width, int height)
+    {
+        var texture = device.CreateTexture2D(new Texture2DDescription(Format.R16G16B16A16_Float, (uint)Math.Max(1, width), (uint)Math.Max(1, height),
+            1, 1, BindFlags.RenderTarget | BindFlags.ShaderResource, ResourceUsage.Default, CpuAccessFlags.None, 1, 0, ResourceOptionFlags.None));
+        return new EngineSurface
+        {
+            Texture = texture,
+            View = device.CreateRenderTargetView(texture),
+            Resource = device.CreateShaderResourceView(texture),
+            Width = Math.Max(1, width),
+            Height = Math.Max(1, height),
+        };
+    }
+
+    public void Dispose()
+    {
+        Resource.Dispose();
+        View.Dispose();
+        Texture.Dispose();
     }
 }
 
@@ -376,9 +730,63 @@ public sealed class SkinTarget : IDisposable
         _filled[i] = false;
     }
 
+    // The 2.0 engine's pictures: the skin's (when it isn't one of the states), the two states taking turns, the bloom chain.
+    internal EngineSurface? Scene { get; private set; }
+    internal EngineSurface?[] States { get; } = new EngineSurface?[2];
+    internal EngineSurface[] Bloom { get; private set; } = [];
+    internal int Turn { get; set; }
+    internal bool StateNeedsClear { get; set; }
+    SkinFeatures? _engineFor;
+    int _engineWidth, _engineHeight;
+
+    /// <summary>The kept state starts over (a new song): cleared before the next frame.</summary>
+    public void ResetState() => StateNeedsClear = true;
+
+    /// <summary>The 2.0 engine's pictures for this size and these features (made with the target, gone with it).</summary>
+    internal void FitEngine(ID3D11Device device, int width, int height, SkinFeatures features)
+    {
+        width = Math.Max(1, width);
+        height = Math.Max(1, height);
+        if (Scene != null && _engineFor == features && _engineWidth == width && _engineHeight == height) return;
+        ReleaseEngine();
+        (_engineFor, _engineWidth, _engineHeight) = (features, width, height);
+        if (!features.Feedback || features.StatePass) Scene = EngineSurface.Make(device, width, height);
+        if (features.Feedback)
+        {
+            States[0] = EngineSurface.Make(device, width, height);
+            States[1] = EngineSurface.Make(device, width, height);
+            StateNeedsClear = true;
+        }
+        // A picture to show without a scene of its own (one-pass feedback) still needs Scene set for the check above.
+        Scene ??= States[0];
+        if (features.Bloom > 0)
+        {
+            // Halvings down to a few pixels on the short side (a 48 px bar: 24, 12, 6, 3).
+            int count = Math.Clamp((int)Math.Floor(Math.Log2(Math.Min(width, height))) - 1, 1, 6);
+            var levels = new EngineSurface[count];
+            for (int i = 0; i < count; i++) levels[i] = EngineSurface.Make(device, Math.Max(1, width >> (i + 1)), Math.Max(1, height >> (i + 1)));
+            Bloom = levels;
+        }
+    }
+
+    void ReleaseEngine()
+    {
+        if (Scene != null && !ReferenceEquals(Scene, States[0]) && !ReferenceEquals(Scene, States[1])) Scene.Dispose();
+        Scene = null;
+        for (int i = 0; i < 2; i++)
+        {
+            States[i]?.Dispose();
+            States[i] = null;
+        }
+        foreach (var level in Bloom) level.Dispose();
+        Bloom = [];
+        _engineFor = null;
+    }
+
     /// <summary>Lets go of the textures (the renderer going to sleep, or this stretch leaving the screen); the next frame makes them anew.</summary>
     internal void Release()
     {
+        ReleaseEngine();
         View?.Dispose();
         View = null;
         _texture?.Dispose();

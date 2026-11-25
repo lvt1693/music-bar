@@ -4,14 +4,17 @@
 
 The taskbar has sat still for thirty years. Let it sing.
 
-**Download:** [installer](https://github.com/lvt1693/music-bar/releases/latest/download/MusicBar-1.8.6-Setup.exe)
-or [portable zip](https://github.com/lvt1693/music-bar/releases/latest/download/MusicBar-1.8.6-portable.zip)
+**Download:** [installer](https://github.com/lvt1693/music-bar/releases/latest/download/MusicBar-2.0.0-Setup.exe)
+or [portable zip](https://github.com/lvt1693/music-bar/releases/latest/download/MusicBar-2.0.0-portable.zip)
 (Windows 10 2004 or later, or Windows 11, 64-bit; no .NET to install).
 
 **Website:** [musicbar.truclv.com](https://musicbar.truclv.com), with the community **gallery**
 (skins, visualizers, LED strips) to download from or share yours.
 
-**What's new:** 1.8.6 **makes the animated preview for you** when you share a look, shows **Bluetooth
+**What's new:** 2.0 lets **skins spill off the taskbar** (fire, a laser beam, a star lantern rising onto the
+desktop, and over your windows too if you allow it), with **6 new skins** in the gallery such as Katana Forge and
+Đêm Hoa Đăng; the **year in music counts only music** (no more Facebook or TikTok tabs) and hands out **30+ new
+titles**; skin makers get **engine 2.0** (the previous frame, the cover art, bloom). 1.8.6 **makes the animated preview for you** when you share a look, shows **Bluetooth
 headset battery** in the control center, and on Windows 10 the **Notifications** panel can read notifications.
 1.8.5 lets you **share looks with your Google account** (see what you sent and why
 something was turned down on the website), and the gallery takes **skins up to 4 MB**. 1.8.4 turns **NetEase lyrics** on for new installs, works with the **Tab key and screen

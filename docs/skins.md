@@ -107,6 +107,32 @@ bằng một dòng ở đầu file:
 - `main` phải đúng dạng `float4 main(float2 uv : TEXCOORD) : COLOR`, vì MusicBar bọc nó để đo `uv` theo thanh. Skin
   quá lớn cho WPF (ps_3_0 hết thanh ghi) sẽ tự chạy bằng Direct3D 11 khi để chế độ Tự động.
 
+## Engine 2.0: khung trước, bìa đĩa, bloom
+
+Ba thứ mới, xin bằng dòng `//!` ở đầu file. Chúng chỉ có trên Direct3D 11 (chế độ Tự động tự chọn); trên WPF các hàm
+vẫn có nhưng trả giá trị thay thế, nên skin vẫn dịch được.
+
+```hlsl
+//! feedback          skin đọc lại khung trước của chính nó
+//! feedback: state   hai lượt mỗi khung: lượt trạng thái, rồi lượt vẽ hình
+//! cover             bìa đĩa bài đang phát thành ảnh để đọc
+//! bloom: 0.5 0.8    quầng sáng nhiều lượt quanh chỗ sáng: độ mạnh, ngưỡng sáng
+```
+
+- `previous(uv)`: màu khung trước (hoặc trạng thái đã giữ) tại `uv` của skin, đo theo thanh như `uv`. Khung đầu và
+  khi sang bài mới là `float4(0, 0, 0, 0)`: dùng `a < 0.5` để biết phải dựng lại từ đầu.
+- `statePass()`: với `feedback: state`, đúng trong lượt trạng thái. Lượt này đọc trạng thái cũ bằng `previous` và
+  trả về trạng thái mới (giữ dạng số thực 16 bit, không bị kẹp 0 đến 1). Lượt sau (`statePass()` sai) đọc trạng thái
+  vừa làm bằng `previous` và vẽ hình. Dùng cho thứ cần nhớ lâu: màu loang, cát chảy, vết tích.
+- `frameDelta()`: số giây từ khung trước (chậm lại khi tạm dừng, như `time`). Dùng để mờ dần đều tay:
+  `last * exp(-frameDelta() * 3)`.
+- `cover(p)`, `coverBlur(p, lod)`: màu bìa đĩa tại `p` (0 đến 1 trên bìa); `lod` càng lớn càng nhòe (0 nét, 9 là màu
+  trung bình cả bìa). `hasCover()` cho biết có bìa không (không có thì hai hàm trả dải màu `colorB` sang `colorA`),
+  `coverAspect()` là rộng chia cao.
+- Bloom chạy sau skin, trên cả phần phía trên taskbar: hình được giữ ở dạng số thực nên chỗ sáng hơn 1 vẫn tỏa quầng.
+- Đọc `previous` lệch ra một điểm ảnh mỗi khung là cách làm chất lỏng, vệt sáng, khói đọng. Đọc lại nhiều lần thì
+  hình nhòe dần: lọc Catmull-Rom rồi kẹp trong 4 điểm ảnh gần nhất giữ nét được hàng phút.
+
 ## Mẹo cho đẹp
 
 - Mọc từ mép màn hình: dùng `rise(uv)` làm "độ cao".

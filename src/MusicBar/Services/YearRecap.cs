@@ -9,9 +9,6 @@ public sealed record RecapSong(string Title, string Artist, int Plays, double Mi
 
 public sealed record RecapArtist(string Name, double Minutes);
 
-/// <summary>What kind of listener the year shows, for the line at the bottom of the card.</summary>
-public enum ListenerKind { AllRounder, NightOwl, EarlyBird, DayShift, OnRepeat, Explorer }
-
 /// <summary>A year in music, worked out from what <see cref="ListeningStats"/> counted.</summary>
 public sealed class YearRecap
 {
@@ -31,14 +28,22 @@ public sealed class YearRecap
     public int DaysListened { get; init; }
     /// <summary>The most days in a row with some music.</summary>
     public int LongestStreak { get; init; }
-    public ListenerKind Kind { get; init; }
+
+    /// <summary>The titles the year earned, strongest first (the card's "you are", then badges); never empty.</summary>
+    public required IReadOnlyList<RecapTitle> Titles { get; init; }
 
     /// <summary>Enough to be worth a recap: an hour of music.</summary>
     public bool Worthwhile => Minutes >= 60;
 
-    public static YearRecap From(YearTally t)
+    /// <param name="culture">How numbers and dates in the titles are written (the UI's language by default).</param>
+    public static YearRecap From(YearTally t, CultureInfo? culture = null)
     {
-        var songs = t.Songs.Values.Where(s => s.Seconds >= 20).ToList();
+        culture ??= CultureInfo.GetCultureInfo(MusicBar.Infrastructure.Loc.Instance.Language == MusicBar.Models.AppLanguage.Vietnamese ? "vi-VN" : "en-US");
+        // What was counted before the stats only took music (a "Facebook" tab, a video file): left out here, its
+        // time taken off the year's minutes too.
+        var notSongs = t.Songs.Values.Where(s => !MusicCheck.LooksLikeSongEntry(s.Title, s.Artist)).ToList();
+        double notSongSeconds = notSongs.Sum(s => s.Seconds);
+        var songs = t.Songs.Values.Where(s => s.Seconds >= 20 && MusicCheck.LooksLikeSongEntry(s.Title, s.Artist)).ToList();
         int plays = songs.Sum(s => s.Plays);
         var topSongs = songs.OrderByDescending(s => s.Plays).ThenByDescending(s => s.Seconds).Take(5)
             .Select(s => new RecapSong(s.Title, s.Artist, s.Plays, s.Seconds / 60)).ToList();
@@ -55,7 +60,7 @@ public sealed class YearRecap
         }
         var topArtists = artists.Values.OrderByDescending(a => a.Seconds).Take(5).Select(a => new RecapArtist(a.Name, a.Seconds / 60)).ToList();
 
-        double total = t.TotalSeconds;
+        double total = Math.Max(0, t.TotalSeconds - notSongSeconds);
         var app = t.Apps.OrderByDescending(a => a.Value).FirstOrDefault();
         var days = t.Days.Where(d => d.Value >= 60)
             .Select(d => (Day: DateTime.TryParseExact(d.Key, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var day) ? day : (DateTime?)null, Seconds: d.Value))
@@ -72,6 +77,8 @@ public sealed class YearRecap
         }
 
         int peak = Enumerable.Range(0, 24).MaxBy(h => t.Hours[h]);
+        var titles = RecapTitles.For(t, songs, total, plays, topArtists, artists.Count, app.Key,
+            days.Count > 0 ? biggest.Day : null, biggest.Seconds / 60, days.Count, streak, culture);
         return new YearRecap
         {
             Year = t.Year,
@@ -88,21 +95,8 @@ public sealed class YearRecap
             PeakHour = peak,
             DaysListened = days.Count,
             LongestStreak = streak,
-            Kind = KindOf(t, songs, plays, total),
+            Titles = titles,
         };
-    }
-
-    static ListenerKind KindOf(YearTally t, List<SongTally> songs, int plays, double total)
-    {
-        if (total <= 0) return ListenerKind.AllRounder;
-        double Share(params int[] hours) => hours.Sum(h => t.Hours[h]) / total;
-        int top = songs.Count > 0 ? songs.Max(s => s.Plays) : 0;
-        if (Share(22, 23, 0, 1, 2, 3) >= 0.35) return ListenerKind.NightOwl;
-        if (Share(5, 6, 7, 8) >= 0.3) return ListenerKind.EarlyBird;
-        if (plays >= 20 && (top >= 50 || top >= plays * 0.15)) return ListenerKind.OnRepeat;
-        if (songs.Count >= 80 && songs.Count >= plays * 0.6) return ListenerKind.Explorer;
-        if (Share(9, 10, 11, 12, 13, 14, 15, 16, 17) >= 0.6) return ListenerKind.DayShift;
-        return ListenerKind.AllRounder;
     }
 
     /// <summary>Which year's recap the end of the year offers: this one until New Year, last year's in the first week of January.</summary>

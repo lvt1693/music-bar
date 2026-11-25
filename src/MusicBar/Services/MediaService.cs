@@ -138,6 +138,13 @@ public sealed class MediaService : ObservableObject
     int _albumTrackCount;
     public int AlbumTrackCount { get => _albumTrackCount; private set => Set(ref _albumTrackCount, value); }
 
+    /// <summary>
+    /// What the player says it is playing: music, a video or a picture (Unknown when it doesn't say). Media Player
+    /// says Video for a video file; browsers say Music for every tab, so it only rules things out.
+    /// </summary>
+    MediaKind _kind;
+    public MediaKind Kind { get => _kind; private set => Set(ref _kind, value); }
+
     BitmapSource? _thumbnail;
     string _thumbnailHash = "";
     public BitmapSource? Thumbnail { get => _thumbnail; private set => Set(ref _thumbnail, value); }
@@ -459,6 +466,7 @@ public sealed class MediaService : ObservableObject
         IsPlaying = false;
         Title = Artist = Album = AlbumArtist = Genres = AppName = AppId = "";
         TrackNumber = AlbumTrackCount = 0;
+        Kind = MediaKind.Unknown;
         AppIcon = null;
         AppColor = null;
         Thumbnail = null;
@@ -742,6 +750,13 @@ public sealed class MediaService : ObservableObject
         AlbumArtist = (p.AlbumArtist ?? "").Trim();
         Genres = p.Genres is { Count: > 0 } g ? string.Join(", ", g) : "";
         TrackNumber = p.TrackNumber;
+        Kind = p.PlaybackType switch
+        {
+            Windows.Media.MediaPlaybackType.Music => MediaKind.Music,
+            Windows.Media.MediaPlaybackType.Video => MediaKind.Video,
+            Windows.Media.MediaPlaybackType.Image => MediaKind.Image,
+            _ => MediaKind.Unknown,
+        };
         AlbumTrackCount = p.AlbumTrackCount;
 
         if (trackChanged)
@@ -1101,6 +1116,7 @@ public sealed class MediaService : ObservableObject
         Album = status.Album;
         AlbumArtist = Genres = "";
         TrackNumber = AlbumTrackCount = 0;
+        Kind = MediaKind.Unknown;
         if (Thumbnail != null)
         {
             Thumbnail = null;
