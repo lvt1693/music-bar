@@ -133,6 +133,39 @@ vẫn có nhưng trả giá trị thay thế, nên skin vẫn dịch được.
 - Đọc `previous` lệch ra một điểm ảnh mỗi khung là cách làm chất lỏng, vệt sáng, khói đọng. Đọc lại nhiều lần thì
   hình nhòe dần: lọc Catmull-Rom rồi kẹp trong 4 điểm ảnh gần nhất giữ nét được hàng phút.
 
+## Layer: Lottie, SVG, ảnh
+
+Skin có thể kèm hình vẽ sẵn, đặt trước hoặc sau phần shader vẽ. Mỗi layer một dòng `//! layer:` (tối đa 8, trong 40
+dòng đầu); dòng trên nằm dưới, dòng dưới đè lên. File đặt trong thư mục mang tên skin, cạnh nó:
+`Skins\may-bay-giay.hlsl` và `Skins\may-bay-giay\plane.lottie`. Layer chỉ có trên Direct3D 11 (Tự động tự chọn).
+
+```hlsl
+//! headroom: 130
+//! layer: plane.lottie back y=56 size=104 flip=x across=30 bob=5,3.1 sway=2,4.3
+//! layer: sparkle.svg front x=0.8 y=-10 size=20 blend=add beat=0.2
+```
+
+- **Loại file:** Lottie (`.json`, `.lottie`, cả ảnh bên trong), SVG tĩnh hoặc động bằng SMIL (`animate`,
+  `animateTransform`...; animation bằng CSS thì không chạy), ảnh `.png .jpg .webp .bmp`, ảnh động `.gif .webp`.
+  Biểu thức (expression) trong Lottie không chạy. Mỗi file tối đa 32 MB.
+- **`front` / `back`:** đè lên hình của shader (mặc định) hay nằm sau nó: layer sau chỉ lộ ra chỗ shader trong suốt,
+  nên vật của skin che được nó (máy bay giấy lượn sau đám mây).
+- **Vị trí, tính bằng DIP:** `x` là tâm theo bề ngang thanh (0 mép trái, 1 mép phải, mặc định 0,5); `y` là tâm cách
+  mép taskbar phía desktop bao xa, dương là lên vùng headroom, âm là xuống trong thanh (mặc định giữa thanh); `size`
+  là chiều cao (mặc định bằng thanh), bề ngang theo tỉ lệ của hình.
+- **Hình dạng:** `flip=x|y|xy` lật, `opacity=0..1`, `blend=normal|add|screen|multiply|overlay|lighten|darken`.
+- **Chuyển động:** `speed` (tốc độ phát, mặc định 1), `across=giây` (bay hết bề ngang thanh trong ngần ấy giây, trái
+  sang phải; số âm là phải sang trái; `x` thành chỗ bắt đầu), `bob=độ_cao,giây` (nhấp nhô), `sway=độ,giây` (lắc),
+  `beat=0.1` (phồng theo nhịp).
+- **Đồng hồ:** `clock=music` (mặc định: theo đồng hồ của skin, chậm lại khi tạm dừng) hay `clock=always`;
+  `paused=hide` cho layer mờ đi khi nhạc dừng.
+- **Làm thanh tiến độ:** `follow=progress` cho layer đi theo bài, từ mép trái lúc đầu bài tới mép phải lúc hết bài
+  (bỏ qua `x` và `across`); tua thì nó lướt tới, sang bài mới thì về đầu thanh.
+- **Shader đọc layer:** `layerBack(uv)` và `layerFront(uv)` trả màu (nhân sẵn alpha) của layer tại `uv` của skin, đo như
+  `uv`. Dùng để đổ bóng của layer lên cảnh, làm phản chiếu, hay quầng sáng quanh nó.
+- Layer vẽ bằng Skia trên CPU mỗi khung một lần cho cả thanh lẫn headroom: một Lottie vài trăm hình mất dưới 1 ms.
+  Kho skin trên web chưa nhận skin có layer (chỉ nhận một file `.hlsl`).
+
 ## Mẹo cho đẹp
 
 - Mọc từ mép màn hình: dùng `rise(uv)` làm "độ cao".

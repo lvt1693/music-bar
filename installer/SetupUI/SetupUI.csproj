@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    MusicBar's setup window: one small WPF window in the app's look (welcome, options, progress, done, update,
+    uninstall, error) in front of the Inno Setup installer, which runs hidden underneath and does the real work.
+    .NET Framework 4.8 ships with every Windows MusicBar runs on (10 2004 and later), so the window costs a few
+    hundred KB, not a runtime.
+
+    Built twice by installer\build.ps1:
+      -p:Payload=<inner Inno setup.exe>  the release's MusicBar-x.y.z-Setup.exe, the Inno setup inside it
+      (no Payload)                       MusicBar-Uninstall.exe, installed beside MusicBar for the uninstall window
+    -p:SetupInfo=<setup.txt>             the version's size and "what's new" lines (build.ps1 writes it)
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <LangVersion>12</LangVersion>
+    <Nullable>enable</Nullable>
+    <AssemblyName>MusicBarSetup</AssemblyName>
+    <RootNamespace>MusicBar.Setup</RootNamespace>
+    <ApplicationIcon>..\..\src\MusicBar\Assets\MusicBar.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Product>MusicBar</Product>
+    <AssemblyTitle>MusicBar Setup</AssemblyTitle>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <Company>Truc</Company>
+    <Description>MusicBar Setup</Description>
+    <Copyright>Copyright (c) 2026 Truc</Copyright>
+    <Version Condition="'$(Version)' == ''">1.0.0</Version>
+    <DebugType>none</DebugType>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Resource Include="..\..\src\MusicBar\Assets\MusicBar.ico" Link="MusicBar.ico" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(Payload)' != ''">
+    <EmbeddedResource Include="$(Payload)" LogicalName="payload.exe" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(SetupInfo)' != ''">
+    <EmbeddedResource Include="$(SetupInfo)" LogicalName="setup.txt" />
+  </ItemGroup>
+
+</Project>

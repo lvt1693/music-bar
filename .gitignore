@@ -9,12 +9,11 @@ __pycache__/
 # web: the musicbar.truclv.com site is no longer developed in this public repo; it is deployed from this folder.
 web/
 
-# promo: HyperFrames working files and the rendered video (it ships with the release instead)
-promo/node_modules/
-promo/.hyperframes/
-promo/.capture/
-promo/.thumbnails/
-promo/renders/
+# promo: the promo films' working folders (HyperFrames projects, capture tool, renders) stay off the repo; the film
+# ships with each release instead
+promo/
+promo2/
+promo3d/
 
 # skin art: the private style research, toolbox and art guide for making skins (kept off the public repo)
 docs/skin-art/

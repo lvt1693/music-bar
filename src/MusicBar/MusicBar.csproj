@@ -50,7 +50,20 @@
     <PackageReference Include="System.Management" Version="10.0.14" />
     <!-- Skins drawn on Direct3D 11 (ps_5_0) instead of WPF's ps_3_0 effects, which cap how big a skin can be. -->
     <PackageReference Include="Vortice.Direct3D11" Version="3.8.3" />
+    <!-- A skin's layers ("//! layer:", Views/SkinLayers.cs): Lottie animations through Skottie, SVG (still and SMIL
+         animated) through Svg.Skia, pictures and animated GIF/WebP through Skia's codecs; drawn on the CPU. -->
+    <PackageReference Include="SkiaSharp" Version="4.157.0" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Win32" Version="4.157.0" />
+    <PackageReference Include="SkiaSharp.Skottie" Version="4.157.0" />
+    <PackageReference Include="Svg.Skia" Version="5.2.4" />
   </ItemGroup>
+
+  <!-- SkiaSharp and HarfBuzz ship their native symbols (about 120 MB of .pdb) beside their DLLs: never published. -->
+  <Target Name="DropNativeSymbols" AfterTargets="ComputeResolvedFilesToPublishList">
+    <ItemGroup>
+      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition="'%(Extension)' == '.pdb'" />
+    </ItemGroup>
+  </Target>
 
   <Target Name="BuildTaskbarTap" BeforeTargets="PrepareForBuild" Inputs="$(TaskbarTapSource)TaskbarTap.cpp;$(TaskbarTapSource)TaskbarTap.def;$(TaskbarTapSource)build.cmd" Outputs="$(TaskbarTapOut)\MusicBar.TaskbarTap.dll">
     <Exec Command="&quot;$(TaskbarTapSource)build.cmd&quot; &quot;$(TaskbarTapOut)&quot;" />

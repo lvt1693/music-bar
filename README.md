@@ -4,8 +4,8 @@
 
 Thanh taskbar nằm im ba mươi năm rồi. Cho nó hát đi.
 
-**Tải về:** [bản cài đặt](https://github.com/lvt1693/music-bar/releases/latest/download/MusicBar-2.0.0-Setup.exe)
-hoặc [bản portable](https://github.com/lvt1693/music-bar/releases/latest/download/MusicBar-2.0.0-portable.zip)
+**Tải về:** [bản cài đặt](https://github.com/lvt1693/music-bar/releases/latest/download/MusicBar-2.0.1-Setup.exe)
+hoặc [bản portable](https://github.com/lvt1693/music-bar/releases/latest/download/MusicBar-2.0.1-portable.zip)
 (Windows 10 2004 trở lên hoặc Windows 11, 64-bit, không cần cài .NET).
 
 **Hướng dẫn dùng:** [wiki tiếng Việt](https://github.com/lvt1693/music-bar/wiki), có ảnh từng tab cài
@@ -14,26 +14,28 @@ hoặc [bản portable](https://github.com/lvt1693/music-bar/releases/latest/dow
 **Trang web:** [musicbar.truclv.com](https://musicbar.truclv.com), có **kho giao diện** của cộng đồng
 (skin, visualizer, dải LED) để tải về hoặc đăng giao diện của bạn.
 
-**Có gì mới:** bản 2.0 cho **skin tràn ra khỏi taskbar** (lửa, tia laser, đèn ông sao vươn lên màn hình
-nền, bật thêm được cả lên trên cửa sổ), kèm **6 skin mới** trên kho như Katana Forge và Đêm Hoa Đăng;
-**Tổng kết năm chỉ đếm nhạc** (không tính tab Facebook, TikTok) và có **hơn 30 danh hiệu** mới; người làm skin
-có **engine 2.0** (khung hình trước, ảnh bìa, bloom). Bản 1.8.6 **tự tạo preview động** khi gửi giao diện lên kho, hiện **% pin tai nghe
-Bluetooth** trong trung tâm điều khiển, và trên Windows 10 khung **Thông báo** đọc được thông báo. Bản 1.8.5
-cho **đăng giao diện bằng tài khoản Google** (xem lại các giao diện đã gửi
-và lý do bị từ chối trên web), kho nhận **skin tới 4 MB**. Bản 1.8.4 bật sẵn **lời từ NetEase** cho người mới cài, dùng được bằng **phím Tab và
-trình đọc màn hình**, cửa sổ tự vừa màn hình nhỏ, và **không gửi tên cuộc họp hay tab web** đi tìm lời.
-Bản 1.8.3 chạy được **skin lớn** bằng Direct3D 11, thêm **ô tìm kiếm** giao diện, bấm được
-vào lời ở khoảng trống lớn nhất, sửa ảnh bìa ra logo Spotify. Bản 1.8.2 làm **taskbar trong suốt trên mọi
-màn hình** cả lúc không phát nhạc, hết **khựng mỗi vài giây** và hết **chậm khi mở Cài đặt**. Bản 1.8.1 thêm **log để gửi** đã che tên bài hát,
-**chế độ an toàn** cho Explorer, nút tắt tăng tốc phần cứng. Bản 1.8 có **kho giao diện trực tuyến** ngay trong app, **phần hướng dẫn lần đầu mở** (chọn gì thấy ngay trên taskbar), sửa vụ
-thanh tiến trình biến mất khi bật taskbar trong suốt, **nhẹ RAM hẳn** (không còn phình dần khi
-chạy lâu), chạy gọn với **taskbar tự ẩn**, đọc được
-**VLC**, thêm nút khôi phục cài đặt mặc định và chấm đỏ báo thông báo.
-Từng bản có gì xem ở [CHANGELOG](CHANGELOG.md).
-
 Thấy MusicBar hữu ích, muốn mời mình ly cà phê thì quét mã này nhé (VPBank · 178971468 · LE VAN TRUC).
 
 <img src="docs/donate.png" width="220" alt="Mã QR chuyển khoản VPBank, LE VAN TRUC, 178971468">
+
+**Có gì mới**
+
+**2.0.1** · 27/11/2026
+- [x] Skin kèm được hình động Lottie, SVG, ảnh, làm được cả thanh tiến độ
+- [x] Bộ cài mới, gỡ thì hỏi có xoá luôn cài đặt không
+- [x] Hết tự tắt ngang khi đang phát nhạc
+
+**2.0.0** · 26/11/2026
+- [x] Skin tràn ra khỏi taskbar, 6 skin mới trên kho
+- [x] Tổng kết năm chỉ đếm nhạc, hơn 30 danh hiệu mới
+- [x] Engine skin 2.0: khung hình trước, ảnh bìa, bloom
+
+**1.8.6** · 19/11/2026
+- [x] Tự tạo preview động khi gửi giao diện lên kho
+- [x] % pin tai nghe Bluetooth trong trung tâm điều khiển
+- [x] Windows 10 đọc được thông báo
+
+Các bản cũ hơn xem ở [CHANGELOG](CHANGELOG.md).
 
 ![Thanh taskbar ngủ gật, tiếng cào đĩa, icon MusicBar rơi xuống và đèn sân khấu bật sáng](docs/wake-up.gif)
 
@@ -180,7 +182,8 @@ Băng tuyết, Bạc), hoặc **Tự chọn** ba màu. Chọn ngay dưới thư 
 
 Skin là một file `.hlsl` nhỏ: một pixel shader vẽ thanh bằng card đồ họa, kiểu Shadertoy. MusicBar
 đưa vào thời gian, tiến trình, độ to, nhịp, phổ âm, dạng sóng và ba màu của bảng màu. Skin chỉ vẽ,
-không đọc file hay vào mạng. **Thêm skin mẫu** để có 4 skin (Liquid Chrome, Comet, Plasma,
+không đọc file hay vào mạng. Skin còn kèm được **hình động Lottie, SVG hay ảnh** làm layer, nằm trước hoặc
+sau phần shader vẽ, có thể làm luôn thanh tiến độ (một nhân vật bay theo bài; cần Direct3D 11). **Thêm skin mẫu** để có 4 skin (Liquid Chrome, Comet, Plasma,
 Synthwave); **Nhập skin…** để thêm file của bạn. Không biết viết shader thì dán
 [hướng dẫn skin](docs/skins.md) cho ChatGPT / Claude / Gemini kèm mô tả thứ bạn muốn: trong đó có
 sẵn câu lệnh để dán.
@@ -192,9 +195,10 @@ Luôn dùng Direct3D 11 hoặc Chỉ cách cũ.
 
 ## Cài
 
-- **Bản cài đặt** (`MusicBar-1.8.0-Setup.exe`): cài cho riêng tài khoản của bạn vào
-  `%LOCALAPPDATA%\Programs\MusicBar`, không hỏi quyền admin, có mục trong Start và gỡ được
-  trong Cài đặt → Ứng dụng. Cài đè hay gỡ đi thì MusicBar được báo thoát trước, để trả taskbar
+- **Bản cài đặt** (`MusicBar-2.0.1-Setup.exe`): cài cho riêng tài khoản của bạn vào
+  `%LOCALAPPDATA%\Programs\MusicBar` (đổi được ở *Tùy chỉnh thư mục, lối tắt*), không hỏi quyền admin,
+  có mục trong Start (thêm lối tắt màn hình nền nếu muốn) và gỡ được trong Cài đặt → Ứng dụng; lúc gỡ có ô
+  xoá luôn cài đặt và skin đã tải. Cài đè hay gỡ đi thì MusicBar được báo thoát trước, để trả taskbar
   và khay về đúng như Windows sắp xếp.
 - **Gỡ là trả lại như cũ:** lần đầu chạy, trước khi đụng vào gì, MusicBar ghi lại Windows đang
   thế nào (chế độ sáng / tối của taskbar, cỡ taskbar, căn giữa hay căn trái, kiểu taskbar của
@@ -203,7 +207,7 @@ Luôn dùng Direct3D 11 hoặc Chỉ cách cũ.
   được giữ). Thoát app bình thường thì chỉ trả những gì MusicBar giữ lúc đang chạy (taskbar trong
   suốt, khay gộp, chế độ sáng / tối nó tự đổi); cỡ và kiểu căn taskbar bạn chọn trong MusicBar vẫn
   để nguyên vì đó là lựa chọn của bạn.
-- **Bản portable** (`MusicBar-1.8.0-portable.zip`): giải nén ra đâu cũng được, chạy
+- **Bản portable** (`MusicBar-2.0.1-portable.zip`): giải nén ra đâu cũng được, chạy
   `MusicBar.exe`.
 
 **Cập nhật:** từ bản 1.4, MusicBar tự xem có bản mới mỗi lần chạy (từ 1.8.2 hỏi
@@ -392,7 +396,7 @@ C++") cho module taskbar Windows 11.
 ```powershell
 dotnet build src/MusicBar/MusicBar.csproj
 dotnet run --project src/MusicBar -- --demo
-.\installer\build.ps1 -Version 1.8.0     # ra artifacts\: Setup.exe (Inno Setup 6) và portable.zip
+.\installer\build.ps1 -Version 2.0.1     # ra artifacts\: Setup.exe (cửa sổ cài + Inno Setup 6) và portable.zip
 ```
 
 ## Bên trong
@@ -423,6 +427,7 @@ src/MusicBar/
   Services/LookPresets.cs       preset tải từ kho (kiểu thanh, ba màu, độ đậm, hướng; không có mã)
   Interop/XamlTaskbar.cs        nạp module làm trong suốt taskbar Windows 11
   Interop/TrayMerge.cs          ẩn icon âm lượng / chuông, dồn khay, khôi phục
+  Views/SkinGpu.cs              skin trên Direct3D 11;  SkinLayers.cs layer Lottie / SVG / ảnh (Skia)
   Views/SeekRenderer.cs         14 kiểu thanh tiến trình, các visualizer, 4 hướng chạy;
                                 SeekRenderer.Leds.cs dải LED RGB
   Views/CpuRendering.cs         các cửa sổ trên taskbar vẽ bằng CPU (đỡ tới 200 MB bộ nhớ driver)
@@ -434,18 +439,15 @@ src/MusicBar/
   Views/Face/                   cái mặt: FaceBrain (tâm trạng), FaceRig (chuyển động), FacePainters (8 kiểu),
                                 FaceProps (mũ, kính, mic), FaceSeasons (mũ theo mùa lễ, âm lịch)
 src/MusicBar.TaskbarTap/        module C++ chạy trong Explorer (build bằng MSVC cùng app)
-installer/                      Inno Setup + build.ps1
-promo/                          video giới thiệu (HyperFrames)
+installer/                      Inno Setup + build.ps1;  SetupUI/ cửa sổ cài (WPF)
 ```
 
 ## Video giới thiệu
 
-Video 52 giây trong [release](https://github.com/lvt1693/music-bar/releases/latest): một thanh
-taskbar ngủ gật, kèn buồn, tiếng cào đĩa, rồi sân khấu bật đèn. Toàn bộ phần MusicBar trong
-video là chính code của app vẽ ra (`promo/tools/capture` gọi thẳng SeekRenderer,
-LyricsPresenter và bảng điều khiển), phần còn lại là HTML dựng bằng
-[HyperFrames](https://hyperframes.heygen.com). Giọng đọc từ queen-tts, nhạc nền và tiếng động
-từ ElevenLabs. Muốn dựng lại: vào `promo/`, `npx hyperframes preview`.
+Video giới thiệu nằm trong [release](https://github.com/lvt1693/music-bar/releases/latest). Toàn bộ phần
+MusicBar trong video là chính code của app vẽ ra (gọi thẳng SeekRenderer, LyricsPresenter, skin và bảng điều
+khiển), phần còn lại là HTML dựng bằng [HyperFrames](https://hyperframes.heygen.com). Phần dựng video không
+nằm trong repo này.
 
 ## Nói thật
 
@@ -500,10 +502,12 @@ từ ElevenLabs. Muốn dựng lại: vào `promo/`, `npx hyperframes preview`.
 taskbar Windows 11. [LRCLIB](https://lrclib.net) cho lời bài hát.
 [ExplorerPatcher](https://github.com/valinet/ExplorerPatcher) giữ taskbar kiểu cũ sống tới giờ.
 Phông chữ từ [Google Fonts](https://fonts.google.com). Installer dựng bằng
-[Inno Setup](https://jrsoftware.org/isinfo.php).
+[Inno Setup](https://jrsoftware.org/isinfo.php). Layer của skin vẽ bằng
+[SkiaSharp](https://github.com/mono/SkiaSharp) (Skottie cho Lottie) và
+[Svg.Skia](https://github.com/wieslawsoltes/Svg.Skia).
 
 ## License
 
 [MIT](LICENSE). Các phông chữ đi kèm dùng giấy phép SIL Open Font License; bản giấy phép nằm
 trong `Assets/Fonts/licenses` cạnh app. Bảng pinyin lấy từ cơ sở dữ liệu Unihan của Unicode,
-giấy phép Unicode nằm trong `Assets/Data/licenses`.
+giấy phép Unicode nằm trong `Assets/Data/licenses`, cùng chỗ với giấy phép của Skia, SkiaSharp và Svg.Skia.

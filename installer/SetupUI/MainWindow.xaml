@@ -1,0 +1,231 @@
+<Window x:Class="MusicBar.Setup.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:s="clr-namespace:MusicBar.Setup"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        ResizeMode="NoResize" ShowInTaskbar="True" WindowStartupLocation="CenterScreen"
+        Width="668" Height="468" UseLayoutRounding="True"
+        FontFamily="{StaticResource Text}" Foreground="{StaticResource Ink}"
+        Icon="pack://application:,,,/MusicBar.ico">
+
+    <!-- The margin leaves room for the shadow, which sits on its own so the text above stays sharp. -->
+    <Grid Margin="24">
+        <Border CornerRadius="18" Background="#FF0F0F13">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="36" ShadowDepth="8" Direction="270" Opacity="0.55" Color="Black" />
+            </Border.Effect>
+        </Border>
+
+        <Grid x:Name="Inside">
+            <!-- Two slow glows in the signature colors, drifting behind everything, as on the welcome tour. -->
+            <Canvas IsHitTestVisible="False">
+                <Ellipse x:Name="GlowA" Width="260" Height="260" Canvas.Left="-70" Canvas.Top="-110" Fill="#FFFF5F6D" Opacity="0.22">
+                    <Ellipse.Effect><BlurEffect Radius="70" /></Ellipse.Effect>
+                    <Ellipse.RenderTransform><TranslateTransform /></Ellipse.RenderTransform>
+                </Ellipse>
+                <Ellipse x:Name="GlowB" Width="240" Height="240" Canvas.Left="460" Canvas.Top="240" Fill="#FFFFC371" Opacity="0.15">
+                    <Ellipse.Effect><BlurEffect Radius="70" /></Ellipse.Effect>
+                    <Ellipse.RenderTransform><TranslateTransform /></Ellipse.RenderTransform>
+                </Ellipse>
+            </Canvas>
+
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="52" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="44" />
+                </Grid.RowDefinitions>
+
+                <!-- Header: the name and version, the language, a way out. Drag the window by it. -->
+                <Grid x:Name="Header" Background="Transparent" Margin="20,0,8,0" MouseLeftButtonDown="Header_MouseDown">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Image Source="pack://application:,,,/MusicBar.ico" Width="20" Height="20" RenderOptions.BitmapScalingMode="HighQuality" />
+                        <TextBlock Text="MusicBar" FontSize="13.5" FontWeight="SemiBold" Margin="9,0,0,0" VerticalAlignment="Center" />
+                        <TextBlock x:Name="VersionText" FontSize="12" Foreground="{StaticResource Faint}" Margin="9,1,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <Border CornerRadius="9" Background="#12FFFFFF" Padding="2" VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal">
+                                <Button x:Name="ViButton" Style="{StaticResource LangButton}" Content="VI" Click="Vi_Click" />
+                                <Button x:Name="EnButton" Style="{StaticResource LangButton}" Content="EN" Click="En_Click" />
+                            </StackPanel>
+                        </Border>
+                        <Button x:Name="CloseButton" Style="{StaticResource IconButton}" Margin="6,0,0,0" Click="Close_Click">
+                            <Path Data="M1.5,1.5 L10.5,10.5 M10.5,1.5 L1.5,10.5" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                  StrokeThickness="1.4" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Width="12" Height="12" />
+                        </Button>
+                    </StackPanel>
+                </Grid>
+
+                <Grid Grid.Row="1">
+                    <!-- 1. Welcome -->
+                    <StackPanel x:Name="WelcomePanel" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="56,0,56,8">
+                        <Viewbox Width="101" Height="74" HorizontalAlignment="Center"><s:FaceView x:Name="WelcomeFace" /></Viewbox>
+                        <TextBlock x:Name="WelcomeTitle" FontFamily="{StaticResource Display}" FontSize="28" FontWeight="SemiBold"
+                                   HorizontalAlignment="Center" Margin="0,18,0,0" />
+                        <TextBlock x:Name="WelcomeText" FontSize="13.5" Foreground="{StaticResource Muted}" TextWrapping="Wrap" TextAlignment="Center"
+                                   MaxWidth="420" LineHeight="20" Margin="0,8,0,0" HorizontalAlignment="Center" />
+                        <Button x:Name="InstallButton" Style="{StaticResource AccentButton}" MinWidth="180" FontSize="14" Margin="0,18,0,0"
+                                HorizontalAlignment="Center" Click="Install_Click" IsDefault="True" />
+                        <Button x:Name="OptionsButton" Style="{StaticResource LinkButton}" HorizontalAlignment="Center" Margin="0,4,0,0" Click="Options_Click" />
+                        <TextBlock x:Name="WelcomeFine" FontSize="11.5" Foreground="{StaticResource Faint}" HorizontalAlignment="Center"
+                                   TextAlignment="Center" TextWrapping="Wrap" Margin="0,4,0,0" />
+                    </StackPanel>
+
+                    <!-- 2. Options -->
+                    <DockPanel x:Name="OptionsPanel" Margin="44,4,44,18" Visibility="Collapsed">
+                        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right">
+                            <Button x:Name="BackButton" Style="{StaticResource SoftButton}" Click="Back_Click" />
+                            <Button x:Name="OptionsInstallButton" Style="{StaticResource AccentButton}" Margin="8,0,0,0" Click="Install_Click" />
+                        </StackPanel>
+                        <StackPanel>
+                            <TextBlock x:Name="OptionsTitle" FontFamily="{StaticResource Display}" FontSize="21" FontWeight="SemiBold" Margin="0,0,0,16" />
+                            <TextBlock x:Name="FolderLabel" FontSize="12" Foreground="{StaticResource Muted}" Margin="0,0,0,6" />
+                            <DockPanel>
+                                <Button x:Name="ChangeButton" DockPanel.Dock="Right" Style="{StaticResource SoftButton}" Height="40" Padding="16,0"
+                                        FontSize="13" Margin="8,0,0,0" Click="Change_Click" />
+                                <TextBox x:Name="FolderBox" Style="{StaticResource PathBox}" />
+                            </DockPanel>
+                            <TextBlock x:Name="SpaceText" FontSize="11.5" Foreground="{StaticResource Faint}" Margin="0,6,0,10" TextWrapping="Wrap" />
+                            <CheckBox x:Name="StartMenuBox" Style="{StaticResource Check}" IsChecked="True" />
+                            <CheckBox x:Name="DesktopBox" Style="{StaticResource Check}" IsChecked="False" />
+                        </StackPanel>
+                    </DockPanel>
+
+                    <!-- 3. Installing, updating, uninstalling -->
+                    <StackPanel x:Name="ProgressPanel" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="56,0,56,8" Visibility="Collapsed">
+                        <Viewbox Width="101" Height="74" HorizontalAlignment="Center"><s:FaceView x:Name="ProgressFace" /></Viewbox>
+                        <TextBlock x:Name="PercentText" FontFamily="{StaticResource Display}" FontSize="40" FontWeight="SemiBold"
+                                   HorizontalAlignment="Center" Margin="0,16,0,0" />
+                        <TextBlock x:Name="ProgressLine" FontSize="14" Foreground="#CCFFFFFF" HorizontalAlignment="Center" Margin="0,2,0,0" />
+                        <TextBlock x:Name="ProgressFine" FontSize="11.5" Foreground="{StaticResource Faint}" HorizontalAlignment="Center" Margin="0,6,0,0" />
+                    </StackPanel>
+
+                    <!-- 4. Done -->
+                    <StackPanel x:Name="DonePanel" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="56,0,56,8" Visibility="Collapsed">
+                        <Viewbox Width="101" Height="74" HorizontalAlignment="Center"><s:FaceView x:Name="DoneFace" /></Viewbox>
+                        <TextBlock x:Name="DoneTitle" FontFamily="{StaticResource Display}" FontSize="28" FontWeight="SemiBold"
+                                   HorizontalAlignment="Center" Margin="0,18,0,0" />
+                        <TextBlock x:Name="DoneText" FontSize="13.5" Foreground="{StaticResource Muted}" TextWrapping="Wrap" TextAlignment="Center"
+                                   MaxWidth="430" LineHeight="20" Margin="0,8,0,0" HorizontalAlignment="Center" />
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,20,0,0">
+                            <Button x:Name="DoneCloseButton" Style="{StaticResource SoftButton}" Click="Close_Click" />
+                            <Button x:Name="OpenButton" Style="{StaticResource AccentButton}" Margin="8,0,0,0" Click="Open_Click" />
+                        </StackPanel>
+                        <TextBlock x:Name="GalleryText" FontSize="11.5" Foreground="{StaticResource Faint}" HorizontalAlignment="Center" Margin="0,10,0,0" />
+                    </StackPanel>
+
+                    <!-- 5. Update (MusicBar is already on this machine) -->
+                    <DockPanel x:Name="UpdatePanel" Margin="44,2,44,18" Visibility="Collapsed">
+                        <StackPanel DockPanel.Dock="Bottom">
+                            <TextBlock x:Name="UpdateNote" FontSize="11.5" Foreground="{StaticResource Faint}" TextWrapping="Wrap" LineHeight="17" Margin="0,0,0,12" />
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                <Button x:Name="LaterButton" Style="{StaticResource SoftButton}" Click="Close_Click" />
+                                <Button x:Name="UpdateButton" Style="{StaticResource AccentButton}" Margin="8,0,0,0" Click="Update_Click" IsDefault="True" />
+                            </StackPanel>
+                        </StackPanel>
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <Viewbox Width="70" Height="51"><s:FaceView x:Name="UpdateFace" /></Viewbox>
+                                <StackPanel Margin="18,0,0,0" VerticalAlignment="Center">
+                                    <TextBlock x:Name="UpdateTitle" FontFamily="{StaticResource Display}" FontSize="23" FontWeight="SemiBold" />
+                                    <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                        <Border x:Name="OldChip" CornerRadius="12" Background="#14FFFFFF" Padding="10,3">
+                                            <TextBlock x:Name="OldVersion" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Muted}" />
+                                        </Border>
+                                        <Path x:Name="VersionArrow" Data="M1,5 L14,5 M10,1 L14,5 L10,9" Stroke="#8CFFFFFF" StrokeThickness="1.4" StrokeStartLineCap="Round"
+                                              StrokeEndLineCap="Round" StrokeLineJoin="Round" VerticalAlignment="Center" Margin="8,0" />
+                                        <Border CornerRadius="12" Background="#29FF6B6B" BorderBrush="#73FF6B6B" BorderThickness="1" Padding="10,3">
+                                            <TextBlock x:Name="NewVersion" FontSize="12" FontWeight="SemiBold" Foreground="#FFFF8A8A" />
+                                        </Border>
+                                    </StackPanel>
+                                </StackPanel>
+                            </StackPanel>
+                            <TextBlock x:Name="NewsLabel" FontSize="12" Foreground="{StaticResource Muted}" Margin="0,18,0,8" />
+                            <ItemsControl x:Name="NewsList">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <DockPanel Margin="0,0,0,7">
+                                            <Ellipse Width="6" Height="6" Fill="{StaticResource Signature}" VerticalAlignment="Top" Margin="0,7,10,0" />
+                                            <TextBlock Text="{Binding}" FontSize="13.5" TextWrapping="Wrap" />
+                                        </DockPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </DockPanel>
+
+                    <!-- 6. Uninstall -->
+                    <DockPanel x:Name="UninstallPanel" Margin="56,6,56,18" Visibility="Collapsed">
+                        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Center">
+                            <Button x:Name="StayButton" Style="{StaticResource SoftButton}" Click="Close_Click" />
+                            <Button x:Name="RemoveButton" Style="{StaticResource AccentButton}" Margin="8,0,0,0" Click="Remove_Click" />
+                        </StackPanel>
+                        <StackPanel HorizontalAlignment="Center">
+                            <Viewbox Width="101" Height="74" HorizontalAlignment="Center"><s:FaceView x:Name="UninstallFace" Mood="Sad" /></Viewbox>
+                            <TextBlock x:Name="UninstallTitle" FontFamily="{StaticResource Display}" FontSize="26" FontWeight="SemiBold"
+                                       HorizontalAlignment="Center" Margin="0,16,0,0" />
+                            <TextBlock x:Name="UninstallText" FontSize="13.5" Foreground="{StaticResource Muted}" TextWrapping="Wrap" TextAlignment="Center"
+                                       MaxWidth="440" LineHeight="20" Margin="0,8,0,0" HorizontalAlignment="Center" />
+                            <CheckBox x:Name="PurgeBox" Style="{StaticResource Check}" HorizontalAlignment="Center" Margin="0,6,0,0" />
+                        </StackPanel>
+                    </DockPanel>
+
+                    <!-- 7. Something went wrong -->
+                    <DockPanel x:Name="ErrorPanel" Margin="44,2,44,18" Visibility="Collapsed">
+                        <DockPanel DockPanel.Dock="Bottom">
+                            <Button x:Name="ReportButton" Style="{StaticResource LinkButton}" VerticalAlignment="Center" Click="Report_Click" />
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                <Button x:Name="PortableButton" Style="{StaticResource SoftButton}" Padding="18,0" Click="Portable_Click" />
+                                <Button x:Name="RetryButton" Style="{StaticResource AccentButton}" Margin="8,0,0,0" Click="Retry_Click" />
+                            </StackPanel>
+                        </DockPanel>
+                        <StackPanel>
+                            <DockPanel>
+                                <Viewbox Width="70" Height="51" VerticalAlignment="Center"><s:FaceView x:Name="ErrorFace" Mood="Oops" /></Viewbox>
+                                <StackPanel Margin="18,0,0,0" VerticalAlignment="Center">
+                                    <TextBlock x:Name="ErrorTitle" FontFamily="{StaticResource Display}" FontSize="23" FontWeight="SemiBold" />
+                                    <TextBlock x:Name="ErrorText" FontSize="13.5" Foreground="#B3FFFFFF" TextWrapping="Wrap" LineHeight="19" Margin="0,4,0,0" />
+                                </StackPanel>
+                            </DockPanel>
+                            <Border CornerRadius="8" Background="#0DFFFFFF" BorderBrush="#1AFFFFFF" BorderThickness="1" Padding="12,10" Margin="0,16,0,0">
+                                <TextBlock x:Name="ErrorDetail" FontFamily="Cascadia Mono, Consolas" FontSize="11.5" Foreground="#BFFFFFFF"
+                                           TextWrapping="Wrap" LineHeight="17" />
+                            </Border>
+                        </StackPanel>
+                    </DockPanel>
+                </Grid>
+
+                <!-- MusicBar's signature: the taskbar in miniature. While installing, its seekbar is the progress bar. -->
+                <Border Grid.Row="2" BorderBrush="#17FFFFFF" BorderThickness="0,1,0,0">
+                    <Border.Background>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                            <GradientStop Color="#FF23262F" Offset="0" />
+                            <GradientStop Color="#FF16181F" Offset="1" />
+                        </LinearGradientBrush>
+                    </Border.Background>
+                    <DockPanel Margin="16,0">
+                        <Viewbox Width="27" Height="20" VerticalAlignment="Center"><s:FaceView x:Name="BarFace" /></Viewbox>
+                        <StackPanel Width="150" Margin="12,0,0,0" VerticalAlignment="Center">
+                            <TextBlock x:Name="BarTitle" FontSize="12.5" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                            <TextBlock x:Name="BarSub" FontSize="11" Foreground="#99FFFFFF" TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                        <StackPanel x:Name="Spectrum" DockPanel.Dock="Right" Orientation="Horizontal" Width="27" Height="18"
+                                    VerticalAlignment="Center" Margin="12,0,0,0" />
+                        <Grid x:Name="Seek" Height="12" Margin="12,0,0,0" VerticalAlignment="Center" SizeChanged="Seek_SizeChanged">
+                            <Border Height="3" CornerRadius="1.5" Background="#1FFFFFFF" />
+                            <Border x:Name="SeekFill" Height="3" CornerRadius="1.5" Background="{StaticResource Signature}" HorizontalAlignment="Left" Width="0" />
+                            <Ellipse x:Name="SeekHead" Width="11" Height="11" Fill="#FFFFC371" HorizontalAlignment="Left">
+                                <Ellipse.Effect>
+                                    <DropShadowEffect BlurRadius="14" ShadowDepth="0" Color="#FFFF8A5B" Opacity="0.95" />
+                                </Ellipse.Effect>
+                            </Ellipse>
+                        </Grid>
+                    </DockPanel>
+                </Border>
+            </Grid>
+
+            <Border CornerRadius="18" BorderBrush="#21FFFFFF" BorderThickness="1" IsHitTestVisible="False" />
+        </Grid>
+    </Grid>
+</Window>

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -27,12 +28,28 @@ public sealed record SessionInfo(string AppId, string AppName, string Title, boo
 /// </summary>
 public sealed class MediaService : ObservableObject
 {
-    sealed class Subscription
+    /// <summary>
+    /// A session followed: its change events, and what it last said about its playback and its timeline.
+    /// </summary>
+    /// <remarks>
+    /// Windows keeps a session's playback info and timeline as objects it swaps for new ones when the player
+    /// reports a change (it nulls the old one, releases it, makes the new one), and GetPlaybackInfo and
+    /// GetTimelineProperties hand out the object they find, neither side taking a lock. A read that falls
+    /// between the two takes a reference on an object already freed, and letting it go frees it a second time:
+    /// that is how MusicBar died on 11/11, 14/11 and 26/11/2026 (heap corruption in Windows.Media.MediaControl,
+    /// seen in the crash dumps). The two are therefore read in the session's own change events, which Windows
+    /// raises on the thread that has just made the swap, once when the session is first seen, and nowhere else:
+    /// everything else uses what is kept here.
+    /// </remarks>
+    sealed class Followed(GlobalSystemMediaTransportControlsSession session, string id)
     {
-        public required GlobalSystemMediaTransportControlsSession Session;
-        public required TypedEventHandler<GlobalSystemMediaTransportControlsSession, PlaybackInfoChangedEventArgs> Playback;
-        public required TypedEventHandler<GlobalSystemMediaTransportControlsSession, MediaPropertiesChangedEventArgs> Media;
-        public required TypedEventHandler<GlobalSystemMediaTransportControlsSession, TimelinePropertiesChangedEventArgs> Timeline;
+        public readonly GlobalSystemMediaTransportControlsSession Session = session;
+        public readonly string Id = id;
+        public volatile PlaybackRead? Playback;
+        public volatile TimelineRead? Timeline;
+        public TypedEventHandler<GlobalSystemMediaTransportControlsSession, PlaybackInfoChangedEventArgs>? OnPlayback;
+        public TypedEventHandler<GlobalSystemMediaTransportControlsSession, MediaPropertiesChangedEventArgs>? OnMedia;
+        public TypedEventHandler<GlobalSystemMediaTransportControlsSession, TimelinePropertiesChangedEventArgs>? OnTimeline;
     }
 
     /// <summary>A session's playback info, every value read at once (off the UI thread, handed to it as plain values).</summary>
@@ -50,8 +67,9 @@ public sealed class MediaService : ObservableObject
     readonly AppSettings _settings;
     readonly Dispatcher _ui = Dispatcher.CurrentDispatcher;
     readonly DispatcherTimer _poll = new() { Interval = TimeSpan.FromSeconds(1) };
-    // Touched only by reads, which never run two at once.
-    readonly List<Subscription> _subs = [];
+    // The sessions followed. Added to and taken from only by reads, which never run two at once; looked up
+    // from the UI thread too.
+    readonly ConcurrentDictionary<GlobalSystemMediaTransportControlsSession, Followed> _followed = new(ReferenceEqualityComparer.Instance);
     readonly Dictionary<string, string> _sessionTitles = new();
 
     // The sessions are read on the thread pool, one read at a time and in the order asked for: Windows'
@@ -262,11 +280,13 @@ public sealed class MediaService : ObservableObject
         if (_manager == null) return list;
         try
         {
+            // Whether each plays comes from what it last said (see Followed): nothing is read from it here.
             list.AddRange(_manager.GetSessions().Select(s =>
             {
                 var id = s.SourceAppUserModelId;
                 _sessionTitles.TryGetValue(id, out var title);
-                return new SessionInfo(id, AppVisualResolver.Resolve(id).Name, title ?? "", IsPlayingSession(s),
+                var followed = Find(s) ?? _followed.Values.FirstOrDefault(f => f.Id == id);
+                return new SessionInfo(id, AppVisualResolver.Resolve(id).Name, title ?? "", followed?.Playback?.Playing == true,
                     _session != null && id == _session.SourceAppUserModelId);
             }));
             return list;
@@ -289,24 +309,9 @@ public sealed class MediaService : ObservableObject
         PickSession();
     }
 
-    /// <summary>Follows the events of the sessions there are now, and no others. Run as a read: it calls into them.</summary>
+    /// <summary>Follows the sessions there are now, and no others. Run as a read: it calls into them.</summary>
     IReadOnlyList<GlobalSystemMediaTransportControlsSession>? Resubscribe(GlobalSystemMediaTransportControlsSessionManager manager)
     {
-        foreach (var sub in _subs)
-        {
-            try
-            {
-                sub.Session.PlaybackInfoChanged -= sub.Playback;
-                sub.Session.MediaPropertiesChanged -= sub.Media;
-                sub.Session.TimelinePropertiesChanged -= sub.Timeline;
-            }
-            catch (Exception)
-            {
-                // Session already gone.
-            }
-        }
-        _subs.Clear();
-
         IReadOnlyList<GlobalSystemMediaTransportControlsSession> sessions;
         try { sessions = manager.GetSessions(); }
         catch (Exception ex)
@@ -315,21 +320,70 @@ public sealed class MediaService : ObservableObject
             return null;
         }
 
-        foreach (var s in sessions)
-        {
-            var sub = new Subscription
-            {
-                Session = s,
-                Playback = (sender, _) => _ui.BeginInvoke(() => OnPlaybackChanged(sender)),
-                Media = (sender, _) => _ui.BeginInvoke(() => OnMediaChanged(sender)),
-                Timeline = (sender, _) => _ui.BeginInvoke(() => OnTimelineChanged(sender)),
-            };
-            s.PlaybackInfoChanged += sub.Playback;
-            s.MediaPropertiesChanged += sub.Media;
-            s.TimelinePropertiesChanged += sub.Timeline;
-            _subs.Add(sub);
-        }
+        foreach (var gone in _followed.Values.Where(f => !sessions.Any(s => ReferenceEquals(s, f.Session))).ToList())
+            Unfollow(gone);
+        foreach (var s in sessions) Follow(s);
         return sessions;
+    }
+
+    Followed? Find(GlobalSystemMediaTransportControlsSession s) => _followed.TryGetValue(s, out var f) ? f : null;
+
+    /// <summary>
+    /// The session as followed: its events, and its playback and timeline, read here once if it is new and
+    /// from then on only in its events (see <see cref="Followed"/>). Run as a read.
+    /// </summary>
+    Followed Follow(GlobalSystemMediaTransportControlsSession s)
+    {
+        if (Find(s) is { } known) return known;
+        string id;
+        try { id = s.SourceAppUserModelId; }
+        catch (Exception) { id = ""; }
+        var f = new Followed(s, id);
+        // Windows raises these on the thread that has just swapped the playback info (then the timeline) for the
+        // new one, the one moment no swap can come between: each reads its own, and leaves the rest to the UI thread.
+        f.OnPlayback = (_, _) =>
+        {
+            f.Playback = ReadPlayback(s);
+            _ui.BeginInvoke(() => OnPlaybackChanged(s));
+        };
+        f.OnTimeline = (_, _) =>
+        {
+            f.Timeline = ReadTimeline(s);
+            _ui.BeginInvoke(() => OnTimelineChanged(s));
+        };
+        f.OnMedia = (_, _) => _ui.BeginInvoke(() => OnMediaChanged(s));
+        try
+        {
+            s.PlaybackInfoChanged += f.OnPlayback;
+            s.TimelinePropertiesChanged += f.OnTimeline;
+            s.MediaPropertiesChanged += f.OnMedia;
+        }
+        catch (Exception ex)
+        {
+            // Going already: what it says now is still read, and it drops out with the next list of sessions.
+            Log.Error($"Following the events of {id} failed", ex);
+        }
+        // The one read outside its events, for a session just seen; after the events are hooked, so a change from
+        // now on is read again by them.
+        f.Playback = ReadPlayback(s);
+        f.Timeline = ReadTimeline(s);
+        _followed[s] = f;
+        return f;
+    }
+
+    void Unfollow(Followed f)
+    {
+        _followed.TryRemove(f.Session, out _);
+        try
+        {
+            f.Session.PlaybackInfoChanged -= f.OnPlayback;
+            f.Session.TimelinePropertiesChanged -= f.OnTimeline;
+            f.Session.MediaPropertiesChanged -= f.OnMedia;
+        }
+        catch (Exception)
+        {
+            // Session already gone.
+        }
     }
 
     async void PickSession()
@@ -370,8 +424,11 @@ public sealed class MediaService : ObservableObject
         SetSession(target);
     }
 
-    /// <summary>Every session and the current one, with all PickSession and SetSession look at. Run as a read.</summary>
-    static SessionsRead? ReadSessions(GlobalSystemMediaTransportControlsSessionManager manager)
+    /// <summary>
+    /// Every session and the current one, with all PickSession and SetSession look at. Run as a read. The manager's
+    /// lists are safe to ask for (it locks them); each session's state is what it last said (see <see cref="Followed"/>).
+    /// </summary>
+    SessionsRead? ReadSessions(GlobalSystemMediaTransportControlsSessionManager manager)
     {
         try
         {
@@ -386,23 +443,15 @@ public sealed class MediaService : ObservableObject
         }
     }
 
-    static SessionRead ReadSession(GlobalSystemMediaTransportControlsSession s)
-        => new(s, s.SourceAppUserModelId, IsPlayingSession(s), ReadPlayback(s), ReadTimeline(s));
+    SessionRead ReadSession(GlobalSystemMediaTransportControlsSession s)
+    {
+        var f = Follow(s);
+        var playback = f.Playback;
+        return new(s, f.Id, playback?.Playing == true, playback, f.Timeline);
+    }
 
     static bool Same(GlobalSystemMediaTransportControlsSession a, GlobalSystemMediaTransportControlsSession b)
         => ReferenceEquals(a, b) || a.SourceAppUserModelId == b.SourceAppUserModelId;
-
-    static bool IsPlayingSession(GlobalSystemMediaTransportControlsSession s)
-    {
-        try
-        {
-            return s.GetPlaybackInfo().PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing;
-        }
-        catch (Exception)
-        {
-            return false;
-        }
-    }
 
     bool IsSelected(GlobalSystemMediaTransportControlsSession s) => _session != null && Same(s, _session);
 
@@ -494,31 +543,24 @@ public sealed class MediaService : ObservableObject
         if (IsSelected(s)) UpdateTimeline(force: false);
     }
 
-    async void Poll()
+    void Poll()
     {
         // VLC every other second, every second while it is the one on the bar.
         if (_vlc != null && !_vlcBusy && (_followingVlc || _pollTicks % 2 == 0)) _ = PollVlcAsync();
         bool pick = ++_pollTicks % 3 == 0;
+        // What the session on the bar said last, from its own events (see Followed): nothing is read from it here.
+        // A browser preview's timeline would move the song's playhead: it isn't taken.
+        if (_session is { } s && Find(s) is { } f)
+        {
+            ApplyPlayback(f.Playback);
+            if (_pendingKey.Length == 0) ApplyTimeline(f.Timeline, force: false);
+        }
         // A read still out (a player or Windows' media service slow to answer): this look is skipped
         // rather than queued behind it.
         if (_readsPending > 0)
         {
             NoteStuckRead();
             return;
-        }
-        var s = _session;
-        if (s == null)
-        {
-            if (pick) PickSession();
-            return;
-        }
-        // A browser preview's timeline would move the song's playhead: it isn't read at all.
-        bool preview = _pendingKey.Length > 0;
-        var (playback, timeline) = await ReadAsync("the playback state", () => (ReadPlayback(s), preview ? null : ReadTimeline(s)));
-        if (ReferenceEquals(s, _session))
-        {
-            ApplyPlayback(playback);
-            ApplyTimeline(timeline, force: false);
         }
         if (pick) PickSession();
     }
@@ -586,14 +628,12 @@ public sealed class MediaService : ObservableObject
         Log.Info($"Reading {_readWhat} hasn't come back after {running.TotalSeconds:0} s; the sessions are not read meanwhile");
     }
 
-    async void UpdatePlaybackInfo()
+    void UpdatePlaybackInfo()
     {
-        var s = _session;
-        if (s == null) return;
-        var playback = await ReadAsync("the playback info", () => ReadPlayback(s));
-        if (ReferenceEquals(s, _session)) ApplyPlayback(playback);
+        if (_session is { } s && Find(s) is { } f) ApplyPlayback(f.Playback);
     }
 
+    /// <summary>Only in the session's playback event, or once when it is first seen (see <see cref="Followed"/>).</summary>
     static PlaybackRead? ReadPlayback(GlobalSystemMediaTransportControlsSession s)
     {
         // A session going away answers null, or fails part way through being read: everything is read at once.
@@ -634,16 +674,16 @@ public sealed class MediaService : ObservableObject
         }
     }
 
-    async void UpdateTimeline(bool force)
+    void UpdateTimeline(bool force)
     {
         var s = _session;
         if (s == null) return;
         // A browser preview's timeline would move the song's playhead.
         if (_pendingKey.Length > 0 && !force) return;
-        var timeline = await ReadAsync("the timeline", () => ReadTimeline(s));
-        if (ReferenceEquals(s, _session)) ApplyTimeline(timeline, force);
+        if (Find(s) is { } f) ApplyTimeline(f.Timeline, force);
     }
 
+    /// <summary>Only in the session's timeline event, or once when it is first seen (see <see cref="Followed"/>).</summary>
     static TimelineRead? ReadTimeline(GlobalSystemMediaTransportControlsSession s)
     {
         // Every value is read at once and guarded: when an app closes its media session (a browser tab, a
@@ -715,9 +755,9 @@ public sealed class MediaService : ObservableObject
         }
         catch (Exception ex) { Log.Error("Reading media properties failed", ex); }
         if (p == null || request != _mediaRequest || !ReferenceEquals(s, _session)) return;
-        // Read once the details are in, as before, so a new song's length comes with them.
-        var timeline = await ReadAsync("the timeline", () => ReadTimeline(s));
-        if (request != _mediaRequest || !ReferenceEquals(s, _session)) return;
+        // Taken once the details are in, so a new song's length comes with them: Windows swaps in a new song's
+        // timeline (and raises its event) before it says the details changed.
+        var timeline = Find(s)?.Timeline;
 
         var title = (p.Title ?? "").Trim();
         var artist = (p.Artist ?? "").Trim();

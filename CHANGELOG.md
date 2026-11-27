@@ -3,6 +3,25 @@
 Mới nhất ở trên. Bản cài và bản portable của từng bản có ở trang
 [Releases](https://github.com/lvt1693/music-bar/releases).
 
+## 2.0.1 · 27/11/2026
+
+**Mới**
+
+- **Skin kèm hình động Lottie, SVG, ảnh:** mỗi skin thêm được tới 8 layer (Lottie, SVG tĩnh hay động, PNG, GIF,
+  WebP), đặt trước hay sau phần shader vẽ, chỉnh chỗ đứng, cỡ, lật, nhấp nhô, lắc lư, phồng theo nhịp. Shader đọc
+  được layer để đổ bóng hay soi phản chiếu nó lên cảnh. Cần Direct3D 11; cách dùng ở [docs/skins.md](docs/skins.md).
+  Kho skin trên web chưa nhận skin có layer.
+- **Hình động làm thanh tiến độ:** thêm `follow=progress` là layer đi theo bài, mép trái lúc đầu bài, mép phải lúc
+  hết bài; tua thì nó lướt tới, qua bài mới thì quay về đầu.
+- **Bộ cài mới:** cửa sổ cài của riêng MusicBar thay khung Inno Setup cũ. Chọn thư mục, lối tắt ở Start và màn
+  hình nền; lúc cập nhật thì kể bản mới có gì; lúc gỡ thì hỏi có xoá luôn cài đặt và skin đã tải không.
+
+**Sửa lỗi**
+
+- MusicBar thỉnh thoảng tự tắt ngang khi đang phát nhạc (gặp ở 1.8.3, 1.8.5 và 2.0.0). Thủ phạm là Windows: nó
+  thay thông tin của trình phát mà không khoá lại, ai đọc trúng lúc đang thay là văng. Giờ MusicBar chỉ đọc ngay
+  sau khi Windows báo đã thay xong; thử dồn 2.000 lần thay mỗi giây suốt nhiều phút vẫn không văng.
+
 ## 2.0.0 · 26/11/2026
 
 **Mới**

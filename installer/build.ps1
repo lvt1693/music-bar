@@ -1,7 +1,9 @@
 # Builds the two release files into artifacts\:
-#   MusicBar-<version>-Setup.exe     per-user installer (Inno Setup 6)
+#   MusicBar-<version>-Setup.exe     per-user installer: MusicBar's own setup window (installer\SetupUI) around
+#                                    the Inno Setup 6 installer, which it runs hidden
 #   MusicBar-<version>-portable.zip  the same self-contained app, unzip and run
-# Needs the .NET 10 SDK, MSVC (for the Windows 11 taskbar module) and Inno Setup 6.
+# Needs the .NET 10 SDK, MSVC (for the Windows 11 taskbar module), Inno Setup 6 and the .NET Framework 4.8
+# targeting pack (Visual Studio's, or the SDK fetches its reference assemblies) for the setup window.
 #
 # -IdentityCert <thumbprint>: also builds the Windows 10 identity package (installer\identity, #21), signed with that
 # code-signing certificate from CurrentUser\My; its subject must be the publisher app.manifest names. -TestCert: the
@@ -58,14 +60,48 @@ Copy-Item (Join-Path $root "LICENSE") (Join-Path $stage "LICENSE.txt")
 Compress-Archive -Path $stage -DestinationPath (Join-Path $artifacts "MusicBar-$Version-portable.zip") -CompressionLevel Optimal
 Remove-Item $stage -Recurse -Force
 
-# Installer.
+# Installer. The setup window shows this version, its size once installed, and the first three "Mới" headings
+# of its CHANGELOG section ("what's new", on the update screen).
+$work = Join-Path $artifacts "setup-work"
+New-Item -ItemType Directory -Force $work | Out-Null
+$installedMb = [math]::Ceiling((Get-ChildItem $publish -Recurse -File | Measure-Object Length -Sum).Sum / 1MB)
+$news = @()
+$inVersion = $false; $inNew = $false
+foreach ($line in Get-Content (Join-Path $root "CHANGELOG.md") -Encoding utf8) {
+    if ($line -match '^## ') {
+        if ($inVersion) { break }
+        $inVersion = $line -match "^## $([regex]::Escape($Version))\b"
+        continue
+    }
+    if (-not $inVersion) { continue }
+    if ($line -match '^\*\*(.+)\*\*\s*$') { $inNew = $Matches[1] -eq 'Mới'; continue }
+    if ($inNew -and $line -match '^- \*\*(.+?)\*\*') { $news += $Matches[1].Trim().TrimEnd(':', '.').Trim() }
+}
+$info = Join-Path $work "setup.txt"
+@("version=$Version", "size=$installedMb") + ($news | Select-Object -First 3 | ForEach-Object { "news=$_" }) | Set-Content $info -Encoding utf8
+"setup window: $installedMb MB installed, $($news.Count) news lines in CHANGELOG"
+
+# 1. The window without an installer inside: it goes beside MusicBar, for Installed apps to uninstall with.
+$ui = Join-Path $PSScriptRoot "SetupUI\SetupUI.csproj"
+dotnet build $ui -c Release --no-incremental -nologo -v q "-p:Version=$Version" "-p:SetupInfo=$info" -o (Join-Path $work "bare")
+if ($LASTEXITCODE -ne 0) { throw "the setup window (uninstall copy) did not build" }
+$uninstaller = Join-Path $work "MusicBar-Uninstall.exe"
+Copy-Item (Join-Path $work "bare\MusicBarSetup.exe") $uninstaller
+
+# 2. The Inno installer, carrying MusicBar and that uninstall window.
 $iscc = @(
     "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe",
     "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
     "$env:ProgramFiles\Inno Setup 6\ISCC.exe"
 ) | Where-Object { Test-Path $_ } | Select-Object -First 1
 if (-not $iscc) { throw "Inno Setup 6 not found (winget install JRSoftware.InnoSetup)" }
-& $iscc /Q "/DAppVersion=$Version" "/DPublishDir=$publish" @isccExtra (Join-Path $PSScriptRoot "MusicBar.iss")
+& $iscc /Q "/DAppVersion=$Version" "/DPublishDir=$publish" "/DUninstallerExe=$uninstaller" @isccExtra "/O$work" "/FMusicBar-core" (Join-Path $PSScriptRoot "MusicBar.iss")
 if ($LASTEXITCODE -ne 0) { throw "ISCC failed" }
+
+# 3. The setup window around it: the release's Setup.exe (the same name the app's updater and the website look for).
+dotnet build $ui -c Release --no-incremental -nologo -v q "-p:Version=$Version" "-p:SetupInfo=$info" "-p:Payload=$(Join-Path $work 'MusicBar-core.exe')" -o (Join-Path $work "full")
+if ($LASTEXITCODE -ne 0) { throw "the setup window did not build" }
+Copy-Item (Join-Path $work "full\MusicBarSetup.exe") (Join-Path $artifacts "MusicBar-$Version-Setup.exe")
+Remove-Item $work -Recurse -Force
 
 Get-ChildItem $artifacts -File | ForEach-Object { "{0,-34} {1,7:N1} MB" -f $_.Name, ($_.Length / 1MB) }

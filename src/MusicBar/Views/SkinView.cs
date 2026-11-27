@@ -251,6 +251,15 @@ public sealed class SkinView : Border
             Engine = new System.Numerics.Vector4((float)dt, 1, SkinGpu.CoverAspect, SkinGpu.HasCover ? 1 : 0),
         };
         var dpi = VisualTreeHelper.GetDpi(this);
+        // The skin's layers (SkinLayers.cs), drawn once a frame into pictures spanning the bar and its headroom, which
+        // the bar and the headroom (each a view of its own) share: only on Direct3D 11, whose last pass lays them on.
+        SkinLayerCanvas? layers = null;
+        if (OnGpu && SkinLayerSet.For(Skin) is { } set)
+        {
+            // A taskbar at the bottom has its top edge to the desktop: the headroom is above it.
+            layers = set.Canvas(full, barHeight, Skin.Headroom, above: engine.EdgeAtTop, dpi.DpiScaleX, dpi.DpiScaleY);
+            layers.Render(engine.StyleTime, engine.BeatNow, engine.PlayingNow, engine.ProgressNow);
+        }
         double at = 0;
         for (int i = 0; i < _parts.Count; i++)
         {
@@ -262,7 +271,7 @@ public sealed class SkinView : Border
             if (_parts[i].Target is { } target && SkinGpu.Shared is { } gpu)
             {
                 // Drawn at the screen's own pixels; the skin still measures in the units WPF gives it.
-                gpu.Draw(target, code, inputs, _pixels, (int)Math.Round(width * dpi.DpiScaleX), (int)Math.Round(height * dpi.DpiScaleY), Skin.Features);
+                gpu.Draw(target, code, inputs, _pixels, (int)Math.Round(width * dpi.DpiScaleX), (int)Math.Round(height * dpi.DpiScaleY), Skin.Features, layers);
                 continue;
             }
             if (_parts[i].Effect is not { } e) continue;

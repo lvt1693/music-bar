@@ -4,29 +4,31 @@
 
 The taskbar has sat still for thirty years. Let it sing.
 
-**Download:** [installer](https://github.com/lvt1693/music-bar/releases/latest/download/MusicBar-2.0.0-Setup.exe)
-or [portable zip](https://github.com/lvt1693/music-bar/releases/latest/download/MusicBar-2.0.0-portable.zip)
+**Download:** [installer](https://github.com/lvt1693/music-bar/releases/latest/download/MusicBar-2.0.1-Setup.exe)
+or [portable zip](https://github.com/lvt1693/music-bar/releases/latest/download/MusicBar-2.0.1-portable.zip)
 (Windows 10 2004 or later, or Windows 11, 64-bit; no .NET to install).
 
 **Website:** [musicbar.truclv.com](https://musicbar.truclv.com), with the community **gallery**
 (skins, visualizers, LED strips) to download from or share yours.
 
-**What's new:** 2.0 lets **skins spill off the taskbar** (fire, a laser beam, a star lantern rising onto the
-desktop, and over your windows too if you allow it), with **6 new skins** in the gallery such as Katana Forge and
-Đêm Hoa Đăng; the **year in music counts only music** (no more Facebook or TikTok tabs) and hands out **30+ new
-titles**; skin makers get **engine 2.0** (the previous frame, the cover art, bloom). 1.8.6 **makes the animated preview for you** when you share a look, shows **Bluetooth
-headset battery** in the control center, and on Windows 10 the **Notifications** panel can read notifications.
-1.8.5 lets you **share looks with your Google account** (see what you sent and why
-something was turned down on the website), and the gallery takes **skins up to 4 MB**. 1.8.4 turns **NetEase lyrics** on for new installs, works with the **Tab key and screen
-readers**, fits its windows on small screens, and **stops sending meeting names and web tabs** to the
-lyrics sites. 1.8.3 runs **big skins** on Direct3D 11, adds a **search box** for the looks, makes the
-lyrics in the biggest gap clickable and fixes the cover showing Spotify's logo. 1.8.2 makes **every screen's taskbar transparent**, also while nothing plays, and fixes a
-**stutter every few seconds** and a **slow settings window**. 1.8.1 adds a **log to send** with song titles
-masked, a **safe mode** for Explorer and a switch to turn hardware acceleration off. 1.8 brings an **online gallery** right inside the app, a **welcome tour** (every choice shows on your taskbar as you pick it),
-fixes the progress bar vanishing with a transparent taskbar, **uses far less RAM** (no more
-creeping up over long runs), works properly with an **auto-hiding
-taskbar**, reads **VLC**, and adds a button to
-restore the default settings and a red-dot option for notifications. Every version is listed in the [CHANGELOG](CHANGELOG.md) (in Vietnamese; each
+**What's new**
+
+**2.0.1** · 27 Nov 2026
+- [x] Skins can carry Lottie, SVG and picture layers, even as the progress bar
+- [x] A new installer; uninstalling asks whether to delete your settings too
+- [x] No more sudden exits while music plays
+
+**2.0.0** · 26 Nov 2026
+- [x] Skins spill off the taskbar, 6 new skins in the gallery
+- [x] The year in music counts only music, 30+ new titles
+- [x] Skin engine 2.0: the previous frame, the cover art, bloom
+
+**1.8.6** · 19 Nov 2026
+- [x] Animated previews made for you when you share a look
+- [x] Bluetooth headset battery in the control center
+- [x] Notifications readable on Windows 10
+
+Older versions are in the [CHANGELOG](CHANGELOG.md) (in Vietnamese; each
 [release](https://github.com/lvt1693/music-bar/releases) on GitHub ends with a paragraph in English).
 
 ![A sleepy taskbar, a record scratch, the MusicBar icon drops in and the stage lights come on](docs/wake-up.gif)
@@ -188,7 +190,9 @@ presets (Sunset, Ocean, Aurora, Neon, Candy, Sakura, Forest, Ember, Gold, Glacie
 A skin is a small `.hlsl` file: a pixel shader that paints the bar on the graphics card,
 Shadertoy style. MusicBar hands it the time, the progress, the loudness, the beat, the spectrum,
 the waveform and the palette's three colors. A skin can only draw: it reads no files and reaches
-no network. **Add the sample skins** gives you 4 (Liquid Chrome, Comet, Plasma, Synthwave);
+no network. A skin can also carry **Lottie, SVG or picture layers**, in front of or behind what the shader
+draws, even as the progress bar (a character flying along with the song; Direct3D 11 only).
+**Add the sample skins** gives you 4 (Liquid Chrome, Comet, Plasma, Synthwave);
 **Import a skin…** adds your own. Can't write shaders? Paste the [skin guide](docs/skins.md) into
 ChatGPT / Claude / Gemini with a description of what you want: it has a ready-made prompt.
 
@@ -199,9 +203,10 @@ Classic only can be picked too.
 
 ## Install
 
-- **Installer** (`MusicBar-1.8.0-Setup.exe`): installs for your account only, in
-  `%LOCALAPPDATA%\Programs\MusicBar`, no admin prompt, with a Start menu entry, and uninstalls
-  from Settings → Apps. Before installing over it or uninstalling, MusicBar is asked to quit, so
+- **Installer** (`MusicBar-2.0.1-Setup.exe`): installs for your account only, in
+  `%LOCALAPPDATA%\Programs\MusicBar` (change it under *Choose folder and shortcuts*), no admin prompt,
+  with a Start menu entry (and a desktop shortcut if you like), and uninstalls from Settings → Apps,
+  with a box to also delete your settings and downloaded skins. Before installing over it or uninstalling, MusicBar is asked to quit, so
   the taskbar and tray go back exactly as Windows arranged them.
 - **Uninstalling puts things back:** at its very first start, before touching anything, MusicBar
   records how Windows was set up (the taskbar's light or dark mode, taskbar size, centered or
@@ -210,7 +215,7 @@ Classic only can be picked too.
   (then your choice stays). A normal exit only hands back what MusicBar holds while it runs (the
   transparent taskbar, the folded tray, the light or dark mode it switched); a taskbar size or
   alignment you chose in MusicBar stays, since that was your choice.
-- **Portable** (`MusicBar-1.8.0-portable.zip`): unzip anywhere and run `MusicBar.exe`.
+- **Portable** (`MusicBar-2.0.1-portable.zip`): unzip anywhere and run `MusicBar.exe`.
 
 **Updates:** from 1.4 on, MusicBar checks for a new version every time it starts (from 1.8.2 it asks
 [musicbar.truclv.com](https://musicbar.truclv.com) first and downloads the installer from there, GitHub when the site can't be reached) (and once a day while
@@ -415,7 +420,7 @@ C++" workload) for the Windows 11 taskbar module.
 ```powershell
 dotnet build src/MusicBar/MusicBar.csproj
 dotnet run --project src/MusicBar -- --demo
-.\installer\build.ps1 -Version 1.8.0     # into artifacts\: Setup.exe (Inno Setup 6) and portable.zip
+.\installer\build.ps1 -Version 2.0.1     # into artifacts\: Setup.exe (setup window + Inno Setup 6) and portable.zip
 ```
 
 ## Inside
@@ -446,6 +451,7 @@ src/MusicBar/
   Services/LookPresets.cs       presets from the gallery (a style, three colors, strength, direction; no code)
   Interop/XamlTaskbar.cs        loads the Windows 11 taskbar transparency module
   Interop/TrayMerge.cs          hides the volume / bell icons, folds the tray, restores it
+  Views/SkinGpu.cs              skins on Direct3D 11;  SkinLayers.cs Lottie / SVG / picture layers (Skia)
   Views/SeekRenderer.cs         the 14 progress styles, the visualizers, 4 directions;
                                 SeekRenderer.Leds.cs the RGB LED strip
   Views/CpuRendering.cs         the taskbar's windows draw on the CPU (saves up to 200 MB of driver memory)
@@ -457,18 +463,15 @@ src/MusicBar/
   Views/Face/                   the face: FaceBrain (moods), FaceRig (motion), FacePainters (8 looks),
                                 FaceProps (hats, glasses, mic), FaceSeasons (seasonal hats, lunar calendar)
 src/MusicBar.TaskbarTap/        the C++ module that runs in Explorer (built with MSVC along with the app)
-installer/                      Inno Setup + build.ps1
-promo/                          the promo film (HyperFrames)
+installer/                      Inno Setup + build.ps1;  SetupUI/ the setup window (WPF)
 ```
 
 ## The promo film
 
-The 52-second film is in the [release](https://github.com/lvt1693/music-bar/releases/latest): a
-taskbar dozing off, a sad trumpet, a record scratch, then the stage lights come on. Everything
-MusicBar in the film is drawn by the app's own code (`promo/tools/capture` calls SeekRenderer,
-LyricsPresenter and the control panel directly); the rest is HTML put together with
-[HyperFrames](https://hyperframes.heygen.com). Voice from queen-tts, music and sound effects from
-ElevenLabs. To rebuild it: go to `promo/` and run `npx hyperframes preview`.
+The promo film is in the [release](https://github.com/lvt1693/music-bar/releases/latest). Everything MusicBar
+in it is drawn by the app's own code (SeekRenderer, LyricsPresenter, skins and the control panel, called
+directly); the rest is HTML put together with [HyperFrames](https://hyperframes.heygen.com). The film's
+production files are not in this repo.
 
 ## Honest notes
 
@@ -525,7 +528,9 @@ ElevenLabs. To rebuild it: go to `promo/` and run `npx hyperframes preview`.
 taskbar's XAML background. [LRCLIB](https://lrclib.net) for the lyrics.
 [ExplorerPatcher](https://github.com/valinet/ExplorerPatcher) keeps the classic taskbar alive.
 Fonts from [Google Fonts](https://fonts.google.com). The installer is built with
-[Inno Setup](https://jrsoftware.org/isinfo.php).
+[Inno Setup](https://jrsoftware.org/isinfo.php). Skin layers are drawn with
+[SkiaSharp](https://github.com/mono/SkiaSharp) (Skottie for Lottie) and
+[Svg.Skia](https://github.com/wieslawsoltes/Svg.Skia).
 
 If MusicBar is useful to you and you'd like to buy me a coffee, the QR code in the
 [Vietnamese README](README.md) is a Vietnamese bank transfer (VPBank · 178971468 · LE VAN TRUC).
@@ -534,4 +539,4 @@ If MusicBar is useful to you and you'd like to buy me a coffee, the QR code in t
 
 [MIT](LICENSE). The bundled fonts are under the SIL Open Font License; their licenses are in
 `Assets/Fonts/licenses` next to the app. The pinyin table comes from Unicode's Unihan database;
-the Unicode license is in `Assets/Data/licenses`.
+the Unicode license is in `Assets/Data/licenses`, along with those of Skia, SkiaSharp and Svg.Skia.

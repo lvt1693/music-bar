@@ -6,6 +6,12 @@
 ; asked to quit with --exit, so it hands the taskbar and the tray back exactly as Windows had them.
 ; Uninstalling then runs MusicBar --uninstall, which puts back the Windows settings MusicBar changed
 ; (taskbar mode, size, alignment) to how they were before it first ran, unless changed again since.
+;
+; Since 2.0.1 people never see this setup's own wizard: it travels inside MusicBar's setup window
+; (installer\SetupUI), which runs it hidden (/VERYSILENT) and draws its own screens. The window passes
+; /HOSTWND= (where to post the progress) and /NOLAUNCH=1 (it opens MusicBar itself). With
+; /DUninstallerExe= the window's uninstall copy goes beside MusicBar, and Windows' Installed apps
+; opens it instead of Inno's uninstaller (which it then runs hidden).
 
 #ifndef AppVersion
   #define AppVersion "1.0.0"
@@ -13,16 +19,24 @@
 #ifndef PublishDir
   #define PublishDir "..\artifacts\publish"
 #endif
+; A test build's own identity (installer\SetupUI's tests): another AppId and folder name, so it never
+; touches the MusicBar installed on the machine (its uninstall entry, shortcuts, Run value, files).
+#ifndef AppIdValue
+  #define AppIdValue "6C1F7D5E-3B7A-4F0E-9A51-7D2C3E8B4A90"
+#endif
+#ifndef AppFolder
+  #define AppFolder "MusicBar"
+#endif
 
 [Setup]
-AppId={{6C1F7D5E-3B7A-4F0E-9A51-7D2C3E8B4A90}
+AppId={{{#AppIdValue}}
 AppName=MusicBar
 AppVersion={#AppVersion}
 AppVerName=MusicBar {#AppVersion}
 AppPublisher=Truc
 AppPublisherURL=https://github.com/lvt1693/music-bar
 AppSupportURL=https://github.com/lvt1693/music-bar/issues
-DefaultDirName={localappdata}\Programs\MusicBar
+DefaultDirName={localappdata}\Programs\{#AppFolder}
 DefaultGroupName=MusicBar
 DisableProgramGroupPage=yes
 DisableDirPage=auto
@@ -34,7 +48,7 @@ OutputDir=..\artifacts
 OutputBaseFilename=MusicBar-{#AppVersion}-Setup
 SetupIconFile=..\src\MusicBar\Assets\MusicBar.ico
 UninstallDisplayIcon={app}\MusicBar.exe
-UninstallDisplayName=MusicBar
+UninstallDisplayName={#AppFolder}
 WizardStyle=modern
 Compression=lzma2/ultra64
 SolidCompression=yes
@@ -49,10 +63,13 @@ Name: "en"; MessagesFile: "compiler:Default.isl"
 [CustomMessages]
 vi.DesktopIcon=Tạo lối tắt trên màn hình
 en.DesktopIcon=Create a desktop shortcut
+vi.StartMenuIcon=Thêm vào menu Start
+en.StartMenuIcon=Add to the Start menu
 vi.LaunchNow=Mở MusicBar ngay
 en.LaunchNow=Start MusicBar now
 
 [Tasks]
+Name: "startmenu"; Description: "{cm:StartMenuIcon}"
 Name: "desktopicon"; Description: "{cm:DesktopIcon}"; Flags: unchecked
 
 [Files]
@@ -61,14 +78,18 @@ Source: "{#PublishDir}\Assets\*"; DestDir: "{app}\Assets"; Flags: ignoreversion 
 Source: "..\LICENSE"; DestDir: "{app}"; DestName: "LICENSE.txt"; Flags: ignoreversion
 ; Windows 10's identity package (build.ps1 -IdentityCert), when this build has one.
 Source: "{#PublishDir}\identity\*"; DestDir: "{app}\identity"; Flags: ignoreversion skipifsourcedoesntexist
+#ifdef UninstallerExe
+; The setup window without its installer: Installed apps opens it to uninstall (see CurStepChanged).
+Source: "{#UninstallerExe}"; DestDir: "{app}"; DestName: "MusicBar-Uninstall.exe"; Flags: ignoreversion
+#endif
 
 [Icons]
-Name: "{autoprograms}\MusicBar"; Filename: "{app}\MusicBar.exe"
-Name: "{autodesktop}\MusicBar"; Filename: "{app}\MusicBar.exe"; Tasks: desktopicon
+Name: "{autoprograms}\{#AppFolder}"; Filename: "{app}\MusicBar.exe"; Tasks: startmenu
+Name: "{autodesktop}\{#AppFolder}"; Filename: "{app}\MusicBar.exe"; Tasks: desktopicon
 
 [Registry]
 ; MusicBar writes this itself when "Khởi động cùng Windows" is on; the uninstaller takes it away.
-Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueName: "MusicBar"; ValueType: none; Flags: uninsdeletevalue
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueName: "{#AppFolder}"; ValueType: none; Flags: uninsdeletevalue
 
 [Run]
 ; Windows 10, test builds only: trust the self-made certificate the identity package is signed with (an admin prompt).
@@ -77,8 +98,9 @@ Filename: "{sys}\certutil.exe"; Parameters: "-addstore TrustedPeople ""{app}\ide
 Filename: "{app}\MusicBar.exe"; Parameters: "--register-identity"; Flags: runhidden waituntilterminated; Check: HasIdentityPackage
 ; --updated: the new MusicBar restarts Explorer if Explorer still holds the old copy's taskbar helper.
 Filename: "{app}\MusicBar.exe"; Parameters: "--updated"; Description: "{cm:LaunchNow}"; Flags: nowait postinstall skipifsilent
-; An update started from inside MusicBar runs silently: open the new version when it is done.
-Filename: "{app}\MusicBar.exe"; Parameters: "--updated"; Flags: nowait; Check: WizardSilent
+; An update started from inside MusicBar runs silently: open the new version when it is done
+; (unless the setup window, which opens it itself, said /NOLAUNCH=1).
+Filename: "{app}\MusicBar.exe"; Parameters: "--updated"; Flags: nowait; Check: LaunchQuietly
 
 [UninstallRun]
 Filename: "{app}\MusicBar.exe"; Parameters: "--uninstall"; Flags: runhidden waituntilterminated; RunOnceId: "PutWindowsBack"
@@ -149,4 +171,41 @@ function InitializeUninstall(): Boolean;
 begin
   ExitMusicBar(ExpandConstant('{app}\MusicBar.exe'));
   Result := True;
+end;
+
+{ Quiet installs open MusicBar when done, except under the setup window (/NOLAUNCH=1), which does it itself. }
+function LaunchQuietly(): Boolean;
+begin
+  Result := WizardSilent() and (ExpandConstant('{param:NOLAUNCH|0}') <> '1');
+end;
+
+{ The setup window's handle (/HOSTWND=), to post the progress to; 0 when none. }
+function HostWindow(): Integer;
+begin
+  Result := StrToIntDef(ExpandConstant('{param:HOSTWND|0}'), 0);
+end;
+
+{ The files' progress, in thousandths, as WM_APP + $51 to the setup window (Engine.ProgressMessage). }
+procedure CurInstallProgressChanged(CurProgress, MaxProgress: Integer);
+var
+  Wnd: Integer;
+begin
+  Wnd := HostWindow();
+  if (Wnd <> 0) and (MaxProgress > 0) then
+    PostMessage(Wnd, $8051, Round(CurProgress * 1000.0 / MaxProgress), 0);
+end;
+
+{ Installed apps opens the setup window to uninstall (it runs this uninstaller hidden); quiet uninstalls
+  (QuietUninstallString) still go straight to Inno's. }
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+  Window: String;
+begin
+  if CurStep = ssPostInstall then
+  begin
+    Window := ExpandConstant('{app}\MusicBar-Uninstall.exe');
+    if FileExists(Window) then
+      RegWriteStringValue(HKA, 'Software\Microsoft\Windows\CurrentVersion\Uninstall\' + '{' + '{#AppIdValue}' + '}_is1',
+        'UninstallString', '"' + Window + '" /UNINSTALL');
+  end;
 end;

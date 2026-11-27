@@ -26,11 +26,93 @@ public sealed record SkinInfo(string File, string Name, string Author, string De
 /// What a skin asks of the 2.0 engine (Direct3D 11 only) in its header:
 /// "//! feedback" (it reads its own previous frame), "//! feedback: state" (two passes a frame: one works out the
 /// state it keeps, one paints the picture from it), "//! cover" (the song's cover as a picture to sample),
-/// "//! bloom: strength [threshold]" (a soft glow round what is bright, several passes on the card).
+/// "//! bloom: strength [threshold]" (a soft glow round what is bright, several passes on the card),
+/// "//! layer: ..." (a picture laid over or under what the shader paints; see <see cref="SkinLayerSpec"/>).
 /// </summary>
-public sealed record SkinFeatures(bool Feedback, bool StatePass, bool Cover, float Bloom, float BloomThreshold)
+public sealed record SkinFeatures(bool Feedback, bool StatePass, bool Cover, float Bloom, float BloomThreshold,
+                                  IReadOnlyList<SkinLayerSpec>? Layers = null)
 {
-    public bool Any => Feedback || Cover || Bloom > 0;
+    public bool Any => Feedback || Cover || Bloom > 0 || HasLayers;
+    public bool HasLayers => Layers is { Count: > 0 };
+}
+
+/// <summary>
+/// One picture a skin lays in front of (front, the default) or behind (back) what its shader paints, from a header line
+/// "//! layer: file [front|back] key=value ...". The file is a Lottie animation (.json, .lottie), an SVG (still, or
+/// animated with SMIL), or a picture (.png, .jpg, .webp, .gif, .bmp; animated GIF and WebP play), kept in the folder
+/// named after the skin next to it (Skins\aurora.hlsl, Skins\aurora\bird.lottie). Measured in DIPs on the screen:
+/// <list type="bullet">
+/// <item>x: where its middle is across the bar, 0 the left end, 1 the right (0.5).</item>
+/// <item>y: how far its middle is from the taskbar's edge, out towards the desktop (into the headroom) when above 0,
+/// in on the bar below it (default: the middle of the bar).</item>
+/// <item>size: its height (the bar's height); its width follows the picture.</item>
+/// <item>flip: x, y or xy, mirrored. opacity: 0 to 1. blend: normal, add, screen, multiply, overlay, lighten, darken.</item>
+/// <item>speed: how fast it plays (1). across: seconds to cross the whole bar, left to right (right to left when below 0);
+/// x is then where on the way it starts. bob: height,seconds (a rise and fall). sway: degrees,seconds (a rock).
+/// beat: how much it swells on the beat (0.1 is a tenth).</item>
+/// <item>clock: music (the default: it moves on the skin's clock, which slows to a crawl when the music is paused) or
+/// always. paused: stay (the default) or hide (it fades out while the music is paused).</item>
+/// <item>follow=progress: it is the song's progress, from the left end of the bar at the start to the right end at the
+/// finish (x and across are then not used); it glides there after a seek.</item>
+/// </list>
+/// </summary>
+public sealed record SkinLayerSpec(string File, bool Front, double X, double Y, double Size, bool FlipX, bool FlipY,
+                                   double Opacity, string Blend, double Speed, double Across, double BobHeight, double BobPeriod,
+                                   double SwayDegrees, double SwayPeriod, double Beat, bool Always, bool HideWhenPaused,
+                                   bool FollowProgress = false)
+{
+    /// <summary>The most layers a skin may have.</summary>
+    public const int Max = 8;
+
+    /// <summary>A layer from what follows "//! layer:" (null when it names no file).</summary>
+    public static SkinLayerSpec? Parse(string value)
+    {
+        var words = value.Split([' ', '\t'], StringSplitOptions.RemoveEmptyEntries);
+        if (words.Length == 0) return null;
+        var file = Path.GetFileName(words[0]);
+        if (file.Length == 0) return null;
+        bool front = true, flipX = false, flipY = false, always = false, hide = false, follow = false;
+        double x = 0.5, y = double.NaN, size = 0, opacity = 1, speed = 1, across = 0, bobH = 0, bobT = 2, swayD = 0, swayT = 3, beat = 0;
+        string blend = "normal";
+        foreach (var word in words.Skip(1))
+        {
+            var w = word.ToLowerInvariant();
+            if (w is "front" or "back")
+            {
+                front = w == "front";
+                continue;
+            }
+            int eq = w.IndexOf('=');
+            if (eq < 0) continue;
+            var key = w[..eq];
+            var parts = w[(eq + 1)..].Split(',', StringSplitOptions.RemoveEmptyEntries);
+            double Number(int i, double fallback) =>
+                i < parts.Length && double.TryParse(parts[i], NumberStyles.Float, CultureInfo.InvariantCulture, out var n) && double.IsFinite(n) ? n : fallback;
+            switch (key)
+            {
+                case "x": x = Number(0, x); break;
+                case "y": y = Number(0, 0); break;
+                case "size": size = Math.Clamp(Number(0, 0), 0, 400); break;
+                case "flip":
+                    flipX = parts.Length > 0 && parts[0].Contains('x');
+                    flipY = parts.Length > 0 && parts[0].Contains('y');
+                    break;
+                case "opacity": opacity = Math.Clamp(Number(0, 1), 0, 1); break;
+                case "blend": blend = parts.Length > 0 ? parts[0] : "normal"; break;
+                case "speed": speed = Math.Clamp(Number(0, 1), -8, 8); break;
+                case "across": across = Number(0, 0); break;
+                case "bob": (bobH, bobT) = (Number(0, 0), Math.Max(0.1, Number(1, 2))); break;
+                case "sway": (swayD, swayT) = (Number(0, 0), Math.Max(0.1, Number(1, 3))); break;
+                case "beat": beat = Math.Clamp(Number(0, 0), 0, 1); break;
+                case "clock": always = parts.Length > 0 && parts[0] == "always"; break;
+                case "paused": hide = parts.Length > 0 && parts[0] == "hide"; break;
+                case "follow": follow = parts.Length > 0 && parts[0] == "progress"; break;
+            }
+        }
+        if (Math.Abs(across) is > 0 and < 0.5) across = Math.Sign(across) * 0.5;
+        return new SkinLayerSpec(file, front, x, y, size, flipX, flipY, opacity, blend, speed, across, bobH, bobT, swayD, swayT, beat, always, hide,
+                                 follow);
+    }
 }
 
 /// <summary>
@@ -122,10 +204,16 @@ public static class SkinLibrary
     /// </summary>
     static readonly string EnginePrelude11 = Prelude11.Replace(
         "float2 musicbarSpan : packoffset(c10);",
-        "float2 musicbarSpan : packoffset(c10);\n    float4 musicbarBar : packoffset(c11);\n    float4 musicbarV2 : packoffset(c12);") + """
+        "float2 musicbarSpan : packoffset(c10);\n    float4 musicbarBar : packoffset(c11);\n    float4 musicbarV2 : packoffset(c12);\n    float4 musicbarLayers : packoffset(c13);") + """
         Texture2D musicbarPrev : register(t2);
         Texture2D musicbarCover : register(t3);
+        Texture2D musicbarLayerBack : register(t4);
+        Texture2D musicbarLayerFront : register(t5);
         SamplerState musicbarLinear : register(s2);
+        float2 musicbarLayerUV(float2 uv) { return float2(uv.x, musicbarLayers.x + uv.y * musicbarLayers.y); }
+        float4 musicbarLayer(Texture2D t, bool on, float2 uv) { float2 l = musicbarLayerUV(uv); return on && all(l >= 0) && all(l <= 1) ? t.SampleLevel(musicbarLinear, l, 0) : float4(0, 0, 0, 0); }
+        float4 layerBack(float2 uv) { return musicbarLayer(musicbarLayerBack, musicbarLayers.z > 0.5, uv); }
+        float4 layerFront(float2 uv) { return musicbarLayer(musicbarLayerFront, musicbarLayers.w > 0.5, uv); }
         float headroom() { return musicbarBar.z; }
         float2 musicbarPartUV(float2 uv) { float h = musicbarBar.y > 0 ? musicbarBar.y : 1; return float2((uv.x - musicbarSpan.x) / musicbarSpan.y, uv.y * h + musicbarBar.x); }
         float4 previous(float2 uv) { return musicbarPrev.SampleLevel(musicbarLinear, musicbarPartUV(uv), 0); }
@@ -147,14 +235,20 @@ public static class SkinLibrary
         float coverAspect() { return 1; }
         float4 coverBlur(float2 p, float lod) { return float4(lerp(colorB.rgb, colorA.rgb, saturate(p.x * 0.7 + p.y * 0.3)), 1); }
         float4 cover(float2 p) { return coverBlur(p, 0); }
+        float4 layerBack(float2 uv) { return float4(0, 0, 0, 0); }
+        float4 layerFront(float2 uv) { return float4(0, 0, 0, 0); }
 
         """;
+
+    /// <summary>The folder a skin's layer files are kept in: named after the skin, next to it.</summary>
+    public static string AssetFolder(string file) => Path.Combine(Folder, Path.GetFileNameWithoutExtension(Path.GetFileName(file)));
 
     /// <summary>What the header asks of the 2.0 engine (null when nothing).</summary>
     public static SkinFeatures? FeaturesOf(string source)
     {
         bool feedback = false, state = false, cover = false;
         float bloom = 0, threshold = 0.6f;
+        List<SkinLayerSpec>? layers = null;
         foreach (var raw in source.Split('\n').Take(40))
         {
             var line = raw.Trim();
@@ -164,6 +258,11 @@ public static class SkinLibrary
             var value = colon < 0 ? "" : line[(colon + 1)..].Trim().ToLowerInvariant();
             switch (key)
             {
+                case "layer":
+                    // The file name as written: the rest of the line is read without regard to case.
+                    if (SkinLayerSpec.Parse(line[(colon + 1)..].Trim()) is { } layer && (layers ??= []).Count < SkinLayerSpec.Max)
+                        layers.Add(layer);
+                    break;
                 case "feedback":
                     feedback = value is not ("off" or "no" or "0");
                     state = value == "state";
@@ -178,7 +277,7 @@ public static class SkinLibrary
                     break;
             }
         }
-        var f = new SkinFeatures(feedback, feedback && state, cover, bloom, threshold);
+        var f = new SkinFeatures(feedback, feedback && state, cover, bloom, threshold, layers);
         return f.Any ? f : null;
     }
 
@@ -301,6 +400,15 @@ public static class SkinLibrary
         var name = Path.GetFileName(path);
         if (!name.EndsWith(".hlsl", StringComparison.OrdinalIgnoreCase)) name = Path.GetFileNameWithoutExtension(name) + ".hlsl";
         File.Copy(path, Path.Combine(Folder, name), overwrite: true);
+        // A skin with layers brings the folder of its pictures along, when it sits beside it.
+        var assets = Path.Combine(Path.GetDirectoryName(path) ?? "", Path.GetFileNameWithoutExtension(path));
+        if (info.Features?.HasLayers == true && Directory.Exists(assets))
+        {
+            var into = AssetFolder(name);
+            Directory.CreateDirectory(into);
+            foreach (var file in Directory.EnumerateFiles(assets))
+                File.Copy(file, Path.Combine(into, Path.GetFileName(file)), overwrite: true);
+        }
         Log.Info($"Skin imported: {name}");
         return Load(name)!;
     }
@@ -309,6 +417,9 @@ public static class SkinLibrary
     {
         var path = Path.Combine(Folder, Path.GetFileName(file));
         if (File.Exists(path)) File.Delete(path);
+        // Its layers' folder goes with it (only ever a folder named after the skin, inside the skins folder).
+        var assets = AssetFolder(file);
+        if (Path.GetFileNameWithoutExtension(file).Length > 0 && Directory.Exists(assets)) Directory.Delete(assets, recursive: true);
         lock (Cache) Cache.Remove(path);
     }
 
